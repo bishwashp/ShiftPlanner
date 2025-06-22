@@ -1,19 +1,20 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { prisma } from '../app';
 
 const router = Router();
 
-// Get schedules with optional date filtering
-router.get('/', async (req, res) => {
+// Get all schedules with optional filters
+router.get('/', async (req: Request, res: Response) => {
   try {
     const { startDate, endDate, analystId } = req.query;
     
     const where: any = {};
     
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) where.date.lte = new Date(endDate as string);
+    if (startDate && endDate) {
+      where.date = {
+        gte: new Date(startDate as string),
+        lte: new Date(endDate as string)
+      };
     }
     
     if (analystId) {
@@ -36,14 +37,12 @@ router.get('/', async (req, res) => {
 });
 
 // Get schedule by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const schedule = await prisma.schedule.findUnique({
       where: { id },
-      include: {
-        analyst: true
-      }
+      include: { analyst: true }
     });
     
     if (!schedule) {
@@ -58,12 +57,53 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new schedule
-router.post('/', async (req, res) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
-    const { analystId, date, shiftType, role } = req.body;
+    const { analystId, date, shiftType, isScreener = false } = req.body;
     
     if (!analystId || !date || !shiftType) {
       return res.status(400).json({ error: 'analystId, date, and shiftType are required' });
+    }
+    
+    // Verify analyst exists and check if shiftType matches their assigned shift
+    const analyst = await prisma.analyst.findUnique({
+      where: { id: analystId }
+    });
+    
+    if (!analyst) {
+      return res.status(404).json({ error: 'Analyst not found' });
+    }
+    
+    if (analyst.shiftType !== shiftType) {
+      return res.status(400).json({ 
+        error: `Analyst is assigned to ${analyst.shiftType} shift but schedule is for ${shiftType} shift` 
+      });
+    }
+    
+    // Check if analyst already has a schedule for this date
+    const existingSchedule = await prisma.schedule.findUnique({
+      where: { analystId_date: { analystId, date: new Date(date) } }
+    });
+    
+    if (existingSchedule) {
+      return res.status(400).json({ error: 'Analyst already has a schedule for this date' });
+    }
+    
+    // If this is a screener assignment, check if there's already a screener for this shift/date
+    if (isScreener) {
+      const existingScreener = await prisma.schedule.findFirst({
+        where: {
+          date: new Date(date),
+          shiftType,
+          isScreener: true
+        }
+      });
+      
+      if (existingScreener) {
+        return res.status(400).json({ 
+          error: `There is already a screener assigned for ${shiftType} shift on ${new Date(date).toDateString()}` 
+        });
+      }
     }
     
     const schedule = await prisma.schedule.create({
@@ -71,7 +111,7 @@ router.post('/', async (req, res) => {
         analystId,
         date: new Date(date),
         shiftType,
-        role: role || 'REGULAR'
+        isScreener
       },
       include: { analyst: true }
     });
@@ -80,17 +120,71 @@ router.post('/', async (req, res) => {
   } catch (error: any) {
     console.error('Error creating schedule:', error);
     if (error.code === 'P2002') {
-      return res.status(400).json({ error: 'Analyst already has a schedule for this date' });
+      return res.status(400).json({ error: 'Schedule already exists for this analyst and date' });
     }
     res.status(400).json({ error: 'Failed to create schedule' });
   }
 });
 
 // Update schedule
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { analystId, date, shiftType, role } = req.body;
+    const { analystId, date, shiftType, isScreener } = req.body;
+    
+    // Get current schedule to check for conflicts
+    const currentSchedule = await prisma.schedule.findUnique({
+      where: { id },
+      include: { analyst: true }
+    });
+    
+    if (!currentSchedule) {
+      return res.status(404).json({ error: 'Schedule not found' });
+    }
+    
+    // If changing analyst, verify the new analyst exists and shiftType matches
+    if (analystId && analystId !== currentSchedule.analystId) {
+      const analyst = await prisma.analyst.findUnique({
+        where: { id: analystId }
+      });
+      
+      if (!analyst) {
+        return res.status(404).json({ error: 'Analyst not found' });
+      }
+      
+      if (analyst.shiftType !== shiftType) {
+        return res.status(400).json({ 
+          error: `Analyst is assigned to ${analyst.shiftType} shift but schedule is for ${shiftType} shift` 
+        });
+      }
+      
+      // Check if new analyst already has a schedule for this date
+      const existingSchedule = await prisma.schedule.findUnique({
+        where: { analystId_date: { analystId, date: new Date(date || currentSchedule.date) } }
+      });
+      
+      if (existingSchedule) {
+        return res.status(400).json({ error: 'Analyst already has a schedule for this date' });
+      }
+    }
+    
+    // If making this a screener assignment, check for conflicts
+    if (isScreener && !currentSchedule.isScreener) {
+      const existingScreener = await prisma.schedule.findFirst({
+        where: {
+          date: new Date(date || currentSchedule.date),
+          shiftType: shiftType || currentSchedule.shiftType,
+          isScreener: true,
+          id: { not: id } // Exclude current schedule
+        }
+      });
+      
+      if (existingScreener) {
+        return res.status(400).json({ 
+          error: `There is already a screener assigned for this shift and date` 
+        });
+      }
+    }
     
     const schedule = await prisma.schedule.update({
       where: { id },
@@ -98,7 +192,7 @@ router.put('/:id', async (req, res) => {
         analystId,
         date: date ? new Date(date) : undefined,
         shiftType,
-        role
+        isScreener
       },
       include: { analyst: true }
     });
@@ -109,12 +203,15 @@ router.put('/:id', async (req, res) => {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Schedule not found' });
     }
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'Schedule already exists for this analyst and date' });
+    }
     res.status(400).json({ error: 'Failed to update schedule' });
   }
 });
 
 // Delete schedule
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await prisma.schedule.delete({ where: { id } });
@@ -128,32 +225,99 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Bulk create schedules
-router.post('/bulk', async (req, res) => {
+// Create bulk schedules
+router.post('/bulk', async (req: Request, res: Response) => {
   try {
     const { schedules } = req.body;
     
-    if (!Array.isArray(schedules)) {
-      return res.status(400).json({ error: 'schedules must be an array' });
+    if (!Array.isArray(schedules) || schedules.length === 0) {
+      return res.status(400).json({ error: 'schedules array is required and must not be empty' });
     }
     
-    const createdSchedules = await prisma.schedule.createMany({
-      data: schedules.map((schedule: any) => ({
-        analystId: schedule.analystId,
-        date: new Date(schedule.date),
-        shiftType: schedule.shiftType,
-        role: schedule.role || 'REGULAR'
-      })),
-      skipDuplicates: true
-    });
+    const createdSchedules = [];
+    const errors = [];
     
-    res.status(201).json({ 
-      message: `Created ${createdSchedules.count} schedules`,
-      count: createdSchedules.count
+    for (const scheduleData of schedules) {
+      try {
+        const { analystId, date, shiftType, isScreener = false } = scheduleData;
+        
+        if (!analystId || !date || !shiftType) {
+          errors.push({ schedule: scheduleData, error: 'analystId, date, and shiftType are required' });
+          continue;
+        }
+        
+        // Verify analyst exists and check shiftType
+        const analyst = await prisma.analyst.findUnique({
+          where: { id: analystId }
+        });
+        
+        if (!analyst) {
+          errors.push({ schedule: scheduleData, error: 'Analyst not found' });
+          continue;
+        }
+        
+        if (analyst.shiftType !== shiftType) {
+          errors.push({ 
+            schedule: scheduleData, 
+            error: `Analyst is assigned to ${analyst.shiftType} shift but schedule is for ${shiftType} shift` 
+          });
+          continue;
+        }
+        
+        // Check for existing schedule
+        const existingSchedule = await prisma.schedule.findUnique({
+          where: { analystId_date: { analystId, date: new Date(date) } }
+        });
+        
+        if (existingSchedule) {
+          errors.push({ schedule: scheduleData, error: 'Analyst already has a schedule for this date' });
+          continue;
+        }
+        
+        // Check for screener conflicts
+        if (isScreener) {
+          const existingScreener = await prisma.schedule.findFirst({
+            where: {
+              date: new Date(date),
+              shiftType,
+              isScreener: true
+            }
+          });
+          
+          if (existingScreener) {
+            errors.push({ 
+              schedule: scheduleData, 
+              error: `There is already a screener assigned for ${shiftType} shift on ${new Date(date).toDateString()}` 
+            });
+            continue;
+          }
+        }
+        
+        const schedule = await prisma.schedule.create({
+          data: {
+            analystId,
+            date: new Date(date),
+            shiftType,
+            isScreener
+          },
+          include: { analyst: true }
+        });
+        
+        createdSchedules.push(schedule);
+      } catch (error: any) {
+        errors.push({ schedule: scheduleData, error: error.message });
+      }
+    }
+    
+    res.status(201).json({
+      message: `Created ${createdSchedules.length} schedules${errors.length > 0 ? `, ${errors.length} failed` : ''}`,
+      count: createdSchedules.length,
+      schedules: createdSchedules,
+      errors: errors.length > 0 ? errors : undefined
     });
   } catch (error) {
     console.error('Error creating bulk schedules:', error);
-    res.status(400).json({ error: 'Failed to create schedules' });
+    res.status(500).json({ error: 'Failed to create bulk schedules' });
   }
 });
 

@@ -52,17 +52,17 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create new analyst
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, email, role } = req.body;
+    const { name, email, shiftType } = req.body;
     
-    if (!name || !email) {
-      return res.status(400).json({ error: 'Name and email are required' });
+    if (!name || !email || !shiftType) {
+      return res.status(400).json({ error: 'Name, email, and shiftType are required' });
     }
     
     const analyst = await prisma.analyst.create({
       data: { 
         name, 
         email, 
-        role: role || 'REGULAR' 
+        shiftType
       },
       include: { preferences: true }
     });
@@ -81,14 +81,14 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, email, role, isActive } = req.body;
+    const { name, email, shiftType, isActive } = req.body;
     
     const analyst = await prisma.analyst.update({
       where: { id },
       data: { 
         name, 
         email, 
-        role, 
+        shiftType, 
         isActive 
       },
       include: { preferences: true }

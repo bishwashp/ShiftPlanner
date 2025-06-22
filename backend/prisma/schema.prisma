@@ -18,7 +18,7 @@ model Analyst {
   id          String   @id @default(cuid())
   name        String
   email       String   @unique
-  role        Role     @default(REGULAR)
+  shiftType   ShiftType  // AM or PM shift assignment
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -26,6 +26,8 @@ model Analyst {
   // Relationships
   preferences AnalystPreference[]
   schedules   Schedule[]
+  vacations   Vacation[]
+  constraints SchedulingConstraint[]
   
   @@map("analysts")
 }
@@ -46,12 +48,46 @@ model AnalystPreference {
   @@map("analyst_preferences")
 }
 
+model Vacation {
+  id          String   @id @default(cuid())
+  analystId   String
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?
+  isApproved  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  @@map("vacations")
+}
+
+model SchedulingConstraint {
+  id          String   @id @default(cuid())
+  analystId   String?
+  shiftType   ShiftType?
+  startDate   DateTime
+  endDate     DateTime
+  constraintType ConstraintType
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst? @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  @@map("scheduling_constraints")
+}
+
 model Schedule {
   id          String   @id @default(cuid())
   analystId   String
   date        DateTime
   shiftType   ShiftType
-  role        Role
+  isScreener  Boolean  @default(false)  // Whether this analyst is designated as Screener for this shift
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -74,11 +110,6 @@ model AlgorithmConfig {
   @@map("algorithm_configs")
 }
 
-enum Role {
-  REGULAR
-  SCREENER
-}
-
 enum ShiftType {
   MORNING
   EVENING
@@ -98,4 +129,12 @@ enum PreferenceType {
   PREFERRED
   AVAILABLE
   UNAVAILABLE
+}
+
+enum ConstraintType {
+  BLACKOUT_DATE      // No scheduling allowed
+  MAX_SCREENER_DAYS  // Maximum screener assignments per analyst
+  MIN_SCREENER_DAYS  // Minimum screener assignments per analyst
+  PREFERRED_SCREENER // Preferred screener for specific dates
+  UNAVAILABLE_SCREENER // Unavailable for screener on specific dates
 }
