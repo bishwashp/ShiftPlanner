@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Analyst {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  role        Role     @default(REGULAR)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  preferences AnalystPreference[]
+  schedules   Schedule[]
+  
+  @@map("analysts")
+}
+
+model AnalystPreference {
+  id          String   @id @default(cuid())
+  analystId   String
+  shiftType   ShiftType
+  dayOfWeek   DayOfWeek
+  preference  PreferenceType
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  @@unique([analystId, shiftType, dayOfWeek])
+  @@map("analyst_preferences")
+}
+
+model Schedule {
+  id          String   @id @default(cuid())
+  analystId   String
+  date        DateTime
+  shiftType   ShiftType
+  role        Role
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  @@unique([analystId, date])
+  @@map("schedules")
+}
+
+model AlgorithmConfig {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  config      Json
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("algorithm_configs")
+}
+
+enum Role {
+  REGULAR
+  SCREENER
+}
+
+enum ShiftType {
+  MORNING
+  EVENING
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum PreferenceType {
+  PREFERRED
+  AVAILABLE
+  UNAVAILABLE
+}
