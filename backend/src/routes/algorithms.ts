@@ -324,7 +324,7 @@ async function generateSchedulePreview(
   };
 
   // Generate regular work schedules first
-  const regularSchedules = await generateRegularWorkSchedules(
+  const regularSchedulesResult = await generateRegularWorkSchedules(
     startDate,
     endDate,
     analysts,
@@ -332,25 +332,38 @@ async function generateSchedulePreview(
     globalConstraints
   );
 
-  // Add regular schedules to preview
-  preview.proposedSchedules.push(...regularSchedules.proposedSchedules);
-  preview.conflicts.push(...regularSchedules.conflicts);
-  preview.overwrites.push(...regularSchedules.overwrites);
+  preview.proposedSchedules = regularSchedulesResult.proposedSchedules;
+  preview.conflicts.push(...regularSchedulesResult.conflicts);
+  preview.overwrites.push(...regularSchedulesResult.overwrites);
 
   // Generate screener assignments based on regular schedules
-  const screenerSchedules = await generateScreenerSchedules(
+  const screenerSchedulesResult = await generateScreenerSchedules(
     startDate,
     endDate,
     analysts,
     existingSchedules,
     globalConstraints,
-    regularSchedules.proposedSchedules
+    preview.proposedSchedules
   );
 
-  // Add screener schedules to preview
-  preview.proposedSchedules.push(...screenerSchedules.proposedSchedules);
-  preview.conflicts.push(...screenerSchedules.conflicts);
-  preview.overwrites.push(...screenerSchedules.overwrites);
+  // Merge screener assignments into the proposed schedule list
+  screenerSchedulesResult.proposedSchedules.forEach(screenerSchedule => {
+    const index = preview.proposedSchedules.findIndex(p => 
+        p.analystId === screenerSchedule.analystId && p.date === screenerSchedule.date
+    );
+
+    if (index !== -1) {
+      preview.proposedSchedules[index].isScreener = true;
+      if (screenerSchedule.type === 'OVERWRITE_SCHEDULE') {
+        preview.proposedSchedules[index].type = 'OVERWRITE_SCHEDULE';
+      }
+    } else {
+      preview.proposedSchedules.push(screenerSchedule);
+    }
+  });
+  
+  preview.conflicts.push(...screenerSchedulesResult.conflicts);
+  preview.overwrites.push(...screenerSchedulesResult.overwrites);
 
   // Calculate summary
   preview.summary.totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;

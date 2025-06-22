@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../app';
+import { PrismaClient } from '@prisma/client';
+import moment from 'moment';
 
+const prismaClient = new PrismaClient();
 const router = Router();
 
 // Get all schedules with optional filters
@@ -318,6 +321,80 @@ router.post('/bulk', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error creating bulk schedules:', error);
     res.status(500).json({ error: 'Failed to create bulk schedules' });
+  }
+});
+
+// Get schedule health and conflicts
+router.get('/health/conflicts', async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    let start, end;
+
+    if (typeof startDate === 'string' && typeof endDate === 'string') {
+      start = new Date(startDate);
+      end = new Date(endDate);
+    } else {
+      start = new Date();
+      end = new Date();
+      end.setDate(end.getDate() + 30);
+    }
+
+    const allDates = new Set<string>();
+    const currentDate = new Date(start);
+    while (currentDate <= end) {
+      allDates.add(currentDate.toISOString().split('T')[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const schedules = await prisma.schedule.findMany({
+      where: {
+        date: {
+          gte: start,
+          lte: end,
+        },
+      },
+    });
+
+    const scheduledDates = new Map<string, { morning: boolean, evening: boolean }>();
+
+    for (const schedule of schedules) {
+      const dateStr = schedule.date.toISOString().split('T')[0];
+      if (!scheduledDates.has(dateStr)) {
+        scheduledDates.set(dateStr, { morning: false, evening: false });
+      }
+      const shifts = scheduledDates.get(dateStr)!;
+      if (schedule.shiftType === 'MORNING') {
+        shifts.morning = true;
+      }
+      if (schedule.shiftType === 'EVENING') {
+        shifts.evening = true;
+      }
+    }
+
+    const conflicts: { date: string; message: string }[] = [];
+    allDates.forEach(dateStr => {
+      const shifts = scheduledDates.get(dateStr);
+      let missingShifts = [];
+      if (!shifts || !shifts.morning) {
+        missingShifts.push('Morning');
+      }
+      if (!shifts || !shifts.evening) {
+        missingShifts.push('Evening');
+      }
+
+      if (missingShifts.length > 0) {
+        conflicts.push({
+          date: dateStr,
+          message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment(dateStr).format('MMM D')}`
+        });
+      }
+    });
+
+    res.json(conflicts);
+  } catch (error) {
+    console.error('Error checking schedule health:', error);
+    res.status(500).json({ error: 'Failed to check schedule health' });
   }
 });
 
