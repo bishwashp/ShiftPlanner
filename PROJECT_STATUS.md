@@ -1,12 +1,13 @@
 # ShiftPlanner Project Status
 
-## Current State (as of 2025-06-28 23:05:00)
+## Current State (as of 2025-06-28 23:09:52)
 
+- **V0.4 Development Cycle Started** - New branch created for next feature development
 - Backend and frontend are integrated; all major CRUD and scheduling features are implemented.
 - Frontend submodule updated with new UI components and API service.
 - Project is ready for further feature development and testing.
 
-## Current Version: v0.2 (as of latest commit)
+## Current Version: v0.3 (as of latest commit)
 
 ### Backend ✅
 - Express server with CORS, Helmet, JSON parsing, and error handling
@@ -32,14 +33,27 @@
 - Scripts for starting, stopping, and restarting the application (`start.sh`, `stop.sh`, `restart.sh`)
 - Pre-commit hook for project status updates
 - Database setup script and migrations are current
+- **V0.4 branch created and pushed to origin for next development cycle**
 
-## Recent Key Changes (v0.2)
+## Recent Key Changes (v0.3)
+- **V0.3 Branch Merged:** Successfully merged V0.3 development into master
+- **Conflict Resolution:** Resolved merge conflicts in PROJECT_STATUS.md
+- **Branch Management:** Established clean branch workflow for feature development
+
+## Previous Key Changes (v0.2)
 - **Implemented Core Scheduling Algorithm:** The backend can now generate a full 5-day work schedule based on rotating weekend patterns (Sun-Thu, Mon-Fri, Tue-Sat) and assign screeners
 - **Redesigned Schedule View:** Replaced the basic list with an interactive calendar, improving usability
 - **Fixed Calendar Interactivity:** Resolved bugs preventing navigation and view changes, making the calendar fully controllable
 - **Introduced Schedule Health Monitoring:** Created a backend endpoint and frontend UI to detect and display scheduling conflicts, such as days with missing analyst coverage
 - **Refined Database Schema:** Migrated the schema to treat "Screener" as a temporary assignment (`isScreener` on `Schedule`) rather than a permanent `Role`, which better reflects the operational reality
 - **Improved Developer Workflow:** Added shell scripts to simplify starting and stopping the application servers
+
+## V0.4 Development Goals
+- **Conflict Resolution Enhancement:** Implement proactive conflict resolution with auto-suggestions for replacement analysts
+- **UI Polish:** Enhance user interface with better styling, animations, and user experience improvements
+- **Testing Expansion:** Add comprehensive automated tests for backend and frontend components
+- **Authentication System:** Implement user authentication and authorization
+- **Performance Optimization:** Optimize database queries and frontend rendering
 
 ## Known Issues / Next Steps
 - **Conflict Resolution:** While conflicts are now *detected* and *displayed*, the system does not yet *proactively suggest* solutions (e.g., auto-suggesting a replacement analyst). This is a key feature for the next development cycle
