@@ -1,5 +1,11 @@
 # ShiftPlanner Project Status
 
+## Current State
+
+- Backend and frontend are integrated; all major CRUD and scheduling features are implemented.
+- Frontend submodule updated with new UI components and API service.
+- Project is ready for further feature development and testing.
+
 ## Current Version: v0.2 (as of latest commit)
 
 ### Backend ✅
