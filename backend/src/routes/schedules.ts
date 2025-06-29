@@ -1,9 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../app';
-import { PrismaClient } from '@prisma/client';
 import moment from 'moment';
 
-const prismaClient = new PrismaClient();
 const router = Router();
 
 // Get all schedules with optional filters
