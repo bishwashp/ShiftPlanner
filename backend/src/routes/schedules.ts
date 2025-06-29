@@ -372,10 +372,10 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
       }
     }
 
-    const conflicts: { date: string; message: string }[] = [];
+    const conflicts: { date: string; message: string; type: string; missingShifts: string[]; severity: string }[] = [];
     allDates.forEach(dateStr => {
       const shifts = scheduledDates.get(dateStr);
-      let missingShifts = [];
+      let missingShifts: string[] = [];
       if (!shifts || !shifts.morning) {
         missingShifts.push('Morning');
       }
@@ -386,7 +386,10 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
       if (missingShifts.length > 0) {
         conflicts.push({
           date: dateStr,
-          message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment(dateStr).format('MMM D')}`
+          message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment(dateStr).format('MMM D')}`,
+          type: 'NO_ANALYST_ASSIGNED',
+          missingShifts,
+          severity: 'critical'
         });
       }
     });
