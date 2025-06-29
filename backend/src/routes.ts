@@ -24,7 +24,7 @@ router.get('/', (req, res) => {
       schedules: '/schedules',
       algorithms: '/algorithms'
     }
-  });
+    });
 });
 
 // Feature routes
