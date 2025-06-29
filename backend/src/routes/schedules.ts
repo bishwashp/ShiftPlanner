@@ -548,4 +548,59 @@ router.post('/apply-auto-fix', async (req: Request, res: Response) => {
   }
 });
 
+// Test endpoint for debugging IntelligentScheduler
+router.get('/test-scheduler', async (req: Request, res: Response) => {
+  try {
+    const { date, shiftType } = req.query;
+    
+    if (!date || !shiftType) {
+      return res.status(400).json({ error: 'date and shiftType are required' });
+    }
+
+    // Get all analysts
+    const analysts = await prisma.analyst.findMany({
+      where: { isActive: true },
+      include: {
+        schedules: {
+          where: {
+            date: new Date(date as string)
+          }
+        }
+      }
+    });
+
+    // Test availability logic
+    const availableAnalysts = analysts.filter(analyst => {
+      // Check if analyst is assigned to this shift type
+      if (analyst.shiftType !== shiftType) {
+        return false;
+      }
+
+      // Check if analyst is already scheduled for this date
+      const hasSchedule = analyst.schedules.some(schedule => 
+        schedule.date.toISOString().split('T')[0] === date
+      );
+
+      return !hasSchedule;
+    });
+
+    res.json({
+      date,
+      shiftType,
+      totalAnalysts: analysts.length,
+      availableAnalysts: availableAnalysts.length,
+      availableAnalystNames: availableAnalysts.map(a => a.name),
+      analystDetails: analysts.map(a => ({
+        name: a.name,
+        shiftType: a.shiftType,
+        schedules: a.schedules.length,
+        scheduleDates: a.schedules.map(s => s.date.toISOString().split('T')[0])
+      }))
+    });
+  } catch (error) {
+    console.error('Error in test endpoint:', error);
+    res.status(500).json({ error: 'Failed to test scheduler' });
+  }
+});
+
 export default router; 

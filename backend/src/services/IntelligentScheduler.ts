@@ -58,9 +58,6 @@ export class IntelligentScheduler {
   ): Promise<ConflictResolution> {
     const startTime = Date.now();
     
-    console.log('IntelligentScheduler: Starting conflict resolution');
-    console.log('IntelligentScheduler: Conflicts:', conflicts);
-    
     // Get all available analysts
     const analysts = await this.prisma.analyst.findMany({
       where: { isActive: true },
@@ -76,8 +73,6 @@ export class IntelligentScheduler {
       }
     });
 
-    console.log('IntelligentScheduler: Found analysts:', analysts.length);
-
     const proposedAssignments: ProposedAssignment[] = [];
     let criticalConflicts = 0;
 
@@ -86,11 +81,7 @@ export class IntelligentScheduler {
         criticalConflicts++;
       }
 
-      console.log('IntelligentScheduler: Processing conflict for date:', conflict.date);
-
       for (const shiftType of conflict.missingShifts) {
-        console.log('IntelligentScheduler: Trying to assign shift type:', shiftType);
-        
         const assignment = await this.assignAnalyst(
           conflict.date,
           shiftType as 'MORNING' | 'EVENING',
@@ -98,8 +89,6 @@ export class IntelligentScheduler {
           startDate,
           endDate
         );
-        
-        console.log('IntelligentScheduler: Assignment result:', assignment);
         
         if (assignment) {
           proposedAssignments.push(assignment);
@@ -237,33 +226,20 @@ export class IntelligentScheduler {
    * Get analysts available for a specific date and shift
    */
   private getAvailableAnalysts(date: string, shiftType: 'MORNING' | 'EVENING', analysts: any[]): any[] {
-    console.log('IntelligentScheduler: getAvailableAnalysts called with:', { date, shiftType, totalAnalysts: analysts.length });
-    
-    const available = analysts.filter(analyst => {
-      console.log('IntelligentScheduler: Checking analyst:', analyst.name, 'shiftType:', analyst.shiftType);
-      
+    return analysts.filter(analyst => {
       // Check if analyst is assigned to this shift type
       if (analyst.shiftType !== shiftType) {
-        console.log('IntelligentScheduler: Analyst', analyst.name, 'shift type mismatch:', analyst.shiftType, '!=', shiftType);
         return false;
       }
 
       // Check if analyst is already scheduled for this date
       const hasSchedule = analyst.schedules.some((schedule: any) => {
         const scheduleDate = schedule.date.toISOString().split('T')[0];
-        const targetDate = date;
-        console.log('IntelligentScheduler: Comparing schedule date:', scheduleDate, 'with target date:', targetDate);
-        return scheduleDate === targetDate;
+        return scheduleDate === date;
       });
-
-      console.log('IntelligentScheduler: Analyst', analyst.name, 'has schedule for', date, ':', hasSchedule);
 
       return !hasSchedule;
     });
-
-    console.log('IntelligentScheduler: Available analysts for', date, shiftType, ':', available.length);
-    console.log('IntelligentScheduler: Available analyst names:', available.map(a => a.name));
-    return available;
   }
 
   /**
