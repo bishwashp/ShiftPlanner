@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../app';
 import moment from 'moment';
+import { IntelligentScheduler } from '../services/IntelligentScheduler';
 
 const router = Router();
 
@@ -396,6 +397,154 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error checking schedule health:', error);
     res.status(500).json({ error: 'Failed to check schedule health' });
+  }
+});
+
+// Auto-fix conflicts endpoint
+router.post('/auto-fix-conflicts', async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.body;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate are required' });
+    }
+
+    // Generate all dates in range
+    const allDates = new Set<string>();
+    const currentDate = new Date(startDate);
+    while (currentDate <= new Date(endDate)) {
+      allDates.add(currentDate.toISOString().split('T')[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Get existing schedules for the date range
+    const schedules = await prisma.schedule.findMany({
+      where: {
+        date: {
+          gte: new Date(startDate),
+          lte: new Date(endDate),
+        },
+      },
+    });
+
+    // Group by date to identify missing shifts
+    const scheduledDates = new Map<string, { morning: boolean, evening: boolean }>();
+    
+    for (const schedule of schedules) {
+      const dateStr = schedule.date.toISOString().split('T')[0];
+      if (!scheduledDates.has(dateStr)) {
+        scheduledDates.set(dateStr, { morning: false, evening: false });
+      }
+      const shifts = scheduledDates.get(dateStr)!;
+      if (schedule.shiftType === 'MORNING') {
+        shifts.morning = true;
+      }
+      if (schedule.shiftType === 'EVENING') {
+        shifts.evening = true;
+      }
+    }
+
+    // Identify conflicts
+    const conflictList: Array<{ date: string; missingShifts: string[]; severity: string }> = [];
+    allDates.forEach(dateStr => {
+      const shifts = scheduledDates.get(dateStr);
+      let missingShifts: string[] = [];
+      if (!shifts || !shifts.morning) {
+        missingShifts.push('Morning');
+      }
+      if (!shifts || !shifts.evening) {
+        missingShifts.push('Evening');
+      }
+
+      if (missingShifts.length > 0) {
+        conflictList.push({
+          date: dateStr,
+          missingShifts,
+          severity: 'critical'
+        });
+      }
+    });
+
+    // Use IntelligentScheduler to resolve conflicts
+    const scheduler = new IntelligentScheduler(prisma);
+    const resolution = await scheduler.resolveConflicts(conflictList, startDate, endDate);
+
+    res.json(resolution);
+  } catch (error) {
+    console.error('Error auto-fixing conflicts:', error);
+    res.status(500).json({ error: 'Failed to auto-fix conflicts' });
+  }
+});
+
+// Apply auto-fix assignments endpoint
+router.post('/apply-auto-fix', async (req: Request, res: Response) => {
+  try {
+    const { assignments } = req.body;
+
+    if (!Array.isArray(assignments)) {
+      return res.status(400).json({ error: 'assignments array is required' });
+    }
+
+    const createdSchedules = [];
+    const errors = [];
+
+    for (const assignment of assignments) {
+      try {
+        const { date, shiftType, analystId, isScreener = false } = assignment;
+
+        // Check if analyst already has a schedule for this date
+        const existingSchedule = await prisma.schedule.findUnique({
+          where: { analystId_date: { analystId, date: new Date(date) } }
+        });
+
+        if (existingSchedule) {
+          errors.push({ assignment, error: 'Analyst already has a schedule for this date' });
+          continue;
+        }
+
+        // If this is a screener assignment, check for conflicts
+        if (isScreener) {
+          const existingScreener = await prisma.schedule.findFirst({
+            where: {
+              date: new Date(date),
+              shiftType,
+              isScreener: true
+            }
+          });
+
+          if (existingScreener) {
+            errors.push({ 
+              assignment, 
+              error: `There is already a screener assigned for ${shiftType} shift on ${new Date(date).toDateString()}` 
+            });
+            continue;
+          }
+        }
+
+        const schedule = await prisma.schedule.create({
+          data: {
+            analystId,
+            date: new Date(date),
+            shiftType,
+            isScreener
+          },
+          include: { analyst: true }
+        });
+
+        createdSchedules.push(schedule);
+      } catch (error: any) {
+        errors.push({ assignment, error: error.message });
+      }
+    }
+
+    res.json({
+      message: `Applied ${createdSchedules.length} assignments${errors.length > 0 ? `, ${errors.length} failed` : ''}`,
+      createdSchedules,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error('Error applying auto-fix assignments:', error);
+    res.status(500).json({ error: 'Failed to apply auto-fix assignments' });
   }
 });
 
