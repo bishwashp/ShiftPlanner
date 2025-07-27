@@ -2,6 +2,8 @@ import { Router } from 'express';
 import analystRoutes from './routes/analysts';
 import scheduleRoutes from './routes/schedules';
 import algorithmRoutes from './routes/algorithms';
+import constraintRoutes from './routes/constraints';
+import analyticsRoutes from './routes/analytics';
 
 const router = Router();
 
@@ -22,7 +24,9 @@ router.get('/', (req, res) => {
       health: '/health',
       analysts: '/analysts',
       schedules: '/schedules',
-      algorithms: '/algorithms'
+      algorithms: '/algorithms',
+      constraints: '/constraints',
+      analytics: '/analytics'
     }
     });
 });
@@ -31,5 +35,7 @@ router.get('/', (req, res) => {
 router.use('/analysts', analystRoutes);
 router.use('/schedules', scheduleRoutes);
 router.use('/algorithms', algorithmRoutes);
+router.use('/constraints', constraintRoutes);
+router.use('/analytics', analyticsRoutes);
 
 export default router;

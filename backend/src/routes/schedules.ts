@@ -393,7 +393,12 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
       }
     });
 
-    res.json(conflicts);
+    const responseData = {
+      critical: conflicts,
+      recommended: [],
+    };
+
+    res.json(responseData);
   } catch (error) {
     console.error('Error checking schedule health:', error);
     res.status(500).json({ error: 'Failed to check schedule health' });

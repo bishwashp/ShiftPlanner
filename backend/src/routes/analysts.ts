@@ -52,7 +52,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create new analyst
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, email, shiftType } = req.body;
+    const { name, email, shiftType, customAttributes, skills } = req.body;
     
     if (!name || !email || !shiftType) {
       return res.status(400).json({ error: 'Name, email, and shiftType are required' });
@@ -62,7 +62,9 @@ router.post('/', async (req: Request, res: Response) => {
       data: { 
         name, 
         email, 
-        shiftType
+        shiftType,
+        customAttributes,
+        skills
       },
       include: { preferences: true }
     });
@@ -81,7 +83,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, email, shiftType, isActive } = req.body;
+    const { name, email, shiftType, isActive, customAttributes, skills } = req.body;
     
     const analyst = await prisma.analyst.update({
       where: { id },
@@ -89,7 +91,9 @@ router.put('/:id', async (req: Request, res: Response) => {
         name, 
         email, 
         shiftType, 
-        isActive 
+        isActive,
+        customAttributes,
+        skills
       },
       include: { preferences: true }
     });

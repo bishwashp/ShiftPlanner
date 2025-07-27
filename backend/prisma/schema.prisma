@@ -20,6 +20,8 @@ model Analyst {
   email       String   @unique
   shiftType   ShiftType  // AM or PM shift assignment
   isActive    Boolean  @default(true)
+  customAttributes Json?
+  skills      String[] @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   

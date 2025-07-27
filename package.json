@@ -18,7 +18,22 @@
     "full:kill": "npm run kill && npm run backend:kill",
     "full:restart": "npm run full:kill && sleep 2 && npm run full:start"
   },
-  "keywords": ["scheduling", "analysts", "shifts", "automation"],
+  "keywords": [
+    "scheduling",
+    "analysts",
+    "shifts",
+    "automation"
+  ],
   "author": "ShiftPlanner Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@fullcalendar/core": "^6.1.18",
+    "@fullcalendar/daygrid": "^6.1.18",
+    "@fullcalendar/interaction": "^6.1.18",
+    "@fullcalendar/react": "^6.1.18",
+    "@fullcalendar/timegrid": "^6.1.18",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.526.0",
+    "next-themes": "^0.4.6"
+  }
 }
