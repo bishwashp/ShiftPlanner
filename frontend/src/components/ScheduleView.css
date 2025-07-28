@@ -1,0 +1,170 @@
+:root {
+  --cal-bg: #ffffff;
+  --cal-bg-dark: #0D1117;
+  --cal-border: #e5e7eb;
+  --cal-border-dark: #2D3748;
+  --cal-grid-border: #e5e7eb;
+  --cal-grid-border-dark: #21262d;
+  --cal-header-bg: transparent;
+  --cal-header-bg-dark: transparent;
+  --cal-cell-bg: #ffffff;
+  --cal-cell-bg-dark: #0D1117; /* Use main dark bg for cells */
+  --cal-today-highlight-bg: #EF857D;
+  --cal-today-highlight-text: #ffffff;
+}
+
+.rbc-calendar {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid var(--cal-border);
+  background-color: var(--cal-bg);
+  color: var(--rbc-text-color);
+}
+
+[data-theme='dark'] .rbc-calendar {
+  border-color: var(--cal-border-dark);
+  background-color: var(--cal-bg-dark);
+}
+
+.rbc-header {
+  padding: 1rem 0;
+  text-align: center;
+  border-bottom: 1px solid var(--cal-grid-border);
+  background-color: var(--cal-header-bg);
+}
+
+[data-theme='dark'] .rbc-header {
+  border-color: var(--cal-grid-border-dark);
+  background-color: var(--cal-header-bg-dark);
+}
+
+.rbc-month-view, .rbc-time-view {
+  border: none;
+}
+
+.rbc-time-gutter,
+.rbc-day-bg {
+  background-color: var(--cal-cell-bg);
+}
+
+[data-theme='dark'] .rbc-time-gutter,
+[data-theme='dark'] .rbc-day-bg {
+  background-color: var(--cal-cell-bg-dark);
+}
+
+/* This is the new, more specific selector for the day view's "today" column */
+[data-theme='dark'] .rbc-time-view .rbc-today {
+  background-color: #0D1117 !important;
+}
+
+/* Make sure the week view header also gets the circular today highlight */
+.rbc-time-header-content .rbc-header.rbc-today {
+  background-color: var(--cal-today-highlight-bg) !important;
+  color: var(--cal-today-highlight-text) !important;
+  border-radius: 6px;
+}
+
+/* Hide the all-day slot since we don't use it and it shows overnight shifts incorrectly */
+.rbc-allday-cell {
+  display: none;
+}
+
+.rbc-time-header-content,
+.rbc-time-slot,
+.rbc-day-bg {
+  border-color: var(--cal-grid-border) !important;
+}
+
+[data-theme='dark'] .rbc-time-header-content,
+[data-theme='dark'] .rbc-time-slot,
+[data-theme='dark'] .rbc-day-bg {
+  border-color: var(--cal-grid-border-dark) !important;
+}
+
+.rbc-time-gutter {
+  border-right: 1px solid var(--cal-grid-border);
+}
+[data-theme='dark'] .rbc-time-gutter {
+  border-right: 1px solid var(--cal-grid-border-dark);
+}
+
+.rbc-day-bg.rbc-today {
+  background-color: var(--cal-cell-bg) !important; /* Remove any special today bg */
+}
+[data-theme='dark'] .rbc-day-bg.rbc-today {
+  background-color: var(--cal-cell-bg-dark) !important; /* Remove any special today bg */
+}
+
+.rbc-header.rbc-today,
+.rbc-day-bg.rbc-today .rbc-date-cell .rbc-button-link {
+  background-color: var(--cal-today-highlight-bg);
+  color: var(--cal-today-highlight-text) !important;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+  padding: 0;
+}
+
+/* ... existing styles for events, etc. ... */
+.rbc-date-cell {
+  padding: 4px;
+  text-align: center;
+}
+
+.rbc-show-more {
+  color: #9ca3af;
+  font-weight: normal;
+  background-color: transparent !important;
+}
+
+[data-theme='dark'] .rbc-show-more {
+  color: #6b7280;
+}
+
+.rbc-event.event-custom {
+  border-radius: 4px;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #ffffff;
+}
+
+.rbc-event.event-custom.morning {
+  background-color: #3b82f6; /* Blue */
+}
+
+.rbc-event.event-custom.evening {
+  background-color: #8b5cf6; /* Purple */
+}
+.rbc-event.event-custom.weekend {
+  background-color: #10b981; /* Green */
+}
+
+/* 
+  This style is for our new, custom RotatedEvent component.
+  It will ensure the text is vertical and aligned to the top-left.
+*/
+.rotated-event-content {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  display: flex;
+  justify-content: flex-end; /* Aligns to the bottom, which becomes the top after rotation */
+  height: 100%;
+  width: 100%;
+  padding: 8px 4px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.rbc-event.event-screener {
+  background-color: #f59e0b; /* Amber */
+  border: 1px solid #d97706;
+}
+
+.rbc-toolbar {
+  display: none;
+} 

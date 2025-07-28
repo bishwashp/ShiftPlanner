@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 export interface AssignmentStrategy {
   id: string;
@@ -22,7 +22,7 @@ export interface AssignmentReason {
 
 export interface ProposedAssignment {
   date: string;
-  shiftType: 'MORNING' | 'EVENING';
+  shiftType: 'MORNING' | 'EVENING' | 'WEEKEND';
   analystId: string;
   analystName: string;
   reason: AssignmentReason;
@@ -43,9 +43,15 @@ export interface ConflictResolution {
 
 export class IntelligentScheduler {
   private prisma: PrismaClient;
+  private shiftDefinitions: any;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
+    this.shiftDefinitions = {
+      MORNING: { startHour: 9, endHour: 18, tz: 'America/Chicago' },
+      EVENING: { startHour: 9, endHour: 18, tz: 'America/Los_Angeles' },
+      WEEKEND: { startHour: 9, endHour: 18, tz: 'America/Los_Angeles' },
+    };
   }
 
   /**
@@ -84,7 +90,7 @@ export class IntelligentScheduler {
       for (const shiftType of conflict.missingShifts) {
         const assignment = await this.assignAnalyst(
           conflict.date,
-          shiftType as 'MORNING' | 'EVENING',
+          shiftType as 'MORNING' | 'EVENING' | 'WEEKEND',
           analysts,
           startDate,
           endDate
@@ -117,7 +123,7 @@ export class IntelligentScheduler {
    */
   private async assignAnalyst(
     date: string,
-    shiftType: 'MORNING' | 'EVENING',
+    shiftType: 'MORNING' | 'EVENING' | 'WEEKEND',
     analysts: any[],
     startDate: string,
     endDate: string
@@ -174,9 +180,12 @@ export class IntelligentScheduler {
         };
         break;
     }
+    
+    const shiftDef = this.shiftDefinitions[shiftType];
+    const shiftDate = moment.tz(date, shiftDef.tz).hour(shiftDef.startHour).minute(0).second(0).utc().format();
 
     return {
-      date,
+      date: shiftDate,
       shiftType,
       analystId: selectedAnalyst.id,
       analystName: selectedAnalyst.name,
@@ -188,7 +197,7 @@ export class IntelligentScheduler {
   /**
    * Determine which assignment strategy to use
    */
-  private getAssignmentStrategy(date: string, shiftType: 'MORNING' | 'EVENING'): AssignmentStrategy {
+  private getAssignmentStrategy(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND'): AssignmentStrategy {
     const dayOfWeek = moment(date).day();
     const isHoliday = this.isHoliday(date);
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
@@ -225,7 +234,7 @@ export class IntelligentScheduler {
   /**
    * Get analysts available for a specific date and shift
    */
-  private getAvailableAnalysts(date: string, shiftType: 'MORNING' | 'EVENING', analysts: any[]): any[] {
+  private getAvailableAnalysts(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any[] {
     return analysts.filter(analyst => {
       // Check if analyst is assigned to this shift type
       if (analyst.shiftType !== shiftType) {
@@ -245,7 +254,7 @@ export class IntelligentScheduler {
   /**
    * Round-robin assignment strategy
    */
-  private assignRoundRobin(date: string, shiftType: 'MORNING' | 'EVENING', analysts: any[]): any {
+  private assignRoundRobin(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any {
     // Simple round-robin: select the first available analyst
     return analysts[0];
   }
@@ -253,7 +262,7 @@ export class IntelligentScheduler {
   /**
    * Holiday coverage assignment strategy
    */
-  private assignHolidayCoverage(date: string, shiftType: 'MORNING' | 'EVENING', analysts: any[]): any {
+  private assignHolidayCoverage(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any {
     // For holidays, prefer analysts with more experience (created earlier)
     return analysts.sort((a: any, b: any) => 
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -265,7 +274,7 @@ export class IntelligentScheduler {
    */
   private assignWorkloadBalance(
     date: string, 
-    shiftType: 'MORNING' | 'EVENING', 
+    shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', 
     analysts: any[],
     startDate: string,
     endDate: string
@@ -278,7 +287,7 @@ export class IntelligentScheduler {
   /**
    * Experience-based assignment strategy
    */
-  private assignExperienceBased(date: string, shiftType: 'MORNING' | 'EVENING', analysts: any[]): any {
+  private assignExperienceBased(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any {
     // Prefer analysts with more experience (created earlier)
     return analysts.sort((a: any, b: any) => 
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()

@@ -115,6 +115,7 @@ model AlgorithmConfig {
 enum ShiftType {
   MORNING
   EVENING
+  WEEKEND
 }
 
 enum DayOfWeek {

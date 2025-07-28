@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../app';
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 const router = Router();
 
@@ -13,40 +13,52 @@ router.get('/tally', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Month and year are required' });
         }
 
-        const startDate = moment(`${year}-${month}-01`).startOf('month').toDate();
-        const endDate = moment(startDate).endOf('month').toDate();
+        const tz = 'America/Chicago';
+        const startDate = moment.tz(`${year}-${month}-01`, tz).startOf('month').utc().toDate();
+        const endDate = moment.tz(`${year}-${month}-01`, tz).endOf('month').utc().toDate();
 
-        const schedules = await prisma.schedule.groupBy({
-            by: ['analystId'],
+        const schedules = await prisma.schedule.findMany({
             where: {
                 date: {
                     gte: startDate,
                     lte: endDate,
                 },
             },
-            _count: {
-                _all: true,
+            include: {
+                analyst: true,
             },
         });
 
-        const analysts = await prisma.analyst.findMany({
-            where: {
-                id: {
-                    in: schedules.map(s => s.analystId),
-                },
-            },
-        });
+        const tally: { [key: string]: { analystId: string; analystName: string; workDays: number } } = {};
 
-        const tally = analysts.map(analyst => {
-            const scheduleCount = schedules.find(s => s.analystId === analyst.id);
-            return {
-                analystId: analyst.id,
-                analystName: analyst.name,
-                workDays: scheduleCount ? scheduleCount._count._all : 0,
-            };
-        });
+        for (const schedule of schedules) {
+            const workDay = moment(schedule.date).tz(tz).format('YYYY-MM-DD');
+            if (!tally[schedule.analystId]) {
+                tally[schedule.analystId] = {
+                    analystId: schedule.analystId,
+                    analystName: schedule.analyst.name,
+                    workDays: 0,
+                };
+            }
+            // This logic assumes one shift per day per analyst. If multiple are possible, this needs adjustment.
+            // For now, we will just count unique days.
+        }
 
-        res.json(tally);
+        const dailyCounts: { [key: string]: Set<string> } = {};
+
+        for (const schedule of schedules) {
+            if (!dailyCounts[schedule.analystId]) {
+                dailyCounts[schedule.analystId] = new Set();
+            }
+            const workDay = moment(schedule.date).tz(tz).format('YYYY-MM-DD');
+            dailyCounts[schedule.analystId].add(workDay);
+        }
+
+        for (const analystId in dailyCounts) {
+            tally[analystId].workDays = dailyCounts[analystId].size;
+        }
+
+        res.json(Object.values(tally));
     } catch (error) {
         console.error('Error fetching work day tally:', error);
         res.status(500).json({ error: 'Failed to fetch work day tally' });
