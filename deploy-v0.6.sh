@@ -97,7 +97,7 @@ create_environment_file() {
     
     if [ ! -f ".env" ]; then
         cat > .env << EOF
-# Phase 6 Production Configuration
+# V0.6 Production Configuration
 NODE_ENV=production
 
 # Database Configuration
@@ -224,7 +224,7 @@ EOF
 
 # Function to build and deploy
 deploy() {
-    print_status "Building and deploying Phase 6..."
+    print_status "Building and deploying V0.6..."
     
     # Build the backend image
     print_status "Building backend Docker image..."
@@ -265,7 +265,7 @@ deploy() {
         exit 1
     fi
     
-    print_success "Phase 6 deployment completed successfully!"
+    print_success "V0.6 deployment completed successfully!"
 }
 
 # Function to show deployment status
