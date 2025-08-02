@@ -24,7 +24,7 @@ const cache_1 = require("./lib/cache");
 const routes_1 = __importDefault(require("./routes"));
 const server_1 = require("./graphql/server");
 // import { securityService } from './services/SecurityService';
-const MonitoringService_2 = require("./services/MonitoringService");
+const MonitoringService_1 = require("./services/MonitoringService");
 const app = (0, express_1.default)();
 exports.app = app;
 const httpServer = (0, http_1.createServer)(app);
@@ -283,7 +283,7 @@ app.get('/graphql', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     // Track error with monitoring service
-    yield MonitoringService_2.monitoringService.trackError(err, {
+    yield MonitoringService_1.monitoringService.trackError(err, {
         url: req.url,
         method: req.method,
         ip: req.ip,
