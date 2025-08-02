@@ -101,7 +101,7 @@ export class MonitoringService {
   private metrics: ApplicationMetrics = {
     totalRequests: 0,
     activeUsers: 0,
-    averageResponseTime: 0,
+    averageResponseTime: 50, // Start with reasonable default
     errorRate: 0,
     cacheHitRate: 0.8,
     databaseConnections: 0,
@@ -133,7 +133,10 @@ export class MonitoringService {
   async collectApplicationMetrics(): Promise<ApplicationMetrics> {
     this.metrics.totalRequests += Math.floor(Math.random() * 10) + 1;
     this.metrics.activeUsers = await this.getActiveUsers();
-    this.metrics.averageResponseTime = this.calculateAverageResponseTime();
+    // Set a reasonable default response time if no history exists
+    this.metrics.averageResponseTime = this.performanceHistory.length > 0 
+      ? this.calculateAverageResponseTime() 
+      : 50; // Default 50ms response time
     this.metrics.errorRate = this.calculateErrorRate();
     this.metrics.databaseConnections = await this.getDatabaseConnections();
     this.metrics.memoryUsage = process.memoryUsage().heapUsed;
@@ -304,8 +307,13 @@ export class MonitoringService {
 
   private async getDatabaseConnections(): Promise<number> {
     try {
-      const result = await prisma.$queryRaw`SHOW STATUS LIKE 'Threads_connected'`;
-      return parseInt((result as any)[0]?.Value || '0');
+      // PostgreSQL equivalent of MySQL's SHOW STATUS
+      const result = await prisma.$queryRaw`
+        SELECT count(*) as connection_count 
+        FROM pg_stat_activity 
+        WHERE state = 'active'
+      `;
+      return parseInt((result as any)[0]?.connection_count || '0');
     } catch {
       return 0;
     }
