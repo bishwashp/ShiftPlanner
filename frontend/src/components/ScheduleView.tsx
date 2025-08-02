@@ -179,7 +179,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
           toolbar: () => null,
           month: { event: StandardEvent },
           day: { event: StandardEvent },
-          week: { event: RotatedEvent }, // Use our new component for the week view
+          week: { event: RotatedEvent },
         }}
         className="rbc-calendar"
         dayLayoutAlgorithm="no-overlap"

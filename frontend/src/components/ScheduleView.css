@@ -4,7 +4,7 @@
   --cal-border: #e5e7eb;
   --cal-border-dark: #2D3748;
   --cal-grid-border: #e5e7eb;
-  --cal-grid-border-dark: #21262d;
+  --cal-grid-border-dark: #1c2128; /* Softer grid lines */
   --cal-header-bg: transparent;
   --cal-header-bg-dark: transparent;
   --cal-cell-bg: #ffffff;
@@ -95,34 +95,40 @@
   background-color: var(--cal-cell-bg-dark) !important; /* Remove any special today bg */
 }
 
-.rbc-header.rbc-today,
-.rbc-day-bg.rbc-today .rbc-date-cell .rbc-button-link {
-  background-color: var(--cal-today-highlight-bg);
-  color: var(--cal-today-highlight-text) !important;
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: auto;
-  padding: 0;
-}
-
-/* ... existing styles for events, etc. ... */
-.rbc-date-cell {
-  padding: 4px;
-  text-align: center;
-}
-
-.rbc-show-more {
-  color: #9ca3af;
-  font-weight: normal;
+/*
+  Unified 'Today' indicator style.
+  This removes all background highlights and applies a bold red text style
+  for the current day across all calendar views for consistency.
+*/
+.rbc-day-bg.rbc-today,
+.rbc-header.rbc-today {
   background-color: transparent !important;
 }
 
-[data-theme='dark'] .rbc-show-more {
-  color: #6b7280;
+.rbc-day-bg.rbc-today .rbc-button-link,
+.rbc-header.rbc-today {
+    background-color: transparent !important;
+    color: #EF392B !important;
+    font-weight: 700 !important; /* Bold */
+    border-radius: 0 !important; /* Remove any rounding */
+    padding: 0;
+    margin: auto;
+}
+
+/* 
+  This style is for our new, custom RotatedEvent component.
+  It will ensure the text is vertical and aligned to the top-left.
+*/
+.rotated-event-content {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  display: flex;
+  justify-content: flex-end; /* Aligns to the bottom, which becomes the top after rotation */
+  height: 100%;
+  width: 100%;
+  padding: 8px 4px;
+  box-sizing: border-box;
+  text-align: left;
 }
 
 .rbc-event.event-custom {
@@ -167,4 +173,67 @@
 
 .rbc-toolbar {
   display: none;
+} 
+
+/* ============================================================================
+  Calendar Styling
+============================================================================ */
+
+/* A clean override for the "+ more" button */
+.rbc-show-more {
+  color: inherit !important;
+  background-color: transparent !important;
+}
+
+/* Style for the rotated text in the week view */
+.rotated-event-content {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  display: flex;
+  justify-content: flex-end; /* Aligns to the bottom, which becomes the top after rotation */
+  height: 100%;
+  width: 100%;
+  padding: 8px 4px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+/* Base styles for all event types */
+.rbc-event.event-custom {
+  border-radius: 4px;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #ffffff;
+}
+
+.rbc-event.event-custom.morning {
+  background-color: #3b82f6; /* Blue */
+}
+
+.rbc-event.event-custom.evening {
+  background-color: #8b5cf6; /* Purple */
+}
+.rbc-event.event-custom.weekend {
+  background-color: #10b981; /* Green */
+}
+
+.rbc-event.event-screener {
+  background-color: #f59e0b; /* Amber */
+  border: 1px solid #d97706;
+}
+
+.rbc-toolbar {
+  display: none;
+} 
+
+/*
+  DEBUGGING STYLE: This is a temporary style to identify if the
+  selector for the month view's "today" button is correct.
+*/
+body .rbc-calendar .rbc-month-view .rbc-today .rbc-button-link {
+  background-color: yellow !important;
+  border: 2px solid lime !important;
+  color: #EF392B !important;
+  font-weight: 700 !important;
 } 
