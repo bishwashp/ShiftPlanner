@@ -1,11 +1,91 @@
-import { SchedulingAlgorithm, SchedulingContext, SchedulingResult } from "./types";
-import { Analyst, Schedule, SchedulingConstraint } from '@prisma/client';
+import { SchedulingAlgorithm, SchedulingContext, SchedulingResult, DEFAULT_ALGORITHM_CONFIG } from './types';
+import { Analyst, Schedule, SchedulingConstraint } from '../../../../generated/prisma';
+import { fairnessEngine } from './FairnessEngine';
+import { constraintEngine } from './ConstraintEngine';
+import { optimizationEngine } from './OptimizationEngine';
 
 class WeekendRotationAlgorithm implements SchedulingAlgorithm {
-    name = "weekend-rotation";
-    description = "A simple rotation-based algorithm with weekend coverage.";
+    name = 'WeekendRotationAlgorithm';
+    description = 'Advanced weekend rotation algorithm with fairness optimization and constraint satisfaction';
+    version = '2.0.0';
+    supportedFeatures = [
+        'Fairness Optimization',
+        'Constraint Validation',
+        'Multiple Optimization Strategies',
+        'Workload Balancing',
+        'Screener Assignment Optimization',
+        'Weekend Rotation Fairness'
+    ];
 
     async generateSchedules(context: SchedulingContext): Promise<SchedulingResult> {
+        const startTime = Date.now();
+        console.log(`🚀 Starting ${this.name} v${this.version} with ${context.analysts.length} analysts`);
+        
+        // Use default config if not provided
+        const config = context.algorithmConfig || DEFAULT_ALGORITHM_CONFIG;
+        
+        // Generate initial schedules
+        const initialSchedules = await this.generateInitialSchedules(context);
+        
+        // Validate constraints
+        const constraintValidation = constraintEngine.validateConstraints(initialSchedules, context.globalConstraints);
+        
+        // Calculate initial fairness metrics
+        const fairnessMetrics = fairnessEngine.calculateFairness(initialSchedules, context.analysts);
+        
+        // Optimize schedules if needed
+        let optimizedSchedules = initialSchedules;
+        if (config.optimizationStrategy !== 'GREEDY' || fairnessMetrics.overallFairnessScore < 0.7) {
+            console.log(`🔧 Optimizing schedules using ${config.optimizationStrategy} strategy`);
+            optimizedSchedules = await optimizationEngine.optimizeSchedules(initialSchedules, context);
+        }
+        
+        // Recalculate metrics after optimization
+        const finalFairnessMetrics = fairnessEngine.calculateFairness(optimizedSchedules, context.analysts);
+        const finalConstraintValidation = constraintEngine.validateConstraints(optimizedSchedules, context.globalConstraints);
+        
+        // Generate conflicts and overwrites
+        const conflicts = this.generateConflicts(optimizedSchedules, context);
+        const overwrites = this.generateOverwrites(optimizedSchedules, context.existingSchedules);
+        
+        // Calculate performance metrics
+        const executionTime = Date.now() - startTime;
+        const performanceMetrics = {
+            totalQueries: 0, // Will be updated by Prisma client
+            averageQueryTime: 0,
+            slowQueries: 0,
+            cacheHitRate: 0,
+            algorithmExecutionTime: executionTime,
+            memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024, // MB
+            optimizationIterations: 0 // Will be updated by optimization engine
+        };
+        
+        console.log(`✅ ${this.name} completed in ${executionTime}ms`);
+        console.log(`📊 Fairness Score: ${finalFairnessMetrics.overallFairnessScore.toFixed(4)}`);
+        console.log(`🔒 Constraint Score: ${finalConstraintValidation.score.toFixed(4)}`);
+        
+        return {
+            proposedSchedules: optimizedSchedules,
+            conflicts,
+            overwrites,
+            fairnessMetrics: finalFairnessMetrics,
+            performanceMetrics
+        };
+    }
+
+    validateConstraints(schedules: any[], constraints: SchedulingConstraint[]): any {
+        return constraintEngine.validateConstraints(schedules, constraints);
+    }
+
+    calculateFairness(schedules: any[], analysts: Analyst[]): any {
+        return fairnessEngine.calculateFairness(schedules, analysts);
+    }
+
+    async optimizeSchedules(schedules: any[], context: SchedulingContext): Promise<any[]> {
+        return optimizationEngine.optimizeSchedules(schedules, context);
+    }
+
+    private async generateInitialSchedules(context: SchedulingContext): Promise<any[]> {
         const { startDate, endDate, analysts, existingSchedules, globalConstraints } = context;
 
         const regularSchedulesResult = await this.generateRegularWorkSchedules(startDate, endDate, analysts, existingSchedules, globalConstraints);
@@ -49,7 +129,7 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         allConflicts.push(...screenerSchedulesResult.conflicts);
         allOverwrites.push(...screenerSchedulesResult.overwrites.filter(o => !allOverwrites.some(existing => existing.date === o.date && existing.analystId === o.analystId)));
       
-        return { proposedSchedules: allProposedSchedules, conflicts: allConflicts, overwrites: allOverwrites };
+        return allProposedSchedules;
     }
 
     private async generateRegularWorkSchedules(
@@ -166,7 +246,8 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
             result.conflicts.push({
               date: currentDate.toISOString().split('T')[0],
               type: 'BLACKOUT_DATE',
-              description: (blackoutConstraint as any).description || 'No scheduling allowed on this date'
+              description: (blackoutConstraint as any).description || 'No scheduling allowed on this date',
+              severity: 'CRITICAL'
             });
             currentDate.setDate(currentDate.getDate() + 1);
             continue;
@@ -209,7 +290,7 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
       ) {
         const dateStr = date.toISOString().split('T')[0];
         
-        const onVacation = analyst.vacations.some((v: any) => new Date(v.startDate) <= date && new Date(v.endDate) >= date);
+        const onVacation = analyst.vacations?.some((v: any) => new Date(v.startDate) <= date && new Date(v.endDate) >= date) || false;
         if (onVacation) return null;
       
         const existingSchedule = existingSchedules.find(s => (s as any).analystId === analyst.id && new Date((s as any).date).toISOString().split('T')[0] === dateStr);
@@ -267,7 +348,12 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
       
           const blackoutConstraint = globalConstraints.find(c => new Date((c as any).startDate) <= currentDate && new Date((c as any).endDate) >= currentDate && (c as any).constraintType === 'BLACKOUT_DATE');
           if (blackoutConstraint) {
-            result.conflicts.push({ date: dateStr, type: 'BLACKOUT_DATE', description: (blackoutConstraint as any).description || 'No scheduling allowed on this date' });
+            result.conflicts.push({ 
+              date: dateStr, 
+              type: 'BLACKOUT_DATE', 
+              description: (blackoutConstraint as any).description || 'No scheduling allowed on this date',
+              severity: 'CRITICAL'
+            });
             currentDate.setDate(currentDate.getDate() + 1);
             continue;
           }
@@ -282,7 +368,7 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
       
           const assignScreener = (shiftAnalysts: any[], shiftType: 'MORNING' | 'EVENING') => {
             if (shiftAnalysts.length > 0) {
-                const eligibleAnalysts = shiftAnalysts.filter(a => !a.vacations.some((v: any) => new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate));
+                const eligibleAnalysts = shiftAnalysts.filter(a => !a.vacations?.some((v: any) => new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate));
                 if(eligibleAnalysts.length > 0) {
                     
                     // Skill-based assignment for screeners
@@ -345,6 +431,76 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         }
       
         return { ...scheduleData, type: 'NEW_SCHEDULE' };
+    }
+
+    private generateConflicts(schedules: any[], context: SchedulingContext): any[] {
+        const conflicts: any[] = [];
+        
+        // Check for insufficient staff
+        const dailyCoverage = new Map<string, { morning: number; evening: number }>();
+        
+        for (const schedule of schedules) {
+            const date = schedule.date;
+            if (!dailyCoverage.has(date)) {
+                dailyCoverage.set(date, { morning: 0, evening: 0 });
+            }
+            
+            const coverage = dailyCoverage.get(date)!;
+            if (schedule.shiftType === 'MORNING') {
+                coverage.morning++;
+            } else if (schedule.shiftType === 'EVENING') {
+                coverage.evening++;
+            }
+        }
+        
+        // Check for coverage issues
+        for (const [date, coverage] of dailyCoverage) {
+            if (coverage.morning === 0) {
+                conflicts.push({
+                    date,
+                    type: 'INSUFFICIENT_STAFF',
+                    description: 'No morning shift coverage',
+                    severity: 'HIGH',
+                    suggestedResolution: 'Assign additional morning analyst'
+                });
+            }
+            
+            if (coverage.evening === 0) {
+                conflicts.push({
+                    date,
+                    type: 'INSUFFICIENT_STAFF',
+                    description: 'No evening shift coverage',
+                    severity: 'HIGH',
+                    suggestedResolution: 'Assign additional evening analyst'
+                });
+            }
+        }
+        
+        return conflicts;
+    }
+
+    private generateOverwrites(schedules: any[], existingSchedules: any[]): any[] {
+        const overwrites: any[] = [];
+        
+        for (const schedule of schedules) {
+            const existing = existingSchedules.find(s => 
+                s.analystId === schedule.analystId && 
+                new Date(s.date).toISOString().split('T')[0] === schedule.date
+            );
+            
+            if (existing && (existing.shiftType !== schedule.shiftType || existing.isScreener !== schedule.isScreener)) {
+                overwrites.push({
+                    date: schedule.date,
+                    analystId: schedule.analystId,
+                    analystName: schedule.analystName,
+                    from: { shiftType: existing.shiftType, isScreener: existing.isScreener },
+                    to: { shiftType: schedule.shiftType, isScreener: schedule.isScreener },
+                    reason: 'Algorithm optimization'
+                });
+            }
+        }
+        
+        return overwrites;
     }
 }
 

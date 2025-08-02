@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../app';
+import { prisma } from '../lib/prisma';
 import moment from 'moment';
 import { IntelligentScheduler } from '../services/IntelligentScheduler';
 
@@ -575,14 +575,14 @@ router.get('/test-scheduler', async (req: Request, res: Response) => {
     });
 
     // Test availability logic
-    const availableAnalysts = analysts.filter(analyst => {
+    const availableAnalysts = analysts.filter((analyst: any) => {
       // Check if analyst is assigned to this shift type
       if (analyst.shiftType !== shiftType) {
         return false;
       }
 
       // Check if analyst is already scheduled for this date
-      const hasSchedule = analyst.schedules.some(schedule => 
+      const hasSchedule = analyst.schedules.some((schedule: any) => 
         schedule.date.toISOString().split('T')[0] === date
       );
 
@@ -594,12 +594,12 @@ router.get('/test-scheduler', async (req: Request, res: Response) => {
       shiftType,
       totalAnalysts: analysts.length,
       availableAnalysts: availableAnalysts.length,
-      availableAnalystNames: availableAnalysts.map(a => a.name),
-      analystDetails: analysts.map(a => ({
+      availableAnalystNames: availableAnalysts.map((a: any) => a.name),
+      analystDetails: analysts.map((a: any) => ({
         name: a.name,
         shiftType: a.shiftType,
         schedules: a.schedules.length,
-        scheduleDates: a.schedules.map(s => s.date.toISOString().split('T')[0])
+        scheduleDates: a.schedules.map((s: any) => s.date.toISOString().split('T')[0])
       }))
     });
   } catch (error) {

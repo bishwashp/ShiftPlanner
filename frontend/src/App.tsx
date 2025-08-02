@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import ScheduleView from './components/ScheduleView';
 import AppHeader from './components/layout/AppHeader';
@@ -10,24 +10,109 @@ import ConflictManagement from './components/ConflictManagement';
 import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
+import CalendarExport from './components/CalendarExport';
 import { View as BigCalendarView } from 'react-big-calendar';
 import moment from 'moment-timezone';
+import { useTheme } from 'react18-themes';
+
+// Toast notification component for better UX
+const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => (
+  <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+    type === 'success' ? 'bg-green-500 text-white' :
+    type === 'error' ? 'bg-red-500 text-white' :
+    'bg-blue-500 text-white'
+  }`}>
+    <div className="flex items-center justify-between">
+      <span>{message}</span>
+      <button onClick={onClose} className="ml-4 text-white hover:text-gray-200">
+        ×
+      </button>
+    </div>
+  </div>
+);
 
 function App() {
+  const { theme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState<SidebarView>('schedule');
-  const [calendarDate, setCalendarDate] = useState(new Date());
+  const [calendarDate, setCalendarDate] = useState(() => {
+    // Ensure we start with August 2025 regardless of timezone
+    return new Date(2025, 7, 1); // Month is 0-indexed, so 7 = August
+  });
   const [calendarView, setCalendarView] = useState<BigCalendarView>('month');
   const [timezone, setTimezone] = useState<string>(() => {
     return localStorage.getItem('timezone') || moment.tz.guess();
   });
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Auto-save user preferences
+  useEffect(() => {
+    localStorage.setItem('sidebarOpen', sidebarOpen.toString());
+    localStorage.setItem('activeView', activeView);
+    localStorage.setItem('calendarView', calendarView);
+    localStorage.setItem('calendarDate', calendarDate.toISOString());
+  }, [sidebarOpen, activeView, calendarView, calendarDate]);
+
+  // Load user preferences on mount
+  useEffect(() => {
+    const savedSidebarOpen = localStorage.getItem('sidebarOpen');
+    const savedActiveView = localStorage.getItem('activeView') as SidebarView;
+    const savedCalendarView = localStorage.getItem('calendarView') as BigCalendarView;
+    const savedCalendarDate = localStorage.getItem('calendarDate');
+    
+    if (savedSidebarOpen !== null) {
+      setSidebarOpen(savedSidebarOpen === 'true');
+    }
+    if (savedActiveView && ['schedule', 'dashboard', 'analysts', 'conflicts', 'analytics', 'constraints', 'algorithms', 'export'].includes(savedActiveView)) {
+      setActiveView(savedActiveView);
+    }
+    if (savedCalendarView && ['month', 'week', 'day'].includes(savedCalendarView)) {
+      setCalendarView(savedCalendarView);
+    }
+    if (savedCalendarDate) {
+      const parsedDate = new Date(savedCalendarDate);
+      if (!isNaN(parsedDate.getTime())) {
+        setCalendarDate(parsedDate);
+      }
+    }
+  }, []);
 
   const handleTimezoneChange = (tz: string) => {
     setTimezone(tz);
     localStorage.setItem('timezone', tz);
-  }
+    showToast('Timezone updated successfully', 'success');
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  const handleViewChange = (view: SidebarView) => {
+    setActiveView(view);
+    showToast(`Switched to ${view} view`, 'info');
+  };
+
+  const handleError = useCallback((error: string) => {
+    showToast(error, 'error');
+  }, []);
+
+  const handleSuccess = useCallback((message: string) => {
+    showToast(message, 'success');
+  }, []);
+
+  const handleLoading = useCallback((loading: boolean) => {
+    setIsLoading(loading);
+  }, []);
 
   const renderView = () => {
+    const commonProps = {
+      onError: handleError,
+      onSuccess: handleSuccess,
+      isLoading: handleLoading
+    };
+
     switch (activeView) {
       case 'analysts':
         return <AnalystManagement />;
@@ -39,6 +124,8 @@ function App() {
         return <ConstraintManagement />;
       case 'algorithms':
         return <AlgorithmManagement />;
+      case 'export':
+        return <CalendarExport {...commonProps} />;
       case 'dashboard':
         return <Dashboard onViewChange={() => {}} />;
       case 'schedule':
@@ -51,16 +138,17 @@ function App() {
             view={calendarView}
             setView={setCalendarView}
             timezone={timezone}
+            {...commonProps}
           />
         );
     }
   };
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className={`flex h-screen bg-background text-foreground transition-colors duration-200 ${theme}`}>
       <CollapsibleSidebar 
         isOpen={sidebarOpen} 
-        onViewChange={setActiveView} 
+        onViewChange={handleViewChange} 
         activeView={activeView}
       />
       <div className="flex-1 flex flex-col">
@@ -75,10 +163,22 @@ function App() {
           timezone={timezone}
           onTimezoneChange={handleTimezoneChange}
         />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto relative">
+          {isLoading && (
+            <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          )}
           {renderView()}
         </main>
       </div>
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={() => setToast(null)} 
+        />
+      )}
     </div>
   );
 }

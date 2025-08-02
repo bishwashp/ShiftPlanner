@@ -31,6 +31,10 @@ model Analyst {
   vacations   Vacation[]
   constraints SchedulingConstraint[]
   
+  // Performance indexes for common queries
+  @@index([isActive, shiftType]) // For filtering active analysts by shift
+  @@index([email]) // Already unique, but explicit for performance
+  @@index([createdAt]) // For sorting and date-based queries
   @@map("analysts")
 }
 
@@ -46,6 +50,9 @@ model AnalystPreference {
   // Relationships
   analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
   
+  // Performance indexes
+  @@index([analystId, shiftType, dayOfWeek]) // For preference lookups
+  @@index([shiftType, dayOfWeek]) // For shift-based preference queries
   @@unique([analystId, shiftType, dayOfWeek])
   @@map("analyst_preferences")
 }
@@ -63,6 +70,10 @@ model Vacation {
   // Relationships
   analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
   
+  // Performance indexes for date range queries
+  @@index([analystId, startDate, endDate]) // For analyst vacation lookups
+  @@index([startDate, endDate, isApproved]) // For date range queries with approval status
+  @@index([isApproved]) // For filtering approved vacations
   @@map("vacations")
 }
 
@@ -81,6 +92,10 @@ model SchedulingConstraint {
   // Relationships
   analyst     Analyst? @relation(fields: [analystId], references: [id], onDelete: Cascade)
   
+  // Performance indexes for constraint queries
+  @@index([analystId, startDate, endDate, isActive]) // For analyst constraint lookups
+  @@index([startDate, endDate, isActive]) // For date range constraint queries
+  @@index([constraintType, isActive]) // For constraint type filtering
   @@map("scheduling_constraints")
 }
 
@@ -96,6 +111,12 @@ model Schedule {
   // Relationships
   analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
   
+  // Critical performance indexes for schedule queries
+  @@index([date, shiftType]) // For date-based schedule queries (most common)
+  @@index([analystId, date]) // For analyst schedule lookups
+  @@index([date, isScreener]) // For screener assignment queries
+  @@index([analystId, date, shiftType]) // For specific analyst/date/shift queries
+  @@index([date]) // For pure date-based queries
   @@unique([analystId, date])
   @@map("schedules")
 }
@@ -109,6 +130,9 @@ model AlgorithmConfig {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  // Performance indexes
+  @@index([isActive]) // For filtering active algorithms
+  @@index([name]) // For algorithm name lookups
   @@map("algorithm_configs")
 }
 

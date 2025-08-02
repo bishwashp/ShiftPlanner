@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../app';
+import { prisma } from '../lib/prisma';
 import { AlgorithmRegistry } from '../services/scheduling/AlgorithmRegistry';
 
 const router = Router();
@@ -100,7 +100,7 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       await tx.algorithmConfig.updateMany({
         where: { isActive: true },
         data: { isActive: false }
@@ -142,6 +142,7 @@ router.get('/active/current', async (req: Request, res: Response) => {
 
 // Generate automated schedule preview
 router.post('/generate-preview', async (req: Request, res: Response) => {
+  console.log('🚀 generate-preview route called');
   try {
     const { startDate, endDate, algorithmType = 'weekend-rotation' } = req.body;
     
@@ -153,6 +154,13 @@ router.post('/generate-preview', async (req: Request, res: Response) => {
     if (!algorithm) {
         return res.status(400).json({ error: `Algorithm '${algorithmType}' not found.` });
     }
+
+    console.log('Retrieved algorithm:', {
+        name: algorithm.name,
+        description: algorithm.description,
+        version: algorithm.version,
+        supportedFeatures: algorithm.supportedFeatures
+    });
 
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -181,6 +189,16 @@ router.post('/generate-preview', async (req: Request, res: Response) => {
     
     const result = await algorithm.generateSchedules({ startDate: start, endDate: end, analysts, existingSchedules, globalConstraints });
 
+    console.log('Algorithm result structure:', {
+        hasFairnessMetrics: !!result.fairnessMetrics,
+        hasPerformanceMetrics: !!result.performanceMetrics,
+        fairnessScore: result.fairnessMetrics?.overallFairnessScore,
+        executionTime: result.performanceMetrics?.algorithmExecutionTime,
+        resultKeys: Object.keys(result),
+        resultType: typeof result,
+        isArray: Array.isArray(result)
+    });
+
     const preview = {
         startDate,
         endDate,
@@ -188,14 +206,25 @@ router.post('/generate-preview', async (req: Request, res: Response) => {
         proposedSchedules: result.proposedSchedules,
         conflicts: result.conflicts,
         overwrites: result.overwrites,
+        fairnessMetrics: result.fairnessMetrics,
+        performanceMetrics: result.performanceMetrics,
         summary: {
             totalDays: Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1,
             totalSchedules: result.proposedSchedules.length,
             newSchedules: result.proposedSchedules.filter(s => s.type === 'NEW_SCHEDULE').length,
             overwrittenSchedules: result.overwrites.length,
-            conflicts: result.conflicts.length
+            conflicts: result.conflicts.length,
+            fairnessScore: result.fairnessMetrics?.overallFairnessScore || 0,
+            executionTime: result.performanceMetrics?.algorithmExecutionTime || 0
         }
     };
+
+    console.log('Algorithm result structure:', {
+        hasFairnessMetrics: !!result.fairnessMetrics,
+        hasPerformanceMetrics: !!result.performanceMetrics,
+        fairnessScore: result.fairnessMetrics?.overallFairnessScore,
+        executionTime: result.performanceMetrics?.algorithmExecutionTime
+    });
 
     res.json(preview);
   } catch (error) {
@@ -255,7 +284,7 @@ router.post('/apply-schedule', async (req: Request, res: Response) => {
 
     for (const schedule of proposedSchedules) {
         try {
-            const existing = existingSchedules.find(s => s.analystId === schedule.analystId && new Date(s.date).toISOString().split('T')[0] === schedule.date);
+            const existing = existingSchedules.find((s: any) => s.analystId === schedule.analystId && new Date(s.date).toISOString().split('T')[0] === schedule.date);
             
             if (existing) {
                 if (overwriteExisting && (existing.shiftType !== schedule.shiftType || existing.isScreener !== schedule.isScreener)) {
@@ -281,8 +310,9 @@ router.post('/apply-schedule', async (req: Request, res: Response) => {
         } catch (error: any) {
             result.conflicts.push({
                 date: schedule.date,
-                type: 'SCHEDULE_APPLICATION_ERROR',
-                description: error.message
+                type: 'CONSTRAINT_VIOLATION',
+                description: error.message,
+                severity: 'HIGH'
             });
         }
     }

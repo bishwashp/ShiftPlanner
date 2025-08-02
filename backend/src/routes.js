@@ -7,6 +7,9 @@ const express_1 = require("express");
 const analysts_1 = __importDefault(require("./routes/analysts"));
 const schedules_1 = __importDefault(require("./routes/schedules"));
 const algorithms_1 = __importDefault(require("./routes/algorithms"));
+const constraints_1 = __importDefault(require("./routes/constraints"));
+const analytics_1 = __importDefault(require("./routes/analytics"));
+const calendar_1 = __importDefault(require("./routes/calendar"));
 const router = (0, express_1.Router)();
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -24,7 +27,10 @@ router.get('/', (req, res) => {
             health: '/health',
             analysts: '/analysts',
             schedules: '/schedules',
-            algorithms: '/algorithms'
+            algorithms: '/algorithms',
+            constraints: '/constraints',
+            analytics: '/analytics',
+            calendar: '/calendar'
         }
     });
 });
@@ -32,4 +38,7 @@ router.get('/', (req, res) => {
 router.use('/analysts', analysts_1.default);
 router.use('/schedules', schedules_1.default);
 router.use('/algorithms', algorithms_1.default);
+router.use('/constraints', constraints_1.default);
+router.use('/analytics', analytics_1.default);
+router.use('/calendar', calendar_1.default);
 exports.default = router;

@@ -32,6 +32,7 @@
     "@fullcalendar/interaction": "^6.1.18",
     "@fullcalendar/react": "^6.1.18",
     "@fullcalendar/timegrid": "^6.1.18",
+    "axios": "^1.11.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.526.0",
     "moment": "^2.30.1",

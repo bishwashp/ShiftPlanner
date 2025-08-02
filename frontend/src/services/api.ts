@@ -162,6 +162,22 @@ export interface DashboardStats {
   pendingSchedules: number;
 }
 
+export interface ExportRequest {
+  schedules: Schedule[];
+  format: string;
+  dateRange: {
+    start: string;
+    end: string;
+  };
+  analysts: Analyst[];
+}
+
+export interface WebhookConfig {
+  url: string;
+  events: string[];
+  enabled: boolean;
+}
+
 // API Service Functions
 export const apiService = {
   // Health Check
@@ -393,6 +409,50 @@ export const apiService = {
   applyAutoFix: async (data: { assignments: any[] }): Promise<{ message: string; created: number }> => {
     const response = await apiClient.post('/schedules/apply-auto-fix', data);
     return response.data as { message: string; created: number };
+  },
+
+  // Calendar Export & Integration
+  exportCalendar: async (data: ExportRequest): Promise<any> => {
+    const response = await apiClient.post('/calendar/export', data, {
+      responseType: 'blob'
+    });
+    return response;
+  },
+
+  generateICal: async (schedules: Schedule[], analysts: Analyst[]): Promise<string> => {
+    const response = await apiClient.post('/calendar/ical', { schedules, analysts });
+    return response.data as string;
+  },
+
+  setupWebhook: async (config: WebhookConfig): Promise<{ message: string; webhookId: string }> => {
+    const response = await apiClient.post('/calendar/webhook', config);
+    return response.data as { message: string; webhookId: string };
+  },
+
+  getWebhookStatus: async (): Promise<{ enabled: boolean; url?: string; lastTriggered?: string }> => {
+    const response = await apiClient.get('/calendar/webhook/status');
+    return response.data as { enabled: boolean; url?: string; lastTriggered?: string };
+  },
+
+  deleteWebhook: async (): Promise<{ message: string }> => {
+    const response = await apiClient.delete('/calendar/webhook');
+    return response.data as { message: string };
+  },
+
+  // External Calendar Integration
+  exportToGoogleCalendar: async (schedules: Schedule[]): Promise<{ message: string; calendarUrl: string }> => {
+    const response = await apiClient.post('/calendar/google', { schedules });
+    return response.data as { message: string; calendarUrl: string };
+  },
+
+  exportToOutlook: async (schedules: Schedule[]): Promise<{ message: string; calendarUrl: string }> => {
+    const response = await apiClient.post('/calendar/outlook', { schedules });
+    return response.data as { message: string; calendarUrl: string };
+  },
+
+  exportToAppleCalendar: async (schedules: Schedule[]): Promise<{ message: string; calendarUrl: string }> => {
+    const response = await apiClient.post('/calendar/apple', { schedules });
+    return response.data as { message: string; calendarUrl: string };
   },
 };
 

@@ -1,239 +1,361 @@
-:root {
-  --cal-bg: #ffffff;
-  --cal-bg-dark: #0D1117;
-  --cal-border: #e5e7eb;
-  --cal-border-dark: #2D3748;
-  --cal-grid-border: #e5e7eb;
-  --cal-grid-border-dark: #1c2128; /* Softer grid lines */
-  --cal-header-bg: transparent;
-  --cal-header-bg-dark: transparent;
-  --cal-cell-bg: #ffffff;
-  --cal-cell-bg-dark: #0D1117; /* Use main dark bg for cells */
-  --cal-today-highlight-bg: #EF857D;
-  --cal-today-highlight-text: #ffffff;
-}
-
+/* Modern Calendar Styling with Dark Mode Support */
 .rbc-calendar {
-  border-radius: 0.5rem;
-  overflow: hidden;
-  border: 1px solid var(--cal-border);
-  background-color: var(--cal-bg);
-  color: var(--rbc-text-color);
+  @apply bg-background text-foreground;
+  font-family: inherit;
 }
 
-[data-theme='dark'] .rbc-calendar {
-  border-color: var(--cal-border-dark);
-  background-color: var(--cal-bg-dark);
-}
-
+/* Calendar Header */
 .rbc-header {
-  padding: 1rem 0;
+  @apply bg-card text-card-foreground border-border;
+  padding: 8px 4px;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+/* Calendar Grid */
+.rbc-month-view,
+.rbc-time-view {
+  @apply bg-card border-border;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rbc-month-row {
+  @apply border-border;
+}
+
+.rbc-date-cell {
+  @apply text-foreground;
+  padding: 4px 8px;
+  font-size: 0.875rem;
+}
+
+/* Today Highlight */
+.rbc-today {
+  @apply bg-primary/10;
+}
+
+/* Event Styling */
+.rbc-event {
+  @apply border-0 rounded-md shadow-sm;
+  margin: 1px 2px;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.rbc-event:hover {
+  @apply shadow-md;
+  transform: translateY(-1px);
+}
+
+/* Event Content */
+.event-content {
+  @apply flex items-center justify-between w-full;
+}
+
+.event-title {
+  @apply text-xs font-medium truncate;
+  flex: 1;
+}
+
+.event-badge {
+  @apply bg-yellow-500 text-yellow-900 text-xs font-bold;
+  padding: 1px 4px;
+  border-radius: 4px;
+  margin-left: 4px;
+  min-width: 16px;
   text-align: center;
-  border-bottom: 1px solid var(--cal-grid-border);
-  background-color: var(--cal-header-bg);
 }
 
-[data-theme='dark'] .rbc-header {
-  border-color: var(--cal-grid-border-dark);
-  background-color: var(--cal-header-bg-dark);
+/* Shift Type Colors */
+.event-custom.morning {
+  @apply bg-blue-500 text-white;
 }
 
-.rbc-month-view, .rbc-time-view {
-  border: none;
+.event-custom.evening {
+  @apply bg-purple-500 text-white;
 }
 
-.rbc-time-gutter,
-.rbc-day-bg {
-  background-color: var(--cal-cell-bg);
+.event-custom.night {
+  @apply bg-indigo-600 text-white;
 }
 
-[data-theme='dark'] .rbc-time-gutter,
-[data-theme='dark'] .rbc-day-bg {
-  background-color: var(--cal-cell-bg-dark);
+.event-custom.weekend {
+  @apply bg-orange-500 text-white;
 }
 
-/* This is the new, more specific selector for the day view's "today" column */
-[data-theme='dark'] .rbc-time-view .rbc-today {
-  background-color: #0D1117 !important;
+/* Screener Events */
+.event-screener {
+  @apply border-2 border-yellow-400;
+  position: relative;
 }
 
-/* Make sure the week view header also gets the circular today highlight */
-.rbc-time-header-content .rbc-header.rbc-today {
-  background-color: var(--cal-today-highlight-bg) !important;
-  color: var(--cal-today-highlight-text) !important;
+.event-screener::before {
+  content: '';
+  @apply absolute inset-0 bg-yellow-400/20;
+  border-radius: inherit;
+}
+
+/* Rotated Event for Week View */
+.rotated-event-content {
+  @apply flex flex-col items-center justify-center w-full h-full;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}
+
+.rotated-event-content .event-title {
+  @apply text-xs font-medium;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}
+
+.rotated-event-content .event-badge {
+  @apply mt-1;
+  writing-mode: horizontal-tb;
+  transform: rotate(90deg);
+}
+
+/* Week View Specific */
+.rbc-time-view .rbc-event {
+  @apply rounded-sm;
+  margin: 0 1px;
+}
+
+.rbc-time-view .rbc-event-content {
+  @apply text-xs;
+}
+
+/* Day View Specific */
+.rbc-day-view .rbc-event {
+  @apply rounded-md;
+  margin: 1px 0;
+}
+
+/* Time Slots */
+.rbc-time-slot {
+  @apply border-border;
+}
+
+.rbc-time-header-content {
+  @apply border-border;
+}
+
+.rbc-time-content {
+  @apply border-border;
+}
+
+/* Current Time Indicator */
+.rbc-current-time-indicator {
+  @apply bg-red-500;
+  height: 2px;
+  z-index: 10;
+}
+
+/* Selected Slots */
+.rbc-slot-selecting {
+  @apply bg-primary/20;
+}
+
+.rbc-slot-selecting .rbc-event {
+  @apply bg-primary/30;
+}
+
+/* Drag and Drop States */
+.rbc-event.rbc-selected {
+  @apply bg-primary/80;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.rbc-event.rbc-dragging {
+  @apply opacity-70;
+  transform: rotate(5deg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Resize Handles */
+.rbc-event.rbc-resizable {
+  position: relative;
+}
+
+.rbc-event.rbc-resizable::after {
+  content: '';
+  @apply absolute bottom-0 left-1/2 w-2 h-1 bg-white/50 rounded-full;
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+
+/* Tooltip Styling */
+.rbc-tooltip {
+  @apply bg-popover text-popover-foreground border border-border;
   border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
 }
 
-/* Hide the all-day slot since we don't use it and it shows overnight shifts incorrectly */
-.rbc-allday-cell {
-  display: none;
+/* Popup Styling */
+.rbc-popup {
+  @apply bg-popover text-popover-foreground border border-border;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
 }
 
-.rbc-time-header-content,
-.rbc-time-slot,
-.rbc-day-bg {
-  border-color: var(--cal-grid-border) !important;
+/* Responsive Design */
+@media (max-width: 768px) {
+  .rbc-event {
+    font-size: 0.625rem;
+    padding: 1px 2px;
+  }
+  
+  .event-title {
+    font-size: 0.625rem;
+  }
+  
+  .event-badge {
+    font-size: 0.5rem;
+    padding: 0 2px;
+    min-width: 12px;
+  }
+  
+  .rbc-header {
+    font-size: 0.75rem;
+    padding: 4px 2px;
+  }
+  
+  .rbc-date-cell {
+    font-size: 0.75rem;
+    padding: 2px 4px;
+  }
 }
 
-[data-theme='dark'] .rbc-time-header-content,
-[data-theme='dark'] .rbc-time-slot,
-[data-theme='dark'] .rbc-day-bg {
-  border-color: var(--cal-grid-border-dark) !important;
+/* Dark Mode Enhancements */
+[data-theme="dark"] .rbc-calendar {
+  @apply bg-background;
 }
 
-.rbc-time-gutter {
-  border-right: 1px solid var(--cal-grid-border);
-}
-[data-theme='dark'] .rbc-time-gutter {
-  border-right: 1px solid var(--cal-grid-border-dark);
+[data-theme="dark"] .rbc-month-view,
+[data-theme="dark"] .rbc-time-view {
+  @apply bg-card border-border;
 }
 
-.rbc-day-bg.rbc-today {
-  background-color: var(--cal-cell-bg) !important; /* Remove any special today bg */
-}
-[data-theme='dark'] .rbc-day-bg.rbc-today {
-  background-color: var(--cal-cell-bg-dark) !important; /* Remove any special today bg */
+[data-theme="dark"] .rbc-header {
+  @apply bg-card text-card-foreground border-border;
 }
 
-/*
-  Unified 'Today' indicator style.
-  This removes all background highlights and applies a bold red text style
-  for the current day across all calendar views for consistency.
-*/
-.rbc-day-bg.rbc-today,
-.rbc-header.rbc-today {
-  background-color: transparent !important;
+[data-theme="dark"] .rbc-today {
+  @apply bg-primary/20;
 }
 
-.rbc-day-bg.rbc-today .rbc-button-link,
-.rbc-header.rbc-today {
-    background-color: transparent !important;
-    color: #EF392B !important;
-    font-weight: 700 !important; /* Bold */
-    border-radius: 0 !important; /* Remove any rounding */
-    padding: 0;
-    margin: auto;
+[data-theme="dark"] .rbc-event {
+  @apply shadow-md;
 }
 
-/* 
-  This style is for our new, custom RotatedEvent component.
-  It will ensure the text is vertical and aligned to the top-left.
-*/
-.rotated-event-content {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  display: flex;
-  justify-content: flex-end; /* Aligns to the bottom, which becomes the top after rotation */
-  height: 100%;
-  width: 100%;
-  padding: 8px 4px;
-  box-sizing: border-box;
-  text-align: left;
+[data-theme="dark"] .rbc-event:hover {
+  @apply shadow-lg;
 }
 
-.rbc-event.event-custom {
-  border-radius: 4px;
-  border: none;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: #ffffff;
+/* Animation Classes */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
 }
 
-.rbc-event.event-custom.morning {
-  background-color: #3b82f6; /* Blue */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.rbc-event.event-custom.evening {
-  background-color: #8b5cf6; /* Purple */
-}
-.rbc-event.event-custom.weekend {
-  background-color: #10b981; /* Green */
+.slide-in {
+  animation: slideIn 0.3s ease-out;
 }
 
-/* 
-  This style is for our new, custom RotatedEvent component.
-  It will ensure the text is vertical and aligned to the top-left.
-*/
-.rotated-event-content {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  display: flex;
-  justify-content: flex-end; /* Aligns to the bottom, which becomes the top after rotation */
-  height: 100%;
-  width: 100%;
-  padding: 8px 4px;
-  box-sizing: border-box;
-  text-align: left;
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
-.rbc-event.event-screener {
-  background-color: #f59e0b; /* Amber */
-  border: 1px solid #d97706;
+/* Loading States */
+.loading-overlay {
+  @apply absolute inset-0 bg-background/50 flex items-center justify-center z-10;
+  backdrop-filter: blur(2px);
 }
 
-.rbc-toolbar {
-  display: none;
-} 
-
-/* ============================================================================
-  Calendar Styling
-============================================================================ */
-
-/* A clean override for the "+ more" button */
-.rbc-show-more {
-  color: inherit !important;
-  background-color: transparent !important;
+.loading-spinner {
+  @apply animate-spin rounded-full h-8 w-8 border-b-2 border-primary;
 }
 
-/* Style for the rotated text in the week view */
-.rotated-event-content {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  display: flex;
-  justify-content: flex-end; /* Aligns to the bottom, which becomes the top after rotation */
-  height: 100%;
-  width: 100%;
-  padding: 8px 4px;
-  box-sizing: border-box;
-  text-align: left;
+/* Error States */
+.error-state {
+  @apply flex items-center justify-center h-full;
 }
 
-/* Base styles for all event types */
-.rbc-event.event-custom {
-  border-radius: 4px;
-  border: none;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: #ffffff;
+.error-icon {
+  @apply text-red-500 mb-4;
 }
 
-.rbc-event.event-custom.morning {
-  background-color: #3b82f6; /* Blue */
+.error-message {
+  @apply text-destructive mb-4 text-center;
 }
 
-.rbc-event.event-custom.evening {
-  background-color: #8b5cf6; /* Purple */
-}
-.rbc-event.event-custom.weekend {
-  background-color: #10b981; /* Green */
+.retry-button {
+  @apply px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors;
 }
 
-.rbc-event.event-screener {
-  background-color: #f59e0b; /* Amber */
-  border: 1px solid #d97706;
+/* Quick Actions Button */
+.quick-actions-button {
+  @apply fixed bottom-6 right-6 z-40 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-all duration-200 flex items-center justify-center;
 }
 
-.rbc-toolbar {
-  display: none;
-} 
+.quick-actions-button:hover {
+  @apply shadow-xl;
+  transform: scale(1.05);
+}
 
-/*
-  DEBUGGING STYLE: This is a temporary style to identify if the
-  selector for the month view's "today" button is correct.
-*/
-body .rbc-calendar .rbc-month-view .rbc-today .rbc-button-link {
-  background-color: yellow !important;
-  border: 2px solid lime !important;
-  color: #EF392B !important;
-  font-weight: 700 !important;
+/* Accessibility */
+.rbc-event:focus {
+  @apply outline-none ring-2 ring-primary ring-offset-2;
+}
+
+.rbc-event:focus-visible {
+  @apply ring-2 ring-primary ring-offset-2;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .rbc-event {
+    @apply border-2 border-current;
+  }
+  
+  .event-badge {
+    @apply border border-current;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .rbc-event,
+  .quick-actions-button {
+    transition: none;
+  }
+  
+  .fade-in,
+  .slide-in {
+    animation: none;
+  }
 } 
