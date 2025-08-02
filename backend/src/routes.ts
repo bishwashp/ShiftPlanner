@@ -5,7 +5,7 @@ import algorithmRoutes from './routes/algorithms';
 import constraintRoutes from './routes/constraints';
 import analyticsRoutes from './routes/analytics';
 import calendarRoutes from './routes/calendar';
-import monitoringRoutes from './routes/monitoring';
+// import monitoringRoutes from './routes/monitoring';
 
 const router = Router();
 
@@ -29,8 +29,7 @@ router.get('/', (req, res) => {
       algorithms: '/algorithms',
       constraints: '/constraints',
       analytics: '/analytics',
-      calendar: '/calendar',
-      monitoring: '/monitoring'
+      calendar: '/calendar'
     }
     });
 });
@@ -42,6 +41,6 @@ router.use('/algorithms', algorithmRoutes);
 router.use('/constraints', constraintRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/calendar', calendarRoutes);
-router.use('/monitoring', monitoringRoutes);
+// router.use('/monitoring', monitoringRoutes);
 
 export default router;

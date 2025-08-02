@@ -7,47 +7,12 @@ rule_files:
   # - "second_rules.yml"
 
 scrape_configs:
-  # Prometheus itself
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-
-  # ShiftPlanner Backend API
   - job_name: 'shiftplanner-backend'
     static_configs:
       - targets: ['backend:4000']
-    metrics_path: '/monitoring/prometheus-metrics'
-    scrape_interval: 10s
-    scrape_timeout: 5s
-
-  # PostgreSQL Database
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['postgres:5432']
+    metrics_path: '/monitoring/metrics'
     scrape_interval: 30s
 
-  # Redis Cache
-  - job_name: 'redis'
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ['redis:6379']
-    scrape_interval: 30s
-
-  # Nginx Load Balancer
-  - job_name: 'nginx'
-    static_configs:
-      - targets: ['nginx:80']
-    scrape_interval: 30s
-
-  # Node.js Application Metrics
-  - job_name: 'nodejs'
-    static_configs:
-      - targets: ['backend:4000']
-    metrics_path: '/monitoring/nodejs-metrics'
-    scrape_interval: 15s
-
-  # Custom Application Metrics
-  - job_name: 'shiftplanner-metrics'
-    static_configs:
-      - targets: ['backend:4000']
-    metrics_path: '/monitoring/custom-metrics'
-    scrape_interval: 10s 
+      - targets: ['localhost:9090']

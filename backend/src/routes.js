@@ -10,6 +10,7 @@ const algorithms_1 = __importDefault(require("./routes/algorithms"));
 const constraints_1 = __importDefault(require("./routes/constraints"));
 const analytics_1 = __importDefault(require("./routes/analytics"));
 const calendar_1 = __importDefault(require("./routes/calendar"));
+// import monitoringRoutes from './routes/monitoring';
 const router = (0, express_1.Router)();
 // Health check endpoint
 router.get('/health', (req, res) => {
@@ -41,4 +42,5 @@ router.use('/algorithms', algorithms_1.default);
 router.use('/constraints', constraints_1.default);
 router.use('/analytics', analytics_1.default);
 router.use('/calendar', calendar_1.default);
+// router.use('/monitoring', monitoringRoutes);
 exports.default = router;

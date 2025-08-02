@@ -15,43 +15,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.redis = exports.CACHE_TTL = exports.CACHE_KEYS = exports.cacheService = void 0;
 const ioredis_1 = __importDefault(require("ioredis"));
 const prisma_1 = require("./prisma");
-// Redis client configuration with graceful fallback
-let redis = null;
-let redisConnected = false;
-
-try {
-  redis = new ioredis_1.default({
+// Redis client configuration
+const redis = new ioredis_1.default({
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
     password: process.env.REDIS_PASSWORD,
-    maxRetriesPerRequest: 1,
+    maxRetriesPerRequest: 3,
     lazyConnect: true,
-    retryDelayOnFailover: 100,
-    maxRetriesPerRequest: 1,
-    connectTimeout: 2000,
-    commandTimeout: 2000,
-  });
-
-  redis.on('connect', () => {
-    console.log('✅ Redis connected');
-    redisConnected = true;
-  });
-
-  redis.on('error', (error) => {
-    console.warn('⚠️ Redis connection failed, running without cache:', error.message);
-    redisConnected = false;
-  });
-
-  redis.on('ready', () => {
-    console.log('🚀 Redis ready for caching');
-    redisConnected = true;
-  });
-
-} catch (error) {
-  console.warn('⚠️ Redis initialization failed, running without cache:', error.message);
-  redisConnected = false;
-}
-
+});
 exports.redis = redis;
 // Cache configuration
 const CACHE_TTL = {
@@ -76,63 +47,66 @@ exports.CACHE_KEYS = CACHE_KEYS;
 class CacheService {
     constructor() {
         this.redis = redis;
-        this.redisConnected = redisConnected;
+        this.setupEventHandlers();
     }
-
+    setupEventHandlers() {
+        this.redis.on('connect', () => {
+            console.log('✅ Redis connected');
+        });
+        this.redis.on('error', (error) => {
+            console.error('❌ Redis error:', error);
+        });
+        this.redis.on('ready', () => {
+            console.log('🚀 Redis ready for caching');
+        });
+    }
     // Generic cache get/set with TTL
-    async get(key) {
-        if (!this.redisConnected || !this.redis) {
-            return null;
-        }
-        
-        try {
-            const value = await this.redis.get(key);
-            return value ? JSON.parse(value) : null;
-        } catch (error) {
-            console.error('Cache get error:', error);
-            return null;
-        }
-    }
-
-    async set(key, value, ttl = 300) {
-        if (!this.redisConnected || !this.redis) {
-            return;
-        }
-        
-        try {
-            await this.redis.setex(key, ttl, JSON.stringify(value));
-        } catch (error) {
-            console.error('Cache set error:', error);
-        }
-    }
-
-    async del(key) {
-        if (!this.redisConnected || !this.redis) {
-            return;
-        }
-        
-        try {
-            await this.redis.del(key);
-        } catch (error) {
-            console.error('Cache delete error:', error);
-        }
-    }
-
-    // Pattern-based cache invalidation
-    async invalidatePattern(pattern) {
-        if (!this.redisConnected || !this.redis) {
-            return;
-        }
-        
-        try {
-            const keys = await this.redis.keys(pattern);
-            if (keys.length > 0) {
-                await this.redis.del(...keys);
-                console.log(`🗑️  Invalidated ${keys.length} cache keys matching pattern: ${pattern}`);
+    get(key) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const value = yield this.redis.get(key);
+                return value ? JSON.parse(value) : null;
             }
-        } catch (error) {
-            console.error('Cache invalidation error:', error);
-        }
+            catch (error) {
+                console.error('Cache get error:', error);
+                return null;
+            }
+        });
+    }
+    set(key_1, value_1) {
+        return __awaiter(this, arguments, void 0, function* (key, value, ttl = 300) {
+            try {
+                yield this.redis.setex(key, ttl, JSON.stringify(value));
+            }
+            catch (error) {
+                console.error('Cache set error:', error);
+            }
+        });
+    }
+    del(key) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                yield this.redis.del(key);
+            }
+            catch (error) {
+                console.error('Cache delete error:', error);
+            }
+        });
+    }
+    // Pattern-based cache invalidation
+    invalidatePattern(pattern) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const keys = yield this.redis.keys(pattern);
+                if (keys.length > 0) {
+                    yield this.redis.del(...keys);
+                    console.log(`🗑️  Invalidated ${keys.length} cache keys matching pattern: ${pattern}`);
+                }
+            }
+            catch (error) {
+                console.error('Cache invalidation error:', error);
+            }
+        });
     }
     // Schedule-specific caching
     getSchedules(dateRange) {
@@ -260,47 +234,40 @@ class CacheService {
         });
     }
     // Cache statistics
-    async getStats() {
-        if (!this.redisConnected || !this.redis) {
-            return { 
-                keys: 0, 
-                info: { status: 'disabled' },
-                message: 'Cache disabled - Redis not available'
-            };
-        }
-        
-        try {
-            const info = await this.redis.info();
-            const keys = await this.redis.dbsize();
-            return {
-                keys,
-                info: info.split('\r\n').reduce((acc, line) => {
-                    const [key, value] = line.split(':');
-                    if (key && value) {
-                        acc[key] = value;
-                    }
-                    return acc;
-                }, {}),
-            };
-        } catch (error) {
-            console.error('Cache stats error:', error);
-            return { error: 'Failed to get cache stats' };
-        }
+    getStats() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const info = yield this.redis.info();
+                const keys = yield this.redis.dbsize();
+                return {
+                    keys,
+                    info: info.split('\r\n').reduce((acc, line) => {
+                        const [key, value] = line.split(':');
+                        if (key && value) {
+                            acc[key] = value;
+                        }
+                        return acc;
+                    }, {}),
+                };
+            }
+            catch (error) {
+                console.error('Cache stats error:', error);
+                return { error: 'Failed to get cache stats' };
+            }
+        });
     }
-
     // Health check
-    async healthCheck() {
-        if (!this.redisConnected || !this.redis) {
-            return false;
-        }
-        
-        try {
-            await this.redis.ping();
-            return true;
-        } catch (error) {
-            console.error('Cache health check failed:', error);
-            return false;
-        }
+    healthCheck() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                yield this.redis.ping();
+                return true;
+            }
+            catch (error) {
+                console.error('Cache health check failed:', error);
+                return false;
+            }
+        });
     }
 }
 // Export singleton instance
