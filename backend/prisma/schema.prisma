@@ -461,3 +461,41 @@ model KPIMetrics {
   @@index([createdAt])
   @@map("kpi_metrics")
 }
+
+// Phase 4: Calendar Layer Management & View Preferences
+
+model CalendarLayerPreference {
+  id          String   @id @default(cuid())
+  userId      String
+  layerId     String
+  enabled     Boolean  @default(true)
+  opacity     Decimal  @db.Decimal(3, 2) @default(1.0)
+  color       String   @default("#3B82F6")
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Performance indexes
+  @@index([userId])
+  @@index([layerId])
+  @@unique([userId, layerId])
+  @@map("calendar_layer_preferences")
+}
+
+model ViewPreference {
+  id                    String   @id @default(cuid())
+  userId                String
+  viewType              String   // 'day', 'week', 'month'
+  defaultLayers         String[] // Array of enabled layer IDs
+  zoomLevel             Int      @default(1)
+  showConflicts         Boolean  @default(true)
+  showFairnessIndicators Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  // Performance indexes
+  @@index([userId])
+  @@index([viewType])
+  @@unique([userId, viewType])
+  @@map("view_preferences")
+}

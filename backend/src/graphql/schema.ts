@@ -604,6 +604,91 @@ export const typeDefs = gql`
     isScreener: Boolean
   }
 
+  # Calendar Layer Management Types
+  type CalendarLayer {
+    id: ID!
+    name: String!
+    description: String!
+    enabled: Boolean!
+    opacity: Float!
+    color: String!
+    orderIndex: Int!
+    dataType: String!
+    icon: String
+  }
+
+  type LayerData {
+    layerId: ID!
+    events: [CalendarEvent!]!
+    conflicts: [Conflict!]!
+    metadata: JSON
+  }
+
+  type CalendarEvent {
+    id: ID!
+    title: String!
+    startDate: DateTime!
+    endDate: DateTime!
+    type: String!
+    layer: String!
+    analystId: ID
+    shiftType: String
+    constraintType: String
+    reason: String
+    eventType: String
+    description: String
+    overallScore: Float
+    workloadFairness: Float
+    weekendFairness: Float
+  }
+
+  type Conflict {
+    id: ID!
+    type: String!
+    scheduleId: ID
+    constraintId: ID
+    date: DateTime!
+    analystId: ID
+    description: String!
+  }
+
+  type ViewPreferences {
+    viewType: String!
+    defaultLayers: [String!]!
+    zoomLevel: Int!
+    showConflicts: Boolean!
+    showFairnessIndicators: Boolean!
+  }
+
+  type ViewData {
+    viewType: String!
+    dateRange: DateRange!
+    events: [CalendarEvent!]!
+    conflicts: [Conflict!]!
+    metadata: JSON!
+  }
+
+  input DateRangeInput {
+    startDate: DateTime!
+    endDate: DateTime!
+  }
+
+  input LayerPreferencesInput {
+    layerId: ID!
+    enabled: Boolean
+    opacity: Float
+    color: String
+    orderIndex: Int
+  }
+
+  input ViewPreferencesInput {
+    viewType: String!
+    defaultLayers: [String!]!
+    zoomLevel: Int
+    showConflicts: Boolean
+    showFairnessIndicators: Boolean
+  }
+
   # Queries
   type Query {
     # Health and system
@@ -661,9 +746,15 @@ export const typeDefs = gql`
     # Performance metrics
     performanceMetrics: PerformanceMetrics!
     
-    # Calendar exports
-    calendarExport(analystId: ID!, format: String!, options: JSON): CalendarExport!
-    teamCalendarExport(format: String!, options: JSON): CalendarExport!
+      # Calendar exports
+  calendarExport(analystId: ID!, format: String!, options: JSON): CalendarExport!
+  teamCalendarExport(format: String!, options: JSON): CalendarExport!
+  
+  # Calendar Layer Management
+  calendarLayers(dateRange: DateRangeInput!): [CalendarLayer!]!
+  layerData(layerId: ID!, dateRange: DateRangeInput!): LayerData!
+  viewData(viewType: String!, date: String!): ViewData!
+  viewPreferences(viewType: String!): ViewPreferences!
   }
 
   # Mutations
@@ -698,7 +789,13 @@ export const typeDefs = gql`
     generateSchedules(input: ScheduleGenerationInput!): ScheduleGenerationResult!
     applySchedules(input: ScheduleGenerationInput!, overwriteExisting: Boolean): ScheduleGenerationResult!
     
-    # System operations
-    warmCache: Boolean!
+      # System operations
+  warmCache: Boolean!
+  
+  # Calendar Layer Management
+  toggleLayer(layerId: ID!, enabled: Boolean!): Boolean!
+  updateLayerPreferences(layerId: ID!, preferences: LayerPreferencesInput!): Boolean!
+  saveViewPreferences(preferences: ViewPreferencesInput!): Boolean!
+  resetLayerPreferences: Boolean!
   }
 `; 
