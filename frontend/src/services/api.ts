@@ -1091,6 +1091,65 @@ export const apiService = {
     });
     return response.data;
   },
+
+  // Calendar Layer Management
+  getCalendarLayers: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.get('/calendar/layers', {
+      params: { startDate, endDate }
+    });
+    return response.data;
+  },
+
+  getLayerData: async (layerId: string, startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.get(`/calendar/layers/${layerId}/data`, {
+      params: { startDate, endDate }
+    });
+    return response.data;
+  },
+
+  toggleLayer: async (layerId: string, enabled: boolean): Promise<any> => {
+    const response = await apiClient.post(`/calendar/layers/${layerId}/toggle`, { enabled });
+    return response.data;
+  },
+
+  updateLayerPreferences: async (layerId: string, preferences: any): Promise<any> => {
+    const response = await apiClient.put('/calendar/layers/preferences', {
+      layerId,
+      ...preferences
+    });
+    return response.data;
+  },
+
+  getLayerConflicts: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.get('/calendar/layers/conflicts', {
+      params: { startDate, endDate }
+    });
+    return response.data;
+  },
+
+  resetLayerPreferences: async (): Promise<any> => {
+    const response = await apiClient.post('/calendar/layers/reset');
+    return response.data;
+  },
+
+  getViewData: async (viewType: string, date: string, layers?: string[]): Promise<any> => {
+    const params: any = { date };
+    if (layers) {
+      params.layers = layers.join(',');
+    }
+    const response = await apiClient.get(`/calendar/view/${viewType}`, { params });
+    return response.data;
+  },
+
+  saveViewPreferences: async (preferences: any): Promise<any> => {
+    const response = await apiClient.put('/calendar/view/preferences', preferences);
+    return response.data;
+  },
+
+  getViewPreferences: async (viewType: string): Promise<any> => {
+    const response = await apiClient.get(`/calendar/view/${viewType}/preferences`);
+    return response.data;
+  },
 };
 
 export default apiService; 

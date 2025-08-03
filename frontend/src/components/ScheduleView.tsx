@@ -5,6 +5,10 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { apiService, Schedule, Analyst } from '../services/api';
 import { View as AppView } from './layout/CollapsibleSidebar';
 import { useTheme } from 'react18-themes';
+import MultiLayerCalendar from './MultiLayerCalendar';
+import CalendarLayerControl from './CalendarLayerControl';
+import CalendarLegend from './CalendarLegend';
+import { CalendarLayer, CalendarEvent as LayerEvent, DateRange } from '../types/calendar';
 import './ScheduleView.css';
 
 const localizer = momentLocalizer(moment);
@@ -27,6 +31,8 @@ interface ScheduleViewProps {
   onError?: (error: string) => void;
   onSuccess?: (message: string) => void;
   isLoading?: (loading: boolean) => void;
+  showLayerControls?: boolean;
+  showLegend?: boolean;
 }
 
 // Enhanced event component with better visual feedback
@@ -58,7 +64,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   timezone,
   onError,
   onSuccess,
-  isLoading
+  isLoading,
+  showLayerControls = true,
+  showLegend = true
  }) => {
   const { theme } = useTheme();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -67,6 +75,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  
+  // Calendar Layer State
+  const [calendarLayers, setCalendarLayers] = useState<CalendarLayer[]>([]);
+  const [layerConflicts, setLayerConflicts] = useState<any[]>([]);
+  const [useMultiLayerView, setUseMultiLayerView] = useState(false);
 
   const { startDate, endDate } = useMemo(() => {
     // Use local timezone for date range calculation (user's perspective)
@@ -105,6 +118,83 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   useEffect(() => {
     fetchSchedulesAndAnalysts();
   }, [fetchSchedulesAndAnalysts]);
+
+  // Load calendar layers
+  useEffect(() => {
+    const loadCalendarLayers = async () => {
+      try {
+        const layersData = await apiService.getCalendarLayers(startDate, endDate);
+        setCalendarLayers(layersData.layers || []);
+        setLayerConflicts(layersData.conflicts || []);
+      } catch (error) {
+        console.error('Error loading calendar layers:', error);
+      }
+    };
+
+    loadCalendarLayers();
+  }, [startDate, endDate]);
+
+  // Calendar Layer Handlers
+  const handleLayerToggle = async (layerId: string, enabled: boolean) => {
+    try {
+      await apiService.toggleLayer(layerId, enabled);
+      
+      // Update local state
+      setCalendarLayers(prev => 
+        prev.map(layer => 
+          layer.id === layerId ? { ...layer, enabled } : layer
+        )
+      );
+      
+      if (onSuccess) onSuccess(`Layer ${enabled ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      console.error('Error toggling layer:', error);
+      if (onError) onError('Failed to toggle layer');
+    }
+  };
+
+  const handleLayerPreferenceChange = async (layerId: string, preferences: any) => {
+    try {
+      await apiService.updateLayerPreferences(layerId, preferences);
+      
+      // Update local state
+      setCalendarLayers(prev => 
+        prev.map(layer => 
+          layer.id === layerId ? { ...layer, ...preferences } : layer
+        )
+      );
+      
+      if (onSuccess) onSuccess('Layer preferences updated');
+    } catch (error) {
+      console.error('Error updating layer preferences:', error);
+      if (onError) onError('Failed to update layer preferences');
+    }
+  };
+
+  const handleResetLayers = async () => {
+    try {
+      await apiService.resetLayerPreferences();
+      
+      // Reload layers
+      const layersData = await apiService.getCalendarLayers(startDate, endDate);
+      setCalendarLayers(layersData.layers || []);
+      
+      if (onSuccess) onSuccess('Layer preferences reset');
+    } catch (error) {
+      console.error('Error resetting layers:', error);
+      if (onError) onError('Failed to reset layer preferences');
+    }
+  };
+
+  const handleLayerClick = (layerId: string) => {
+    // Could implement layer highlighting or filtering
+    console.log('Layer clicked:', layerId);
+  };
+
+  const handleEventClick = (event: LayerEvent) => {
+    console.log('Layer event clicked:', event);
+    // Could show event details or navigate to related data
+  };
 
   const getAnalystName = useCallback((analystId: string) => {
     const analyst = analysts.find(a => a.id === analystId);
@@ -267,36 +357,101 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   }
 
   return (
-    <div className={`relative h-full p-4 bg-background text-foreground transition-colors duration-200 ${theme}`}>
-      <Calendar
-        localizer={localizer}
-        events={calendarEvents}
-        startAccessor="start"
-        endAccessor="end"
-        allDayAccessor="allDay"
-        views={['month', 'week', 'day']}
-        view={view}
-        date={date}
-        onView={setView}
-        onNavigate={setDate}
-        eventPropGetter={eventPropGetter}
-        onSelectEvent={handleEventSelect}
-        onSelectSlot={handleSelectSlot}
-        selectable={true}
-        formats={{
-          eventTimeRangeFormat: () => '',
-        }}
-        components={{
-          toolbar: () => null,
-          month: { event: StandardEvent },
-          day: { event: StandardEvent },
-          week: { event: RotatedEvent },
-        }}
-        className="rbc-calendar"
-        dayLayoutAlgorithm="no-overlap"
-        popup={true}
-        tooltipAccessor={(event) => `${event.title} - ${event.resource.shiftType}${event.resource.isScreener ? ' (Screener)' : ''}`}
-      />
+    <div className={`relative h-full bg-background text-foreground transition-colors duration-200 ${theme}`}>
+      <div className="flex h-full">
+        {/* Left Sidebar - Layer Controls */}
+        {showLayerControls && (
+          <div className="w-80 p-4 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Calendar View
+                </h2>
+                <button
+                  onClick={() => setUseMultiLayerView(!useMultiLayerView)}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                    useMultiLayerView
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  {useMultiLayerView ? 'Multi-Layer' : 'Standard'}
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {useMultiLayerView 
+                  ? 'Multi-layer calendar with advanced controls'
+                  : 'Standard calendar view'
+                }
+              </p>
+            </div>
+
+            {useMultiLayerView && (
+              <>
+                <CalendarLayerControl
+                  layers={calendarLayers}
+                  onLayerToggle={handleLayerToggle}
+                  onPreferenceChange={handleLayerPreferenceChange}
+                  onReset={handleResetLayers}
+                />
+                
+                {showLegend && (
+                  <div className="mt-4">
+                    <CalendarLegend
+                      layers={calendarLayers}
+                      conflicts={layerConflicts}
+                      onLayerClick={handleLayerClick}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Main Calendar Area */}
+        <div className="flex-1 p-4">
+          {useMultiLayerView ? (
+            <MultiLayerCalendar
+              dateRange={{ startDate, endDate }}
+              layers={calendarLayers}
+              onLayerToggle={handleLayerToggle}
+              onEventClick={handleEventClick}
+              viewType={view as 'day' | 'week' | 'month'}
+            />
+          ) : (
+            <Calendar
+              localizer={localizer}
+              events={calendarEvents}
+              startAccessor="start"
+              endAccessor="end"
+              allDayAccessor="allDay"
+              views={['month', 'week', 'day']}
+              view={view}
+              date={date}
+              onView={setView}
+              onNavigate={setDate}
+              eventPropGetter={eventPropGetter}
+              onSelectEvent={handleEventSelect}
+              onSelectSlot={handleSelectSlot}
+              selectable={true}
+              formats={{
+                eventTimeRangeFormat: () => '',
+              }}
+              components={{
+                toolbar: () => null,
+                month: { event: StandardEvent },
+                day: { event: StandardEvent },
+                week: { event: RotatedEvent },
+              }}
+              className="rbc-calendar"
+              dayLayoutAlgorithm="no-overlap"
+              popup={true}
+              tooltipAccessor={(event) => `${event.title} - ${event.resource.shiftType}${event.resource.isScreener ? ' (Screener)' : ''}`}
+            />
+          )}
+        </div>
+      </div>
       
       {/* Quick actions floating button */}
       <div className="fixed bottom-6 right-6 z-40">
