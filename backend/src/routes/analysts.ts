@@ -14,7 +14,7 @@ router.get('/', async (req: Request, res: Response) => {
     
     // Try to get from cache first
     const cachedAnalysts = await cacheService.getAnalysts(filters);
-    if (cachedAnalysts) {
+    if (cachedAnalysts && cachedAnalysts.length > 0) {
       return res.json(cachedAnalysts);
     }
 
@@ -26,6 +26,8 @@ router.get('/', async (req: Request, res: Response) => {
     if (shiftType) {
       where.shiftType = shiftType;
     }
+    
+
 
     // Optimized query with selective includes
     const analysts = await prisma.analyst.findMany({

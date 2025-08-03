@@ -178,6 +178,129 @@ export interface WebhookConfig {
   enabled: boolean;
 }
 
+// Phase 3: Predictive Fairness & Advanced Analytics Interfaces
+export interface LeaveRequestImpact {
+  requestId: string;
+  analystId: string;
+  startDate: string;
+  endDate: string;
+  fairnessImpact: {
+    beforeScore: number;
+    afterScore: number;
+    change: number;
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  };
+  recommendations: string[];
+  alternativeDates?: string[];
+  metadata?: any;
+}
+
+export interface FairnessTrend {
+  currentScore: number;
+  predictedScore: number;
+  trend: 'IMPROVING' | 'STABLE' | 'DETERIORATING';
+  confidence: number;
+  riskFactors: string[];
+  mitigationStrategies: string[];
+  timeRange: {
+    startDate: string;
+    endDate: string;
+  };
+}
+
+export interface FairnessRecommendation {
+  id: string;
+  type: 'WORKLOAD_BALANCE' | 'WEEKEND_ROTATION' | 'SCREENER_DISTRIBUTION' | 'CONSECUTIVE_DAYS';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  description: string;
+  expectedImprovement: number;
+  confidence: number;
+  affectedAnalysts: string[];
+  suggestedActions: string[];
+}
+
+export interface FairnessAnomaly {
+  id: string;
+  type: 'UNUSUAL_WORKLOAD' | 'WEEKEND_IMBALANCE' | 'SCREENER_OVERLOAD' | 'FAIRNESS_DROP';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  description: string;
+  detectedAt: string;
+  affectedAnalysts: string[];
+  impact: number;
+  recommendations: string[];
+}
+
+export interface KPIMetrics {
+  scheduleSuccessRate: number;
+  averageFairnessScore: number;
+  constraintViolationRate: number;
+  userSatisfactionScore: number;
+  conflictResolutionTime: number;
+  lastUpdated: string;
+  trend: 'IMPROVING' | 'STABLE' | 'DETERIORATING';
+}
+
+export interface KPIReport {
+  timeRange: {
+    startDate: string;
+    endDate: string;
+  };
+  metrics: KPIMetrics;
+  trends: {
+    scheduleSuccess: 'IMPROVING' | 'STABLE' | 'DETERIORATING';
+    fairness: 'IMPROVING' | 'STABLE' | 'DETERIORATING';
+    violations: 'IMPROVING' | 'STABLE' | 'DETERIORATING';
+    satisfaction: 'IMPROVING' | 'STABLE' | 'DETERIORATING';
+    resolutionTime: 'IMPROVING' | 'STABLE' | 'DETERIORATING';
+  };
+  alerts: string[];
+  recommendations: string[];
+}
+
+export interface BenchmarkComparison {
+  metric: string;
+  currentValue: number;
+  industryAverage: number;
+  percentile: number;
+  status: 'EXCELLENT' | 'GOOD' | 'AVERAGE' | 'BELOW_AVERAGE' | 'POOR';
+  improvement: number;
+}
+
+export interface ExecutiveDashboard {
+  kpiReport: KPIReport;
+  fairnessTrend: FairnessTrend;
+  benchmarks: BenchmarkComparison[];
+  summary: {
+    overallHealth: 'EXCELLENT' | 'GOOD' | 'AVERAGE' | 'POOR';
+    keyInsights: string[];
+    recommendations: string[];
+  };
+}
+
+export interface ManagerDashboard {
+  teamId: string;
+  fairnessTrend: FairnessTrend;
+  recommendations: FairnessRecommendation[];
+  workloadAnalysis: {
+    totalAnalysts: number;
+    averageWorkload: number;
+    workloadDistribution: string;
+  };
+}
+
+export interface AnalystDashboard {
+  analystId: string;
+  analystName: string;
+  personalMetrics: {
+    totalShifts: number;
+    screenerShifts: number;
+    weekendShifts: number;
+    fairnessScore: number;
+  };
+  upcomingSchedule: Schedule[];
+  recommendations: string[];
+}
+
 // API Service Functions
 export const apiService = {
   // Health Check
@@ -592,6 +715,102 @@ export const apiService = {
   getWorkDayTally: async (month: number, year: number): Promise<Array<{ analystId: string; analystName: string; workDays: number }>> => {
     const response = await apiClient.get('/analytics/tally', { params: { month, year } });
     return response.data as Array<{ analystId: string; analystName: string; workDays: number }>;
+  },
+
+  // Phase 3: Predictive Fairness & Advanced Analytics API Methods
+
+  // Phase 3: Predictive Fairness & Advanced Analytics API Methods
+  calculateLeaveRequestImpact: async (data: { analystId: string; startDate: string; endDate: string; reason?: string }): Promise<LeaveRequestImpact> => {
+    const response = await apiClient.post('/api/analytics/leave-request-impact', data);
+    return (response.data as any).data as LeaveRequestImpact;
+  },
+
+  getFairnessTrends: async (startDate: string, endDate: string): Promise<FairnessTrend> => {
+    const response = await apiClient.get('/analytics/fairness-trends', { params: { startDate, endDate } });
+    return response.data as FairnessTrend;
+  },
+
+  getFairnessRecommendations: async (): Promise<FairnessRecommendation[]> => {
+    const response = await apiClient.get('/analytics/fairness-recommendations');
+    return response.data as FairnessRecommendation[];
+  },
+
+  getFairnessAnomalies: async (): Promise<FairnessAnomaly[]> => {
+    const response = await apiClient.get('/analytics/fairness-anomalies');
+    return response.data as FairnessAnomaly[];
+  },
+
+  getCurrentKPIMetrics: async (): Promise<KPIMetrics> => {
+    const response = await apiClient.get('/analytics/kpi/current');
+    return response.data as KPIMetrics;
+  },
+
+  getKPIHistory: async (startDate: string, endDate: string): Promise<KPIReport> => {
+    const response = await apiClient.get('/analytics/kpi/history', { params: { startDate, endDate } });
+    return response.data as KPIReport;
+  },
+
+  getKPISummary: async (): Promise<{
+    currentMetrics: KPIMetrics;
+    trends: 'IMPROVING' | 'STABLE' | 'DETERIORATING';
+    alerts: string[];
+    benchmarks: BenchmarkComparison[];
+    performanceHealth: 'EXCELLENT' | 'GOOD' | 'AVERAGE' | 'POOR';
+  }> => {
+    const response = await apiClient.get('/api/analytics/kpi/summary');
+    return (response.data as any).data as {
+      currentMetrics: KPIMetrics;
+      trends: 'IMPROVING' | 'STABLE' | 'DETERIORATING';
+      alerts: string[];
+      benchmarks: BenchmarkComparison[];
+      performanceHealth: 'EXCELLENT' | 'GOOD' | 'AVERAGE' | 'POOR';
+    };
+  },
+
+  getKPITrends: async (): Promise<{
+    scheduleSuccess: { date: string; value: number }[];
+    fairness: { date: string; value: number }[];
+    violations: { date: string; value: number }[];
+    satisfaction: { date: string; value: number }[];
+    resolutionTime: { date: string; value: number }[];
+  }> => {
+    const response = await apiClient.get('/api/analytics/kpi/trends');
+    return (response.data as any).data as {
+      scheduleSuccess: { date: string; value: number }[];
+      fairness: { date: string; value: number }[];
+      violations: { date: string; value: number }[];
+      satisfaction: { date: string; value: number }[];
+      resolutionTime: { date: string; value: number }[];
+    };
+  },
+
+  getKPIAlerts: async (): Promise<string[]> => {
+    const response = await apiClient.get('/api/analytics/kpi/alerts');
+    return (response.data as any).data as string[];
+  },
+
+  getBenchmarkComparison: async (): Promise<BenchmarkComparison[]> => {
+    const response = await apiClient.get('/api/analytics/kpi/benchmarks');
+    return (response.data as any).data as BenchmarkComparison[];
+  },
+
+  trackKPIMetric: async (type: 'schedule_generation' | 'fairness_score' | 'constraint_violation' | 'user_satisfaction', data: any): Promise<void> => {
+    await apiClient.post('/analytics/kpi/track', { type, data });
+  },
+
+  getExecutiveDashboard: async (timeRange: 'week' | 'month' | 'quarter' = 'month'): Promise<ExecutiveDashboard> => {
+    const response = await apiClient.get('/api/analytics/executive/dashboard', { params: { timeRange } });
+    return (response.data as any).data as ExecutiveDashboard;
+  },
+
+  getManagerDashboard: async (teamId: string, timeRange: 'week' | 'month' = 'week'): Promise<ManagerDashboard> => {
+    const response = await apiClient.get(`/api/analytics/manager/dashboard/${teamId}`, { params: { timeRange } });
+    return (response.data as any).data as ManagerDashboard;
+  },
+
+  getAnalystDashboard: async (analystId: string, timeRange: 'week' | 'month' = 'month'): Promise<AnalystDashboard> => {
+    const response = await apiClient.get(`/api/analytics/analyst/dashboard/${analystId}`, { params: { timeRange } });
+    return (response.data as any).data as AnalystDashboard;
   },
 
   // Dashboard Stats (computed from other endpoints)

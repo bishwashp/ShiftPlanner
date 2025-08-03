@@ -35,6 +35,7 @@ model Analyst {
   schedules   Schedule[]
   vacations   Vacation[]
   constraints SchedulingConstraint[]
+  leaveRequestImpacts LeaveRequestImpact[]
   
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
@@ -395,4 +396,68 @@ enum RecommendationStatus {
   IMPLEMENTED
   REJECTED
   EXPIRED
+}
+
+// Phase 3: Predictive Fairness & Advanced Analytics Tables
+
+model FairnessMetrics {
+  id                  String   @id @default(cuid())
+  date                DateTime @db.Date
+  overallScore        Decimal  @db.Decimal(3, 2)
+  workloadFairness    Decimal  @db.Decimal(3, 2)
+  weekendFairness     Decimal  @db.Decimal(3, 2)
+  assignmentFairness  Decimal  @db.Decimal(3, 2)
+  confidenceScore     Decimal  @db.Decimal(3, 2)
+  metadata            Json?    // Additional fairness context data
+  createdAt           DateTime @default(now())
+  
+  // Performance indexes
+  @@index([date])
+  @@index([overallScore])
+  @@index([createdAt])
+  @@map("fairness_metrics")
+}
+
+model LeaveRequestImpact {
+  id                    String   @id @default(cuid())
+  requestId             String   // Reference to leave request (could be external)
+  analystId             String
+  startDate             DateTime @db.Date
+  endDate               DateTime @db.Date
+  fairnessImpactBefore  Decimal  @db.Decimal(3, 2)
+  fairnessImpactAfter   Decimal  @db.Decimal(3, 2)
+  riskLevel             String   // LOW, MEDIUM, HIGH
+  recommendations       String[] // Array of recommendation strings
+  alternativeDates      DateTime[] @db.Date // Suggested alternative dates
+  metadata              Json?    // Additional impact analysis data
+  createdAt             DateTime @default(now())
+  
+  // Relationships
+  analyst               Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  // Performance indexes
+  @@index([analystId])
+  @@index([startDate, endDate])
+  @@index([riskLevel])
+  @@index([createdAt])
+  @@map("leave_request_impacts")
+}
+
+model KPIMetrics {
+  id                      String   @id @default(cuid())
+  date                    DateTime @db.Date
+  scheduleSuccessRate     Decimal  @db.Decimal(3, 2)
+  averageFairnessScore    Decimal  @db.Decimal(3, 2)
+  constraintViolationRate Decimal  @db.Decimal(3, 2)
+  userSatisfactionScore   Decimal  @db.Decimal(3, 2)
+  conflictResolutionTime  Decimal  @db.Decimal(5, 2) // Hours
+  metadata                Json?    // Additional KPI context data
+  createdAt               DateTime @default(now())
+  
+  // Performance indexes
+  @@index([date])
+  @@index([scheduleSuccessRate])
+  @@index([averageFairnessScore])
+  @@index([createdAt])
+  @@map("kpi_metrics")
 }
