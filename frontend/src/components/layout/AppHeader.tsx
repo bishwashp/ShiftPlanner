@@ -5,7 +5,7 @@ import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } fr
 import { View as BigCalendarView } from 'react-big-calendar';
 import { View as SidebarView } from './CollapsibleSidebar';
 import TimezoneSelector from '../TimezoneSelector';
-import CalendarLegend from '../CalendarLegend';
+
 
 interface AppHeaderProps {
   sidebarOpen: boolean;
@@ -104,7 +104,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         )}
         <TimezoneSelector timezone={timezone} onTimezoneChange={onTimezoneChange} />
         <ThemeSwitcher />
-        {activeView === 'schedule' && <CalendarLegend />}
       </div>
     </header>
   );
