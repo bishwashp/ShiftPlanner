@@ -79,11 +79,11 @@ export class ViewManagementService {
   /**
    * Save view preferences for a user
    */
-  async saveViewPreferences(userId: string, preferences: ViewPreferences): Promise<void> {
+  async saveViewPreferences(analystId: string, preferences: ViewPreferences): Promise<void> {
     await this.prisma.viewPreference.upsert({
       where: {
-        userId_viewType: {
-          userId,
+        analystId_viewType: {
+          analystId,
           viewType: preferences.viewType
         }
       },
@@ -95,7 +95,7 @@ export class ViewManagementService {
         updatedAt: new Date()
       },
       create: {
-        userId,
+        analystId,
         viewType: preferences.viewType,
         defaultLayers: preferences.defaultLayers,
         zoomLevel: preferences.zoomLevel,
@@ -121,11 +121,11 @@ export class ViewManagementService {
   /**
    * Get user's view preferences
    */
-  async getUserViewPreferences(userId: string, viewType: string): Promise<ViewPreferences | null> {
+  async getUserViewPreferences(analystId: string, viewType: string): Promise<ViewPreferences | null> {
     const preference = await this.prisma.viewPreference.findUnique({
       where: {
-        userId_viewType: {
-          userId,
+        analystId_viewType: {
+          analystId,
           viewType
         }
       }

@@ -36,6 +36,8 @@ model Analyst {
   vacations   Vacation[]
   constraints SchedulingConstraint[]
   leaveRequestImpacts LeaveRequestImpact[]
+  calendarLayerPreferences CalendarLayerPreference[]
+  viewPreferences ViewPreference[]
   
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
@@ -466,7 +468,7 @@ model KPIMetrics {
 
 model CalendarLayerPreference {
   id          String   @id @default(cuid())
-  userId      String
+  analystId   String
   layerId     String
   enabled     Boolean  @default(true)
   opacity     Decimal  @db.Decimal(3, 2) @default(1.0)
@@ -475,16 +477,19 @@ model CalendarLayerPreference {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  // Relationships
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
   // Performance indexes
-  @@index([userId])
+  @@index([analystId])
   @@index([layerId])
-  @@unique([userId, layerId])
+  @@unique([analystId, layerId])
   @@map("calendar_layer_preferences")
 }
 
 model ViewPreference {
   id                    String   @id @default(cuid())
-  userId                String
+  analystId             String
   viewType              String   // 'day', 'week', 'month'
   defaultLayers         String[] // Array of enabled layer IDs
   zoomLevel             Int      @default(1)
@@ -493,9 +498,12 @@ model ViewPreference {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
   
+  // Relationships
+  analyst               Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
   // Performance indexes
-  @@index([userId])
+  @@index([analystId])
   @@index([viewType])
-  @@unique([userId, viewType])
+  @@unique([analystId, viewType])
   @@map("view_preferences")
 }

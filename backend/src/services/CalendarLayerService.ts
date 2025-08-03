@@ -43,9 +43,9 @@ export class CalendarLayerService {
   /**
    * Get all available calendar layers with user preferences
    */
-  async getCalendarLayers(dateRange: DateRange, userId: string): Promise<CalendarLayers> {
+  async getCalendarLayers(dateRange: DateRange, analystId: string): Promise<CalendarLayers> {
     const defaultLayers = this.getDefaultLayers();
-    const userPreferences = await this.getUserLayerPreferences(userId);
+    const userPreferences = await this.getUserLayerPreferences(analystId);
     
     // Merge default layers with user preferences
     const layers = defaultLayers.map(layer => {
@@ -93,11 +93,11 @@ export class CalendarLayerService {
   /**
    * Toggle layer visibility for a user
    */
-  async toggleLayer(layerId: string, enabled: boolean, userId: string): Promise<void> {
+  async toggleLayer(layerId: string, enabled: boolean, analystId: string): Promise<void> {
     await this.prisma.calendarLayerPreference.upsert({
       where: {
-        userId_layerId: {
-          userId,
+        analystId_layerId: {
+          analystId,
           layerId
         }
       },
@@ -106,7 +106,7 @@ export class CalendarLayerService {
         updatedAt: new Date()
       },
       create: {
-        userId,
+        analystId,
         layerId,
         enabled
       }
@@ -116,11 +116,11 @@ export class CalendarLayerService {
   /**
    * Update layer preferences for a user
    */
-  async updateLayerPreferences(userId: string, preferences: LayerPreferences): Promise<void> {
+  async updateLayerPreferences(analystId: string, preferences: LayerPreferences): Promise<void> {
     await this.prisma.calendarLayerPreference.upsert({
       where: {
-        userId_layerId: {
-          userId,
+        analystId_layerId: {
+          analystId,
           layerId: preferences.layerId
         }
       },
@@ -132,7 +132,7 @@ export class CalendarLayerService {
         updatedAt: new Date()
       },
       create: {
-        userId,
+        analystId,
         layerId: preferences.layerId,
         enabled: preferences.enabled ?? true,
         opacity: preferences.opacity ?? 1.0,
@@ -163,9 +163,9 @@ export class CalendarLayerService {
   /**
    * Reset layer preferences to defaults for a user
    */
-  async resetLayerPreferences(userId: string): Promise<void> {
+  async resetLayerPreferences(analystId: string): Promise<void> {
     await this.prisma.calendarLayerPreference.deleteMany({
-      where: { userId }
+      where: { analystId }
     });
   }
 
@@ -231,9 +231,9 @@ export class CalendarLayerService {
     ];
   }
 
-  private async getUserLayerPreferences(userId: string) {
+  private async getUserLayerPreferences(analystId: string) {
     return this.prisma.calendarLayerPreference.findMany({
-      where: { userId }
+      where: { analystId }
     });
   }
 

@@ -7,10 +7,10 @@ const router = Router();
 const calendarLayerService = new CalendarLayerService(prisma);
 const viewManagementService = new ViewManagementService(prisma);
 
-// Helper function to get user ID from request (placeholder for auth)
-const getUserId = (req: any): string => {
+// Helper function to get analyst ID from request (placeholder for auth)
+const getAnalystId = (req: any): string => {
   // TODO: Implement proper authentication
-  return req.headers['user-id'] || 'default-user';
+  return req.headers['analyst-id'] || 'default-analyst';
 };
 
 // Helper function to validate date range
@@ -44,9 +44,9 @@ router.get('/layers', async (req, res) => {
     }
 
     const dateRange = validateDateRange(startDate as string, endDate as string);
-    const userId = getUserId(req);
+    const analystId = getAnalystId(req);
     
-    const result = await calendarLayerService.getCalendarLayers(dateRange, userId);
+    const result = await calendarLayerService.getCalendarLayers(dateRange, analystId);
     
     res.json(result);
   } catch (error) {
@@ -95,7 +95,7 @@ router.post('/layers/:layerId/toggle', async (req, res) => {
   try {
     const { layerId } = req.params;
     const { enabled } = req.body;
-    const userId = getUserId(req);
+    const analystId = getAnalystId(req);
     
     if (typeof enabled !== 'boolean') {
       return res.status(400).json({ 
@@ -103,7 +103,7 @@ router.post('/layers/:layerId/toggle', async (req, res) => {
       });
     }
     
-    await calendarLayerService.toggleLayer(layerId, enabled, userId);
+    await calendarLayerService.toggleLayer(layerId, enabled, analystId);
     
     res.json({ success: true, message: `Layer ${layerId} ${enabled ? 'enabled' : 'disabled'}` });
   } catch (error) {
@@ -122,7 +122,7 @@ router.post('/layers/:layerId/toggle', async (req, res) => {
 router.put('/layers/preferences', async (req, res) => {
   try {
     const { layerId, opacity, color, orderIndex } = req.body;
-    const userId = getUserId(req);
+    const analystId = getAnalystId(req);
     
     if (!layerId) {
       return res.status(400).json({ 
@@ -137,7 +137,7 @@ router.put('/layers/preferences', async (req, res) => {
       orderIndex: orderIndex !== undefined ? Number(orderIndex) : undefined
     };
     
-    await calendarLayerService.updateLayerPreferences(userId, preferences);
+    await calendarLayerService.updateLayerPreferences(analystId, preferences);
     
     res.json({ success: true, message: 'Layer preferences updated' });
   } catch (error) {
@@ -164,10 +164,10 @@ router.get('/layers/conflicts', async (req, res) => {
     }
 
     const dateRange = validateDateRange(startDate as string, endDate as string);
-    const userId = getUserId(req);
+    const analystId = getAnalystId(req);
     
     // Get all layers to check for conflicts
-    const layers = await calendarLayerService.getCalendarLayers(dateRange, userId);
+    const layers = await calendarLayerService.getCalendarLayers(dateRange, analystId);
     const enabledLayerIds = layers.layers.filter(l => l.enabled).map(l => l.id);
     
     const allConflicts = [];
@@ -192,9 +192,9 @@ router.get('/layers/conflicts', async (req, res) => {
  */
 router.post('/layers/reset', async (req, res) => {
   try {
-    const userId = getUserId(req);
+    const analystId = getAnalystId(req);
     
-    await calendarLayerService.resetLayerPreferences(userId);
+    await calendarLayerService.resetLayerPreferences(analystId);
     
     res.json({ success: true, message: 'Layer preferences reset to defaults' });
   } catch (error) {
@@ -228,7 +228,7 @@ router.get('/view/:type', async (req, res) => {
       });
     }
 
-    const userId = getUserId(req);
+    const analystId = getAnalystId(req);
     
     // Get view context
     const context = await viewManagementService.getViewContext(type as 'day' | 'week' | 'month', viewDate);
@@ -259,7 +259,7 @@ router.get('/view/:type', async (req, res) => {
 router.put('/view/preferences', async (req, res) => {
   try {
     const { viewType, defaultLayers, zoomLevel, showConflicts, showFairnessIndicators } = req.body;
-    const userId = getUserId(req);
+    const analystId = getAnalystId(req);
     
     if (!viewType) {
       return res.status(400).json({ 
@@ -275,7 +275,7 @@ router.put('/view/preferences', async (req, res) => {
       showFairnessIndicators: showFairnessIndicators !== undefined ? Boolean(showFairnessIndicators) : true
     };
     
-    await viewManagementService.saveViewPreferences(userId, preferences);
+    await viewManagementService.saveViewPreferences(analystId, preferences);
     
     res.json({ success: true, message: 'View preferences saved' });
   } catch (error) {
@@ -294,9 +294,9 @@ router.put('/view/preferences', async (req, res) => {
 router.get('/view/:type/preferences', async (req, res) => {
   try {
     const { type } = req.params;
-    const userId = getUserId(req);
+    const analystId = getAnalystId(req);
     
-    const preferences = await viewManagementService.getUserViewPreferences(userId, type);
+    const preferences = await viewManagementService.getUserViewPreferences(analystId, type);
     
     if (!preferences) {
       // Return default preferences if none exist
