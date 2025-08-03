@@ -89,6 +89,8 @@ export class SecurityService {
 
   // Load security configuration from environment variables
   private loadSecurityConfig(): SecurityConfig {
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
     return {
       jwtSecret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
       jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
@@ -97,19 +99,25 @@ export class SecurityService {
       rateLimits: {
         api: {
           windowMs: 15 * 60 * 1000, // 15 minutes
-          maxRequests: parseInt(process.env.RATE_LIMIT_API || '100'),
+          maxRequests: isDevelopment 
+            ? parseInt(process.env.RATE_LIMIT_API || '1000') // Higher limit for development
+            : parseInt(process.env.RATE_LIMIT_API || '100'),
           message: 'Too many requests from this IP',
           statusCode: 429,
         },
         auth: {
           windowMs: 15 * 60 * 1000, // 15 minutes
-          maxRequests: parseInt(process.env.RATE_LIMIT_AUTH || '5'),
+          maxRequests: isDevelopment 
+            ? parseInt(process.env.RATE_LIMIT_AUTH || '50') // Higher limit for development
+            : parseInt(process.env.RATE_LIMIT_AUTH || '5'),
           message: 'Too many authentication attempts',
           statusCode: 429,
         },
         graphql: {
           windowMs: 15 * 60 * 1000, // 15 minutes
-          maxRequests: parseInt(process.env.RATE_LIMIT_GRAPHQL || '200'),
+          maxRequests: isDevelopment 
+            ? parseInt(process.env.RATE_LIMIT_GRAPHQL || '2000') // Higher limit for development
+            : parseInt(process.env.RATE_LIMIT_GRAPHQL || '200'),
           message: 'Too many GraphQL requests',
           statusCode: 429,
         },

@@ -1,8 +1,41 @@
 import axios from 'axios';
-import moment from 'moment';
+import moment from 'moment-timezone';
 
 // API Configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
+
+// Request cache for reducing duplicate API calls
+const requestCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+
+// Debounce utility
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
+// Cache utility
+const getCachedData = (key: string, ttl: number = 30000): any | null => {
+  const cached = requestCache.get(key);
+  if (cached && Date.now() - cached.timestamp < ttl) {
+    return cached.data;
+  }
+  return null;
+};
+
+const setCachedData = (key: string, data: any, ttl: number = 30000): void => {
+  requestCache.set(key, {
+    data,
+    timestamp: Date.now(),
+    ttl
+  });
+};
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -33,6 +66,19 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     console.error('API Response Error:', error.response?.data || error.message);
+    
+    // Handle rate limiting specifically
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.data?.retryAfter || 15;
+      console.warn(`Rate limit exceeded. Retry after ${retryAfter} seconds.`);
+      
+      // Show user-friendly message
+      if (typeof window !== 'undefined') {
+        // You could dispatch a notification here
+        console.warn('Rate limit exceeded. Please wait a moment before trying again.');
+      }
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -1094,16 +1140,26 @@ export const apiService = {
 
   // Calendar Layer Management
   getCalendarLayers: async (startDate: string, endDate: string): Promise<any> => {
+    const cacheKey = `calendar_layers_${startDate}_${endDate}`;
+    const cached = getCachedData(cacheKey, 60000); // 1 minute cache
+    if (cached) return cached;
+
     const response = await apiClient.get('/calendar/layers', {
       params: { startDate, endDate }
     });
+    setCachedData(cacheKey, response.data, 60000);
     return response.data;
   },
 
   getLayerData: async (layerId: string, startDate: string, endDate: string): Promise<any> => {
+    const cacheKey = `layer_data_${layerId}_${startDate}_${endDate}`;
+    const cached = getCachedData(cacheKey, 30000); // 30 second cache
+    if (cached) return cached;
+
     const response = await apiClient.get(`/calendar/layers/${layerId}/data`, {
       params: { startDate, endDate }
     });
+    setCachedData(cacheKey, response.data, 30000);
     return response.data;
   },
 

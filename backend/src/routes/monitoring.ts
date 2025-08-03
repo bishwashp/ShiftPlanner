@@ -351,4 +351,65 @@ router.get('/dashboard', async (req: Request, res: Response) => {
   }
 });
 
+// Get rate limit status for current IP
+router.get('/rate-limit-status', async (req, res) => {
+  try {
+    const identifier = req.ip || 'unknown';
+    const status = await securityService.getRateLimitStatus(identifier);
+    
+    if (status) {
+      res.json({
+        current: status.current,
+        limit: status.limit,
+        remaining: status.limit - status.current,
+        resetTime: new Date(status.resetTime).toISOString(),
+        resetInSeconds: Math.ceil((status.resetTime - Date.now()) / 1000),
+      });
+    } else {
+      res.json({
+        current: 0,
+        limit: 0,
+        remaining: 0,
+        resetTime: null,
+        resetInSeconds: 0,
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to get rate limit status',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Get current rate limit configuration
+router.get('/rate-limit-config', (req, res) => {
+  try {
+    const config = securityService.getConfig();
+    res.json({
+      api: {
+        windowMs: config.rateLimits.api.windowMs,
+        maxRequests: config.rateLimits.api.maxRequests,
+        requestsPerMinute: Math.round(config.rateLimits.api.maxRequests / (config.rateLimits.api.windowMs / 60000)),
+      },
+      auth: {
+        windowMs: config.rateLimits.auth.windowMs,
+        maxRequests: config.rateLimits.auth.maxRequests,
+        requestsPerMinute: Math.round(config.rateLimits.auth.maxRequests / (config.rateLimits.auth.windowMs / 60000)),
+      },
+      graphql: {
+        windowMs: config.rateLimits.graphql.windowMs,
+        maxRequests: config.rateLimits.graphql.maxRequests,
+        requestsPerMinute: Math.round(config.rateLimits.graphql.maxRequests / (config.rateLimits.graphql.windowMs / 60000)),
+      },
+      environment: process.env.NODE_ENV || 'development',
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to get rate limit configuration',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 export default router; 

@@ -1,6 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CalendarLayer, CalendarEvent, Conflict, DateRange } from '../types/calendar';
 import apiService from '../services/api';
+
+// Debounce utility
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
 
 interface MultiLayerCalendarProps {
   dateRange: DateRange;
@@ -30,32 +43,41 @@ const MultiLayerCalendar: React.FC<MultiLayerCalendarProps> = ({
         const enabledLayers = layers.filter(layer => layer.enabled);
         const newLayerData: Record<string, CalendarEvent[]> = {};
         
-        // Load data for each enabled layer
-        for (const layer of enabledLayers) {
+        // Load data for each enabled layer in parallel
+        const layerPromises = enabledLayers.map(async (layer) => {
           try {
             const data = await apiService.getLayerData(
               layer.id,
               dateRange.startDate,
               dateRange.endDate
             );
-            newLayerData[layer.id] = data.events || [];
+            return { layerId: layer.id, events: data.events || [] };
           } catch (error) {
             console.error(`Error loading data for layer ${layer.id}:`, error);
-            newLayerData[layer.id] = [];
+            return { layerId: layer.id, events: [] };
           }
-        }
+        });
+        
+        const layerResults = await Promise.all(layerPromises);
+        layerResults.forEach(({ layerId, events }) => {
+          newLayerData[layerId] = events;
+        });
         
         setLayerData(newLayerData);
         
-        // Load conflicts
-        try {
-          const conflictsData = await apiService.getLayerConflicts(
-            dateRange.startDate,
-            dateRange.endDate
-          );
-          setConflicts(conflictsData.conflicts || []);
-        } catch (error) {
-          console.error('Error loading conflicts:', error);
+        // Load conflicts (only if we have enabled layers)
+        if (enabledLayers.length > 0) {
+          try {
+            const conflictsData = await apiService.getLayerConflicts(
+              dateRange.startDate,
+              dateRange.endDate
+            );
+            setConflicts(conflictsData.conflicts || []);
+          } catch (error) {
+            console.error('Error loading conflicts:', error);
+            setConflicts([]);
+          }
+        } else {
           setConflicts([]);
         }
       } catch (error) {
@@ -65,7 +87,9 @@ const MultiLayerCalendar: React.FC<MultiLayerCalendarProps> = ({
       }
     };
 
-    loadLayerData();
+    // Debounce the data loading to prevent excessive API calls
+    const debouncedLoadData = debounce(loadLayerData, 300);
+    debouncedLoadData();
   }, [layers, dateRange]);
 
   const handleEventClick = (event: CalendarEvent) => {
