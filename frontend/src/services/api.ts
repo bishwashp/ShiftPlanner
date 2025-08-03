@@ -263,6 +263,238 @@ export const apiService = {
     await apiClient.delete(`/constraints/${id}`);
   },
 
+  // Real-time constraint validation
+  validateConstraintRealTime: async (data: {
+    constraint: Partial<SchedulingConstraint>;
+    operation?: 'CREATE' | 'UPDATE' | 'DELETE';
+    originalConstraint?: SchedulingConstraint;
+  }): Promise<{
+    isValid: boolean;
+    warnings: Array<{
+      type: 'OVERLAP' | 'FAIRNESS' | 'COVERAGE' | 'OPTIMIZATION';
+      message: string;
+      details?: any;
+    }>;
+    errors: Array<{
+      type: 'CONFLICT' | 'INVALID_DATE' | 'INVALID_ANALYST' | 'LOGIC_ERROR';
+      message: string;
+      field?: string;
+      details?: any;
+    }>;
+    suggestions: string[];
+    estimatedImpact: {
+      severity: 'LOW' | 'MEDIUM' | 'HIGH';
+      affectedDays: number;
+      affectedSchedules: number;
+      conflictProbability: number;
+    };
+    responseTime: number;
+  }> => {
+    const response = await apiClient.post('/constraints/validate-realtime', data);
+    return response.data as {
+      isValid: boolean;
+      warnings: Array<{
+        type: 'OVERLAP' | 'FAIRNESS' | 'COVERAGE' | 'OPTIMIZATION';
+        message: string;
+        details?: any;
+      }>;
+      errors: Array<{
+        type: 'CONFLICT' | 'INVALID_DATE' | 'INVALID_ANALYST' | 'LOGIC_ERROR';
+        message: string;
+        field?: string;
+        details?: any;
+      }>;
+      suggestions: string[];
+      estimatedImpact: {
+        severity: 'LOW' | 'MEDIUM' | 'HIGH';
+        affectedDays: number;
+        affectedSchedules: number;
+        conflictProbability: number;
+      };
+      responseTime: number;
+    };
+  },
+
+  // Comprehensive constraint validation
+  validateConstraint: async (data: {
+    constraint: Partial<SchedulingConstraint>;
+    dateRange: { startDate: string; endDate: string };
+  }): Promise<{
+    isValid: boolean;
+    preview: {
+      estimatedImpact: 'LOW' | 'MEDIUM' | 'HIGH';
+      affectedDaysCount: number;
+      estimatedConflicts: number;
+      message: string;
+    };
+    impact: {
+      conflictCount: number;
+      affectedDays: number;
+      affectedAnalysts: number;
+      recommendations: string[];
+    };
+  }> => {
+    const response = await apiClient.post('/constraints/validate', data);
+    return response.data as {
+      isValid: boolean;
+      preview: {
+        estimatedImpact: 'LOW' | 'MEDIUM' | 'HIGH';
+        affectedDaysCount: number;
+        estimatedConflicts: number;
+        message: string;
+      };
+      impact: {
+        conflictCount: number;
+        affectedDays: number;
+        affectedAnalysts: number;
+        recommendations: string[];
+      };
+    };
+  },
+
+  // Constraint impact preview
+  getConstraintImpactPreview: async (data: {
+    constraintChange: {
+      type: 'CREATE' | 'UPDATE' | 'DELETE';
+      constraint: Partial<SchedulingConstraint>;
+      originalConstraint?: SchedulingConstraint;
+    };
+  }): Promise<{
+    estimatedImpact: 'LOW' | 'MEDIUM' | 'HIGH';
+    affectedDaysCount: number;
+    estimatedConflicts: number;
+    message: string;
+  }> => {
+    const response = await apiClient.post('/constraints/impact-preview', data);
+    return response.data as {
+      estimatedImpact: 'LOW' | 'MEDIUM' | 'HIGH';
+      affectedDaysCount: number;
+      estimatedConflicts: number;
+      message: string;
+    };
+  },
+
+  // Full constraint impact simulation
+  simulateConstraintImpact: async (data: {
+    constraintChange: {
+      type: 'CREATE' | 'UPDATE' | 'DELETE';
+      constraint: Partial<SchedulingConstraint>;
+      originalConstraint?: SchedulingConstraint;
+    };
+    dateRange: { startDate: string; endDate: string };
+    algorithmConfig?: any;
+    includeReschedule?: boolean;
+  }): Promise<{
+    affectedDates: string[];
+    affectedAnalysts: string[];
+    scheduleChanges: {
+      before: Schedule[];
+      after: Schedule[];
+      conflicts: Array<{
+        date: string;
+        message: string;
+        severity: 'HIGH' | 'MEDIUM' | 'LOW';
+        analystId?: string;
+      }>;
+    };
+    fairnessImpact: {
+      before: number;
+      after: number;
+      change: number;
+    };
+    coverageImpact: {
+      gapsIntroduced: number;
+      gapsResolved: number;
+      netCoverageChange: number;
+    };
+    recommendations: string[];
+  }> => {
+    const response = await apiClient.post('/constraints/impact-simulation', data);
+    return response.data as {
+      affectedDates: string[];
+      affectedAnalysts: string[];
+      scheduleChanges: {
+        before: Schedule[];
+        after: Schedule[];
+        conflicts: Array<{
+          date: string;
+          message: string;
+          severity: 'LOW' | 'MEDIUM' | 'HIGH';
+          analystId?: string;
+        }>;
+      };
+      fairnessImpact: {
+        before: number;
+        after: number;
+        change: number;
+      };
+      coverageImpact: {
+        gapsIntroduced: number;
+        gapsResolved: number;
+        netCoverageChange: number;
+      };
+      recommendations: string[];
+    };
+  },
+
+  // What-if scenario modeling
+  analyzeScenario: async (data: {
+    name: string;
+    description?: string;
+    changes: Array<{
+      type: 'CREATE' | 'UPDATE' | 'DELETE';
+      constraint: Partial<SchedulingConstraint>;
+      originalConstraint?: SchedulingConstraint;
+    }>;
+    dateRange: { startDate: string; endDate: string };
+    includeReschedule?: boolean;
+    includePredictions?: boolean;
+  }): Promise<any> => {
+    const response = await apiClient.post('/constraints/scenario/analyze', data);
+    return response.data;
+  },
+
+  compareScenarios: async (data: {
+    scenarios: Array<{
+      name: string;
+      description?: string;
+      changes: Array<{
+        type: 'CREATE' | 'UPDATE' | 'DELETE';
+        constraint: Partial<SchedulingConstraint>;
+        originalConstraint?: SchedulingConstraint;
+      }>;
+      dateRange: { startDate: string; endDate: string };
+    }>;
+  }): Promise<any> => {
+    const response = await apiClient.post('/constraints/scenario/compare', data);
+    return response.data;
+  },
+
+  testIncrementalChanges: async (data: {
+    name: string;
+    changes: Array<{
+      type: 'CREATE' | 'UPDATE' | 'DELETE';
+      constraint: Partial<SchedulingConstraint>;
+      originalConstraint?: SchedulingConstraint;
+    }>;
+    dateRange: { startDate: string; endDate: string };
+  }): Promise<any> => {
+    const response = await apiClient.post('/constraints/scenario/incremental', data);
+    return response.data;
+  },
+
+  simulateRollback: async (data: {
+    currentConstraints: SchedulingConstraint[];
+    changes: Array<{
+      type: 'CREATE' | 'UPDATE' | 'DELETE';
+      constraint: Partial<SchedulingConstraint>;
+      originalConstraint?: SchedulingConstraint;
+    }>;
+  }): Promise<any> => {
+    const response = await apiClient.post('/constraints/scenario/rollback', data);
+    return response.data;
+  },
+
   // Schedules
   getSchedules: async (startDate: string, endDate: string): Promise<Schedule[]> => {
     const response = await apiClient.get('/schedules', { params: { startDate, endDate } });
@@ -453,6 +685,192 @@ export const apiService = {
   exportToAppleCalendar: async (schedules: Schedule[]): Promise<{ message: string; calendarUrl: string }> => {
     const response = await apiClient.post('/calendar/apple', { schedules });
     return response.data as { message: string; calendarUrl: string };
+  },
+
+  // Early Warning System
+  getWarnings: async (severity?: string): Promise<any> => {
+    const params = severity ? { severity } : {};
+    const response = await apiClient.get('/constraints/warnings', { params });
+    return response.data;
+  },
+
+  getWarningMetrics: async (): Promise<any> => {
+    const response = await apiClient.get('/constraints/warnings/metrics');
+    return response.data;
+  },
+
+  performWarningCheck: async (): Promise<any> => {
+    const response = await apiClient.post('/constraints/warnings/check');
+    return response.data;
+  },
+
+  resolveWarning: async (warningId: string, resolvedBy: string, notes?: string): Promise<any> => {
+    const response = await apiClient.post(`/constraints/warnings/${warningId}/resolve`, {
+      resolvedBy,
+      notes
+    });
+    return response.data;
+  },
+
+  updateWarningConfig: async (config: any): Promise<any> => {
+    const response = await apiClient.put('/constraints/warnings/config', config);
+    return response.data;
+  },
+
+  // Risk Assessment & Conflict Probability
+  getUpcomingRisks: async (days: number = 30): Promise<any> => {
+    const response = await apiClient.get('/constraints/risk-assessment/upcoming', {
+      params: { days }
+    });
+    return response.data;
+  },
+
+  calculateDateRisk: async (date: string): Promise<any> => {
+    const response = await apiClient.get(`/constraints/risk-assessment/date/${date}`);
+    return response.data;
+  },
+
+  calculateRangeRisk: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.post('/constraints/risk-assessment/range', {
+      startDate,
+      endDate
+    });
+    return response.data;
+  },
+
+  getRiskFactors: async (): Promise<any> => {
+    const response = await apiClient.get('/constraints/risk-assessment/factors');
+    return response.data;
+  },
+
+  updateRiskConfig: async (config: any): Promise<any> => {
+    const response = await apiClient.put('/constraints/risk-assessment/config', config);
+    return response.data;
+  },
+
+  clearRiskCache: async (): Promise<any> => {
+    const response = await apiClient.post('/constraints/risk-assessment/clear-cache');
+    return response.data;
+  },
+
+  // Event Management
+  getEvents: async (days: number = 30): Promise<any> => {
+    const response = await apiClient.get('/constraints/events', { params: { days } });
+    return response.data;
+  },
+
+  getEventDefinitions: async (): Promise<any> => {
+    const response = await apiClient.get('/constraints/events/definitions');
+    return response.data;
+  },
+
+  createEventDefinition: async (definition: any): Promise<any> => {
+    const response = await apiClient.post('/constraints/events/definitions', definition);
+    return response.data;
+  },
+
+  updateEventDefinition: async (id: string, updates: any): Promise<any> => {
+    const response = await apiClient.put(`/constraints/events/definitions/${id}`, updates);
+    return response.data;
+  },
+
+  deleteEventDefinition: async (id: string): Promise<any> => {
+    const response = await apiClient.delete(`/constraints/events/definitions/${id}`);
+    return response.data;
+  },
+
+  generateEventInstances: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.post('/constraints/events/generate', {
+      startDate,
+      endDate
+    });
+    return response.data;
+  },
+
+  applyEventConstraints: async (): Promise<any> => {
+    const response = await apiClient.post('/constraints/events/apply-constraints');
+    return response.data;
+  },
+
+  getHolidays: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.get('/constraints/events/holidays', {
+      params: { startDate, endDate }
+    });
+    return response.data;
+  },
+
+  getEventsForDate: async (date: string): Promise<any> => {
+    const response = await apiClient.get(`/constraints/events/date/${date}`);
+    return response.data;
+  },
+
+  getEventStats: async (): Promise<any> => {
+    const response = await apiClient.get('/constraints/events/stats');
+    return response.data;
+  },
+
+  // Template Management
+  getTemplates: async (filters?: any): Promise<any> => {
+    const response = await apiClient.get('/constraints/templates', { params: filters });
+    return response.data;
+  },
+
+  getTemplate: async (id: string): Promise<any> => {
+    const response = await apiClient.get(`/constraints/templates/${id}`);
+    return response.data;
+  },
+
+  createTemplate: async (template: any): Promise<any> => {
+    const response = await apiClient.post('/constraints/templates', template);
+    return response.data;
+  },
+
+  updateTemplate: async (id: string, updates: any): Promise<any> => {
+    const response = await apiClient.put(`/constraints/templates/${id}`, updates);
+    return response.data;
+  },
+
+  deleteTemplate: async (id: string): Promise<any> => {
+    const response = await apiClient.delete(`/constraints/templates/${id}`);
+    return response.data;
+  },
+
+  applyTemplate: async (id: string, application: any): Promise<any> => {
+    const response = await apiClient.post(`/constraints/templates/${id}/apply`, application);
+    return response.data;
+  },
+
+  getTemplateCategories: async (): Promise<any> => {
+    const response = await apiClient.get('/constraints/templates/categories/stats');
+    return response.data;
+  },
+
+  getPopularTemplates: async (limit: number = 10): Promise<any> => {
+    const response = await apiClient.get(`/constraints/templates/popular/${limit}`);
+    return response.data;
+  },
+
+  getTopRatedTemplates: async (limit: number = 10): Promise<any> => {
+    const response = await apiClient.get(`/constraints/templates/top-rated/${limit}`);
+    return response.data;
+  },
+
+  searchTemplates: async (query: string): Promise<any> => {
+    const response = await apiClient.get(`/constraints/templates/search/${encodeURIComponent(query)}`);
+    return response.data;
+  },
+
+  getTemplateLibraryStats: async (): Promise<any> => {
+    const response = await apiClient.get('/constraints/templates/stats/library');
+    return response.data;
+  },
+
+  createTemplateFromConstraints: async (constraintIds: string[], templateData: any): Promise<any> => {
+    const response = await apiClient.post('/constraints/templates/create-from-constraints', {
+      constraintIds,
+      templateData
+    });
+    return response.data;
   },
 };
 

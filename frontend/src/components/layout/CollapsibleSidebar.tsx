@@ -7,10 +7,11 @@ import {
   BarChart2,
   ListTodo,
   Cpu,
-  Download
+  Download,
+  Layers
 } from 'lucide-react';
 
-export type View = 'schedule' | 'dashboard' | 'analysts' | 'conflicts' | 'analytics' | 'constraints' | 'algorithms' | 'export';
+export type View = 'schedule' | 'dashboard' | 'analysts' | 'conflicts' | 'analytics' | 'constraints' | 'algorithms' | 'export' | 'scenarios';
 
 interface CollapsibleSidebarProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
     { view: 'conflicts', label: 'Conflicts', icon: AlertTriangle },
     { view: 'analytics', label: 'Analytics', icon: BarChart2 },
     { view: 'constraints', label: 'Constraints', icon: ListTodo },
+    { view: 'scenarios', label: 'What-If Scenarios', icon: Layers },
     { view: 'algorithms', label: 'Algorithms', icon: Cpu },
     { view: 'export', label: 'Export & Integration', icon: Download },
   ];

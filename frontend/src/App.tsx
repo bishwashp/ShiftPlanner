@@ -11,6 +11,7 @@ import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
 import CalendarExport from './components/CalendarExport';
+import WhatIfScenarioModeler from './components/WhatIfScenarioModeler';
 import { View as BigCalendarView } from 'react-big-calendar';
 import moment from 'moment-timezone';
 import { useTheme } from 'react18-themes';
@@ -122,6 +123,8 @@ function App() {
         return <Analytics />;
       case 'constraints':
         return <ConstraintManagement />;
+      case 'scenarios':
+        return <WhatIfScenarioModeler />;
       case 'algorithms':
         return <AlgorithmManagement />;
       case 'export':
