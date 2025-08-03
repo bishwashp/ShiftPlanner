@@ -1,6 +1,8 @@
 import { Analyst, SchedulingConstraint } from '../../../../generated/prisma';
 import { ProposedSchedule, SchedulingContext, OptimizationStrategy, AlgorithmConfiguration } from './types';
 import { fairnessEngine } from './FairnessEngine';
+import { randomizationService } from '../../RandomizationService';
+import { tracingService } from '../../TracingService';
 import { constraintEngine } from './ConstraintEngine';
 
 export class OptimizationEngine {
@@ -50,7 +52,8 @@ export class OptimizationEngine {
         let iterations = 0;
         let improvements = 0;
         
-        console.log(`🚀 Starting hill climbing optimization with ${currentSchedules.length} schedules`);
+        tracingService.startTiming('hill_climbing');
+        tracingService.logStrategy('optimization', 'hill_climbing', { schedules: currentSchedules.length });
         
         while (iterations < config.maxIterations) {
             iterations++;
@@ -76,7 +79,12 @@ export class OptimizationEngine {
                 currentScore = bestNeighborScore;
                 improvements++;
                 
-                console.log(`📈 Iteration ${iterations}: Score improved to ${currentScore.toFixed(4)}`);
+                tracingService.logOptimization('hill_climbing_progress', {
+                    iteration: iterations,
+                    score: currentScore,
+                    improvement: true,
+                    strategy: 'hill_climbing'
+                });
             } else {
                 // No improvement found, try different neighborhood
                 if (iterations % 100 === 0) {
@@ -89,7 +97,13 @@ export class OptimizationEngine {
             }
         }
         
-        console.log(`✅ Hill climbing completed: ${iterations} iterations, ${improvements} improvements`);
+        const duration = tracingService.endTiming('hill_climbing', 'hill_climbing_optimization');
+        tracingService.logSummary('hill_climbing_complete', {
+            success: true,
+            duration,
+            summary: `Hill climbing optimization completed`,
+            metrics: { iterations, improvements, finalScore: currentScore }
+        });
         return currentSchedules;
     }
     
@@ -110,7 +124,11 @@ export class OptimizationEngine {
         const coolingRate = 0.95;
         let iterations = 0;
         
-        console.log(`🔥 Starting simulated annealing optimization`);
+        tracingService.startTiming('simulated_annealing');
+        tracingService.logStrategy('optimization', 'simulated_annealing', { 
+            initialTemperature: temperature,
+            coolingRate: coolingRate 
+        });
         
         while (iterations < config.maxIterations && temperature > 0.01) {
             iterations++;
@@ -119,11 +137,13 @@ export class OptimizationEngine {
             const neighbor = this.generateRandomNeighbor(currentSchedules, context);
             const neighborScore = this.calculateOverallScore(neighbor, context, config);
             
-            // Calculate acceptance probability
+            // Calculate acceptance probability using randomization service
             const deltaE = neighborScore - currentScore;
-            const acceptanceProbability = Math.exp(deltaE / temperature);
+            const acceptanceProbability = randomizationService.calculateAcceptanceProbability(
+                deltaE, temperature, config
+            );
             
-            // Accept or reject neighbor
+            // Accept or reject neighbor with controlled randomization
             if (deltaE > 0 || Math.random() < acceptanceProbability) {
                 currentSchedules = neighbor;
                 currentScore = neighborScore;
@@ -132,7 +152,13 @@ export class OptimizationEngine {
                 if (currentScore > bestScore) {
                     bestSchedules = [...currentSchedules];
                     bestScore = currentScore;
-                    console.log(`🏆 New best score: ${bestScore.toFixed(4)} at iteration ${iterations}`);
+                    tracingService.logOptimization('simulated_annealing_best', {
+                        iteration: iterations,
+                        score: bestScore,
+                        temperature,
+                        improvement: true,
+                        strategy: 'simulated_annealing'
+                    });
                 }
             }
             
@@ -140,11 +166,22 @@ export class OptimizationEngine {
             temperature *= coolingRate;
             
             if (iterations % 100 === 0) {
-                console.log(`🌡️  Iteration ${iterations}: Temperature ${temperature.toFixed(4)}, Score ${currentScore.toFixed(4)}`);
+                tracingService.logOptimization('simulated_annealing_progress', {
+                    iteration: iterations,
+                    score: currentScore,
+                    temperature,
+                    strategy: 'simulated_annealing'
+                });
             }
         }
         
-        console.log(`✅ Simulated annealing completed: ${iterations} iterations, best score ${bestScore.toFixed(4)}`);
+        const duration = tracingService.endTiming('simulated_annealing', 'simulated_annealing_optimization');
+        tracingService.logSummary('simulated_annealing_complete', {
+            success: true,
+            duration,
+            summary: `Simulated annealing optimization completed`,
+            metrics: { iterations, bestScore, finalTemperature: temperature }
+        });
         return bestSchedules;
     }
     
@@ -243,7 +280,8 @@ export class OptimizationEngine {
         let improved = true;
         let iterations = 0;
         
-        console.log(`⚡ Starting greedy optimization`);
+        tracingService.startTiming('greedy_optimization');
+        tracingService.logStrategy('optimization', 'greedy', { schedules: schedules.length });
         
         while (improved && iterations < config.maxIterations) {
             iterations++;
@@ -259,7 +297,12 @@ export class OptimizationEngine {
                     if (swappedScore > currentScore + config.convergenceThreshold) {
                         currentSchedules = swapped;
                         improved = true;
-                        console.log(`📈 Iteration ${iterations}: Score improved to ${swappedScore.toFixed(4)}`);
+                        tracingService.logOptimization('greedy_progress', {
+                        iteration: iterations,
+                        score: swappedScore,
+                        improvement: true,
+                        strategy: 'greedy'
+                    });
                         break;
                     }
                 }
@@ -267,7 +310,13 @@ export class OptimizationEngine {
             }
         }
         
-        console.log(`✅ Greedy optimization completed: ${iterations} iterations`);
+        const duration = tracingService.endTiming('greedy_optimization', 'greedy_optimization');
+        tracingService.logSummary('greedy_complete', {
+            success: true,
+            duration,
+            summary: `Greedy optimization completed`,
+            metrics: { iterations, finalScore: this.calculateOverallScore(currentSchedules, context, config) }
+        });
         return currentSchedules;
     }
     
@@ -286,11 +335,14 @@ export class OptimizationEngine {
         const constraintScore = constraintValidation.score;
         const efficiencyScore = this.calculateEfficiencyScore(schedules, context);
         
-        return (
+        const baseScore = (
             fairnessScore * config.fairnessWeight +
             constraintScore * config.constraintWeight +
             efficiencyScore * config.efficiencyWeight
         );
+
+        // Apply randomization perturbation to overall score
+        return randomizationService.applyScorePerturbation(baseScore, config, 0.02); // 2% perturbation
     }
     
     /**

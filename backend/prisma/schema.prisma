@@ -20,6 +20,11 @@ model Analyst {
   email       String   @unique
   shiftType   ShiftType  // AM or PM shift assignment
   isActive    Boolean  @default(true)
+  
+  // NEW: Experience and Employment Classification
+  experienceLevel ExperienceLevel @default(JUNIOR)
+  employeeType    EmployeeType    @default(FULL_TIME)
+  
   customAttributes Json?
   skills      String[] @default([])
   createdAt   DateTime @default(now())
@@ -33,6 +38,7 @@ model Analyst {
   
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
+  @@index([experienceLevel, employeeType]) // For experience-based selections
   @@index([email]) // Already unique, but explicit for performance
   @@index([createdAt]) // For sorting and date-based queries
   @@map("analysts")
@@ -136,6 +142,29 @@ model AlgorithmConfig {
   @@map("algorithm_configs")
 }
 
+model CalendarEvent {
+  id          String        @id @default(cuid())
+  title       String
+  startDate   DateTime
+  endDate     DateTime
+  eventType   EventType     @default(HOLIDAY)
+  calendarType CalendarType @default(EVENT)
+  description String?
+  
+  // Auto-generated constraints with override capability
+  defaultConstraints  Json    // System-generated based on eventType
+  overrideConstraints Json?   // User overrides for specific scenarios
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Performance indexes for calendar queries
+  @@index([startDate, endDate, calendarType]) // For date range queries by calendar type
+  @@index([eventType]) // For filtering by event type
+  @@index([calendarType]) // For calendar toggle functionality
+  @@map("calendar_events")
+}
+
 enum ShiftType {
   MORNING
   EVENING
@@ -164,4 +193,206 @@ enum ConstraintType {
   MIN_SCREENER_DAYS  // Minimum screener assignments per analyst
   PREFERRED_SCREENER // Preferred screener for specific dates
   UNAVAILABLE_SCREENER // Unavailable for screener on specific dates
+}
+
+enum ExperienceLevel {
+  JUNIOR
+  MID_LEVEL
+  SENIOR
+  EXPERT
+}
+
+enum EmployeeType {
+  FULL_TIME
+  ROTATION
+  CONSULTANT
+}
+
+enum EventType {
+  MAJOR_RELEASE     // Needs 1 full-time OR 1 senior consultant
+  MINOR_RELEASE     // Needs 1 senior consultant minimum
+  HOLIDAY           // No additional constraints
+  PARTNER_DOWNTIME  // Partner system maintenance
+}
+
+enum CalendarType {
+  SHIFT    // Contains shift assignments and screening
+  EVENT    // Major events and corporate holidays
+  PARTNER  // Minor releases and partner downtime
+}
+
+// Algorithm Auditing and Performance Tracking
+model AlgorithmAudit {
+  id                  String   @id @default(cuid())
+  
+  // Execution context
+  algorithmName       String
+  version             String
+  startDate           DateTime
+  endDate             DateTime
+  analystCount        Int
+  executionTime       Float    // milliseconds
+  
+  // Configuration used
+  configuration       Json     // Full algorithm configuration
+  
+  // Outcomes and metrics
+  schedulesGenerated  Int
+  conflictsFound      Int
+  overwrites          Int
+  fairnessScore       Float
+  constraintScore     Float
+  efficiencyScore     Float
+  overallScore        Float
+  
+  // Success indicators
+  success             Boolean  @default(true)
+  errorMessage        String?
+  
+  // Relationships
+  decisions           DecisionAudit[]
+  metrics             PerformanceMetrics[]
+  recommendations     AuditRecommendation[]
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Performance indexes
+  @@index([algorithmName, createdAt])
+  @@index([success, overallScore])
+  @@index([startDate, endDate])
+  @@map("algorithm_audits")
+}
+
+model DecisionAudit {
+  id                  String   @id @default(cuid())
+  
+  // Audit context
+  algorithmAuditId    String
+  algorithmAudit      AlgorithmAudit @relation(fields: [algorithmAuditId], references: [id], onDelete: Cascade)
+  
+  // Decision details
+  decisionType        DecisionType
+  strategy            String           // Which strategy was used
+  analystId           String?          // Analyst involved in decision
+  date                DateTime?        // Date being scheduled
+  shiftType           String?          // MORNING/EVENING
+  
+  // Decision context
+  alternatives        Int              // Number of alternatives considered
+  selectionScore      Float            // Score of selected option
+  selectionReason     String           // Human-readable reason
+  constraints         Json?            // Constraints that influenced decision
+  
+  // Outcome tracking (filled in later)
+  actualOutcome       String?          // What actually happened
+  outcomeScore        Float?           // How well the decision worked
+  feedback            String?          // Any manual feedback
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Performance indexes
+  @@index([algorithmAuditId])
+  @@index([decisionType, strategy])
+  @@index([analystId, date])
+  @@map("decision_audits")
+}
+
+model PerformanceMetrics {
+  id                  String   @id @default(cuid())
+  
+  // Context
+  algorithmAuditId    String
+  algorithmAudit      AlgorithmAudit @relation(fields: [algorithmAuditId], references: [id], onDelete: Cascade)
+  
+  // Metric details
+  metricType          String           // Type of metric (e.g., "fairness", "efficiency")
+  category            String           // Category (e.g., "screener_selection", "optimization")
+  value               Float            // Metric value
+  baseline            Float?           // Baseline comparison value
+  improvement         Float?           // Improvement over baseline
+  
+  // Context data
+  metadata            Json?            // Additional metric context
+  
+  createdAt           DateTime @default(now())
+  
+  // Performance indexes
+  @@index([algorithmAuditId])
+  @@index([metricType, category])
+  @@index([createdAt])
+  @@map("performance_metrics")
+}
+
+model AuditRecommendation {
+  id                  String   @id @default(cuid())
+  
+  // Context
+  algorithmAuditId    String?
+  algorithmAudit      AlgorithmAudit? @relation(fields: [algorithmAuditId], references: [id], onDelete: Cascade)
+  
+  // Recommendation details
+  type                RecommendationType
+  priority            RecommendationPriority
+  title               String
+  description         String
+  
+  // Actionable data
+  currentValue        Json?            // Current configuration/state
+  recommendedValue    Json?            // Recommended configuration/state
+  expectedImprovement Float?           // Expected improvement metric
+  confidence          Float            // Confidence in recommendation (0-1)
+  
+  // Implementation tracking
+  status              RecommendationStatus @default(PENDING)
+  implementedAt       DateTime?
+  implementedBy       String?
+  result              String?          // Outcome after implementation
+  
+  // Analysis context
+  analysisData        Json?            // Supporting analysis data
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Performance indexes
+  @@index([type, priority, status])
+  @@index([confidence])
+  @@index([createdAt])
+  @@map("audit_recommendations")
+}
+
+// Supporting enums for audit system
+enum DecisionType {
+  SCREENER_SELECTION
+  WEEKEND_ROTATION
+  OPTIMIZATION_STRATEGY
+  CONSTRAINT_RESOLUTION
+  TIE_BREAKING
+  FAIRNESS_ADJUSTMENT
+}
+
+enum RecommendationType {
+  CONFIGURATION_CHANGE
+  STRATEGY_OPTIMIZATION
+  PERFORMANCE_IMPROVEMENT
+  CONSTRAINT_ADJUSTMENT
+  ALGORITHM_UPGRADE
+}
+
+enum RecommendationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RecommendationStatus {
+  PENDING
+  REVIEWED
+  APPROVED
+  IMPLEMENTED
+  REJECTED
+  EXPIRED
 }

@@ -1,8 +1,14 @@
-import { SchedulingAlgorithm, SchedulingContext, SchedulingResult, DEFAULT_ALGORITHM_CONFIG } from './types';
+import { SchedulingAlgorithm, SchedulingContext, SchedulingResult, DEFAULT_ALGORITHM_CONFIG, AlgorithmConfiguration } from './types';
 import { Analyst, Schedule, SchedulingConstraint } from '../../../../generated/prisma';
 import { fairnessEngine } from './FairnessEngine';
 import { constraintEngine } from './ConstraintEngine';
 import { optimizationEngine } from './OptimizationEngine';
+import { screenerSelectionEngine } from '../../ScreenerSelectionEngine';
+import { constraintHierarchy } from '../../ConstraintHierarchy';
+import { weekendRotationEngine } from '../../WeekendRotationEngine';
+import { tracingService } from '../../TracingService';
+import { algorithmAuditService } from '../../AlgorithmAuditService';
+import { reliabilityService } from '../../ReliabilityService';
 
 class WeekendRotationAlgorithm implements SchedulingAlgorithm {
     name = 'WeekendRotationAlgorithm';
@@ -19,13 +25,170 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
 
     async generateSchedules(context: SchedulingContext): Promise<SchedulingResult> {
         const startTime = Date.now();
-        console.log(`🚀 Starting ${this.name} v${this.version} with ${context.analysts.length} analysts`);
+        const originalConfig = context.algorithmConfig || DEFAULT_ALGORITHM_CONFIG;
         
-        // Use default config if not provided
-        const config = context.algorithmConfig || DEFAULT_ALGORITHM_CONFIG;
+        // Start audit session
+        const auditSessionId = await algorithmAuditService.startAuditSession(
+            this.name,
+            this.version,
+            originalConfig,
+            {
+                startDate: context.startDate,
+                endDate: context.endDate,
+                analystCount: context.analysts.length
+            }
+        );
+
+        tracingService.startTiming('schedule_generation');
+        tracingService.logSummary('algorithm_start', {
+            success: true,
+            summary: `${this.name} v${this.version} started with reliability scoring`,
+            metrics: { analysts: context.analysts.length }
+        });
+
+        // Reliability scoring: Attempt schedule generation with fallback strategies
+        let fallbacksUsed = 0;
+        let bestResult: SchedulingResult | null = null;
+        let bestConfidence: any = null;
+        let currentConfig = originalConfig;
+
+        while (fallbacksUsed <= 3) { // Max 4 attempts (primary + 3 fallbacks)
+            try {
+                tracingService.logStrategy('algorithm_attempt', `Attempt ${fallbacksUsed + 1}`, {
+                    strategy: currentConfig.optimizationStrategy,
+                    fallbacksUsed,
+                    maxIterations: currentConfig.maxIterations
+                });
+
+                const result = await this.attemptScheduleGeneration(context, currentConfig, auditSessionId, fallbacksUsed);
+                
+                // Calculate confidence score for this attempt
+                const confidenceScore = reliabilityService.calculateConfidenceScore(result, {
+                    algorithmConfig: currentConfig,
+                    executionTime: Date.now() - startTime,
+                    fallbacksUsed,
+                    optimizationIterations: result.performanceMetrics?.optimizationIterations || 0,
+                    inputDataQuality: this.assessInputDataQuality(context)
+                });
+
+                tracingService.logSummary('confidence_assessment', {
+                    success: true,
+                    summary: `Confidence: ${confidenceScore.overall}% | Quality: ${confidenceScore.qualityGate} | Risk: ${confidenceScore.riskLevel}`,
+                    metrics: {
+                        confidence: confidenceScore.overall
+                    }
+                });
+
+                // Store best result so far
+                if (!bestResult || confidenceScore.overall > (bestConfidence?.overall || 0)) {
+                    bestResult = { ...result, confidenceScore };
+                    bestConfidence = confidenceScore;
+                }
+
+                // Check if result meets quality gates
+                if (confidenceScore.qualityGate === 'PASS') {
+                    tracingService.logSummary('quality_gate_passed', {
+                        success: true,
+                        summary: `Schedule accepted with ${confidenceScore.overall}% confidence`,
+                        metrics: { 
+                            confidence: confidenceScore.overall,
+                            fallbacksUsed,
+                            attemptNumber: fallbacksUsed + 1
+                        }
+                    });
+                    break; // Accept this result
+                }
+
+                // Try fallback strategy if current result isn't good enough
+                const fallbackStrategy = reliabilityService.getNextFallbackStrategy(fallbacksUsed);
+                if (!fallbackStrategy) {
+                    tracingService.logSummary('fallback_exhausted', {
+                        success: false,
+                        summary: `All fallback strategies exhausted. Best confidence: ${bestConfidence?.overall || 0}%`,
+                        metrics: { 
+                            bestConfidence: bestConfidence?.overall || 0,
+                            totalAttempts: fallbacksUsed + 1
+                        }
+                    });
+                    break; // No more fallbacks available
+                }
+
+                // Prepare fallback configuration
+                currentConfig = reliabilityService.createFallbackConfiguration(originalConfig, fallbackStrategy);
+                fallbacksUsed++;
+
+                tracingService.logStrategy('fallback_strategy', fallbackStrategy.name, {
+                    previousConfidence: confidenceScore.overall,
+                    newStrategy: fallbackStrategy.optimizationStrategy,
+                    fallbackNumber: fallbacksUsed
+                });
+
+            } catch (error) {
+                tracingService.logSummary('algorithm_attempt_failed', {
+                    success: false,
+                    summary: `Attempt ${fallbacksUsed + 1} failed: ${error}`,
+                    metrics: { fallbacksUsed }
+                });
+
+                // Try fallback on error
+                const fallbackStrategy = reliabilityService.getNextFallbackStrategy(fallbacksUsed);
+                if (!fallbackStrategy) break;
+                
+                currentConfig = reliabilityService.createFallbackConfiguration(originalConfig, fallbackStrategy);
+                fallbacksUsed++;
+            }
+        }
+
+        // Use best result found (should not be null, but handle gracefully)
+        if (!bestResult) {
+            throw new Error('Failed to generate any valid schedule with all available strategies');
+        }
+
+        // Complete audit session with reliability metrics
+        const executionTime = Date.now() - startTime;
+        await algorithmAuditService.completeAuditSession(auditSessionId, {
+            schedulesGenerated: bestResult.proposedSchedules.length,
+            conflictsFound: bestResult.conflicts.length,
+            overwrites: bestResult.overwrites.length,
+            fairnessScore: bestResult.fairnessMetrics.overallFairnessScore,
+            constraintScore: bestResult.constraintValidation?.score || 0,
+            efficiencyScore: (bestResult.proposedSchedules.length > 0 ? 1.0 : 0.0),
+            overallScore: bestResult.confidenceScore?.overall || 0,
+            success: true
+        });
+
+        const tracingDuration = tracingService.endTiming('schedule_generation', 'schedule_generation');
+        tracingService.logSummary('algorithm_complete_with_reliability', {
+            success: true,
+            duration: executionTime,
+            summary: `${this.name} completed with ${bestResult.confidenceScore?.overall || 0}% confidence (${bestResult.confidenceScore?.qualityGate || 'UNKNOWN'})`,
+            metrics: {
+                confidence: bestResult.confidenceScore?.overall || 0,
+                fallbacksUsed,
+                fairnessScore: parseFloat(bestResult.fairnessMetrics.overallFairnessScore.toFixed(4)),
+                schedulesGenerated: bestResult.proposedSchedules.length,
+                conflictsFound: bestResult.conflicts.length
+            }
+        });
+
+        return bestResult;
+    }
+
+    /**
+     * Attempt schedule generation with a specific configuration
+     */
+    private async attemptScheduleGeneration(
+        context: SchedulingContext,
+        config: AlgorithmConfiguration,
+        auditSessionId: string,
+        attemptNumber: number
+    ): Promise<SchedulingResult> {
+        
+        // Update context with current config
+        const updatedContext = { ...context, algorithmConfig: config };
         
         // Generate initial schedules
-        const initialSchedules = await this.generateInitialSchedules(context);
+        const initialSchedules = await this.generateInitialSchedules(updatedContext, auditSessionId);
         
         // Validate constraints
         const constraintValidation = constraintEngine.validateConstraints(initialSchedules, context.globalConstraints);
@@ -36,10 +199,15 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         // Optimize schedules if needed
         let optimizedSchedules = initialSchedules;
         if (config.optimizationStrategy !== 'GREEDY' || fairnessMetrics.overallFairnessScore < 0.7) {
-            console.log(`🔧 Optimizing schedules using ${config.optimizationStrategy} strategy`);
-            optimizedSchedules = await optimizationEngine.optimizeSchedules(initialSchedules, context);
+            tracingService.logStrategy('schedule_optimization', config.optimizationStrategy, {
+                fairnessWeight: config.fairnessWeight,
+                efficiencyWeight: config.efficiencyWeight,
+                constraintWeight: config.constraintWeight,
+                attemptNumber
+            });
+            optimizedSchedules = await optimizationEngine.optimizeSchedules(initialSchedules, updatedContext);
         }
-        
+
         // Recalculate metrics after optimization
         const finalFairnessMetrics = fairnessEngine.calculateFairness(optimizedSchedules, context.analysts);
         const finalConstraintValidation = constraintEngine.validateConstraints(optimizedSchedules, context.globalConstraints);
@@ -49,28 +217,60 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         const overwrites = this.generateOverwrites(optimizedSchedules, context.existingSchedules);
         
         // Calculate performance metrics
-        const executionTime = Date.now() - startTime;
         const performanceMetrics = {
             totalQueries: 0, // Will be updated by Prisma client
             averageQueryTime: 0,
             slowQueries: 0,
             cacheHitRate: 0,
-            algorithmExecutionTime: executionTime,
+            algorithmExecutionTime: 0, // Will be set by caller
             memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024, // MB
-            optimizationIterations: 0 // Will be updated by optimization engine
+            optimizationIterations: 100 // Estimated - will be updated by optimization engine
         };
-        
-        console.log(`✅ ${this.name} completed in ${executionTime}ms`);
-        console.log(`📊 Fairness Score: ${finalFairnessMetrics.overallFairnessScore.toFixed(4)}`);
-        console.log(`🔒 Constraint Score: ${finalConstraintValidation.score.toFixed(4)}`);
-        
+
         return {
             proposedSchedules: optimizedSchedules,
             conflicts,
             overwrites,
             fairnessMetrics: finalFairnessMetrics,
+            constraintValidation: finalConstraintValidation,
             performanceMetrics
         };
+    }
+
+    /**
+     * Assess the quality of input data for confidence scoring
+     */
+    private assessInputDataQuality(context: SchedulingContext): number {
+        let quality = 1.0;
+
+        // Check analyst data completeness
+        const analystsWithMissingData = context.analysts.filter(a => 
+            !a.shiftType || !a.isActive || !a.experienceLevel || !a.employeeType
+        );
+        if (analystsWithMissingData.length > 0) {
+            quality -= (analystsWithMissingData.length / context.analysts.length) * 0.3;
+        }
+
+        // Check date range validity
+        const daySpan = Math.ceil((context.endDate.getTime() - context.startDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daySpan < 1 || daySpan > 365) {
+            quality -= 0.2; // Invalid date range
+        }
+
+        // Check constraint validity
+        const invalidConstraints = context.globalConstraints?.filter(c => 
+            !c.constraintType || !c.analystId
+        ) || [];
+        if (invalidConstraints.length > 0) {
+            quality -= (invalidConstraints.length / (context.globalConstraints?.length || 1)) * 0.2;
+        }
+
+        // Check for sufficient analyst coverage
+        if (context.analysts.length < 2) {
+            quality -= 0.3; // Need at least 2 analysts for rotation
+        }
+
+        return Math.max(0.0, Math.min(1.0, quality));
     }
 
     validateConstraints(schedules: any[], constraints: SchedulingConstraint[]): any {
@@ -85,10 +285,10 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         return optimizationEngine.optimizeSchedules(schedules, context);
     }
 
-    private async generateInitialSchedules(context: SchedulingContext): Promise<any[]> {
+    private async generateInitialSchedules(context: SchedulingContext, auditSessionId?: string): Promise<any[]> {
         const { startDate, endDate, analysts, existingSchedules, globalConstraints } = context;
 
-        const regularSchedulesResult = await this.generateRegularWorkSchedules(startDate, endDate, analysts, existingSchedules, globalConstraints);
+        const regularSchedulesResult = await this.generateRegularWorkSchedules(startDate, endDate, analysts, existingSchedules, globalConstraints, context.algorithmConfig);
     
         const allProposedSchedules = [...regularSchedulesResult.proposedSchedules];
         const allConflicts = [...regularSchedulesResult.conflicts];
@@ -100,7 +300,9 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           analysts,
           existingSchedules,
           globalConstraints,
-          allProposedSchedules
+          allProposedSchedules,
+          context.algorithmConfig,
+          auditSessionId
         );
       
         screenerSchedulesResult.proposedSchedules.forEach(screenerSchedule => {
@@ -137,29 +339,52 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         endDate: Date,
         analysts: any[],
         existingSchedules: any[],
-        globalConstraints: any[]
+        globalConstraints: any[],
+        config?: any
       ) {
         const result = {
           proposedSchedules: [] as any[],
           conflicts: [] as any[],
           overwrites: [] as any[]
         };
-      
-        const workPatterns = [
-          { name: 'SUN_THU', days: [0, 1, 2, 3, 4], nextPattern: 'TUE_SAT' },
-          { name: 'MON_FRI', days: [1, 2, 3, 4, 5], nextPattern: 'SUN_THU' },
-          { name: 'TUE_SAT', days: [2, 3, 4, 5, 6], nextPattern: 'MON_FRI' }
-        ];
-      
+
+        const algorithmConfig = config || DEFAULT_ALGORITHM_CONFIG;
+        
         const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
         const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
       
-        let morningPatterns = this.assignAnalystsToPatterns(morningAnalysts, workPatterns);
-        let eveningPatterns = this.assignAnalystsToPatterns(eveningAnalysts, workPatterns);
+        // Create context for weekend rotation engine
+        const rotationContext = {
+          analysts: [...morningAnalysts, ...eveningAnalysts],
+          startDate,
+          endDate,
+          existingSchedules,
+          constraints: globalConstraints
+        };
+
+        // Use WeekendRotationEngine to get initial pattern assignments
+        let morningPatterns = await weekendRotationEngine.applyWeekendRotation(
+          morningAnalysts,
+          algorithmConfig.weekendRotationStrategy,
+          rotationContext,
+          algorithmConfig
+        );
+
+        let eveningPatterns = await weekendRotationEngine.applyWeekendRotation(
+          eveningAnalysts,
+          algorithmConfig.weekendRotationStrategy,
+          rotationContext,
+          algorithmConfig
+        );
       
         const loopEndDate = new Date(endDate);
         const currentDate = this.getWeekStart(new Date(startDate));
       
+        tracingService.logStrategy('weekend_rotation', algorithmConfig.weekendRotationStrategy, {
+            screenerStrategy: algorithmConfig.screenerAssignmentStrategy,
+            randomizationFactor: algorithmConfig.randomizationFactor
+        });
+
         while (currentDate <= loopEndDate) {
           const weekStart = new Date(currentDate);
           const weekEnd = new Date(weekStart);
@@ -169,13 +394,39 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           const effectiveWeekEnd = new Date(Math.min(weekEnd.getTime(), endDate.getTime()));
       
           if (effectiveWeekStart <= effectiveWeekEnd) {
-            const weekSchedules = this.generateWeekSchedules(effectiveWeekStart, effectiveWeekEnd, morningPatterns, eveningPatterns, existingSchedules, globalConstraints, result.overwrites);
+            const weekSchedules = this.generateWeekSchedules(
+              effectiveWeekStart, 
+              effectiveWeekEnd, 
+              morningPatterns, 
+              eveningPatterns, 
+              existingSchedules, 
+              globalConstraints, 
+              result.overwrites
+            );
             result.proposedSchedules.push(...weekSchedules.proposedSchedules);
             result.conflicts.push(...weekSchedules.conflicts);
           }
       
-          morningPatterns = this.rotatePatterns(morningPatterns, workPatterns);
-          eveningPatterns = this.rotatePatterns(eveningPatterns, workPatterns);
+          // Use WeekendRotationEngine to rotate patterns based on strategy
+          morningPatterns = await weekendRotationEngine.rotatePatterns(
+            morningPatterns,
+            algorithmConfig.weekendRotationStrategy,
+            {
+              ...rotationContext,
+              startDate: new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000) // Next week
+            },
+            algorithmConfig
+          );
+
+          eveningPatterns = await weekendRotationEngine.rotatePatterns(
+            eveningPatterns,
+            algorithmConfig.weekendRotationStrategy,
+            {
+              ...rotationContext,
+              startDate: new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000) // Next week
+            },
+            algorithmConfig
+          );
           
           currentDate.setDate(currentDate.getDate() + 7);
         }
@@ -326,7 +577,9 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         analysts: any[],
         existingSchedules: any[],
         globalConstraints: any[],
-        regularSchedules: any[]
+        regularSchedules: any[],
+        config?: any,
+        auditSessionId?: string
     ) {
         const result = {
           proposedSchedules: [] as any[],
@@ -334,19 +587,26 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           overwrites: [] as any[]
         };
       
+        const algorithmConfig = config || DEFAULT_ALGORITHM_CONFIG;
         const currentDate = new Date(startDate);
-        let screenerIndex = 0;
       
         while (currentDate <= endDate) {
           const dateStr = currentDate.toISOString().split('T')[0];
           const dayOfWeek = currentDate.getDay();
       
+          // Skip weekends (screeners only work weekdays)
           if (dayOfWeek === 0 || dayOfWeek === 6) {
             currentDate.setDate(currentDate.getDate() + 1);
             continue;
           }
       
-          const blackoutConstraint = globalConstraints.find(c => new Date((c as any).startDate) <= currentDate && new Date((c as any).endDate) >= currentDate && (c as any).constraintType === 'BLACKOUT_DATE');
+          // Check for blackout constraints
+          const blackoutConstraint = globalConstraints.find(c => 
+            new Date((c as any).startDate) <= currentDate && 
+            new Date((c as any).endDate) >= currentDate && 
+            (c as any).constraintType === 'BLACKOUT_DATE'
+          );
+          
           if (blackoutConstraint) {
             result.conflicts.push({ 
               date: dateStr, 
@@ -358,6 +618,7 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
             continue;
           }
       
+          // Get analysts working regular shifts on this date
           const workingAnalysts = regularSchedules
             .filter(s => s.date === dateStr && !s.isScreener)
             .map(s => analysts.find(a => a.id === s.analystId))
@@ -366,35 +627,125 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           const morningAnalysts = workingAnalysts.filter((a: any) => a.shiftType === 'MORNING');
           const eveningAnalysts = workingAnalysts.filter((a: any) => a.shiftType === 'EVENING');
       
-          const assignScreener = (shiftAnalysts: any[], shiftType: 'MORNING' | 'EVENING') => {
-            if (shiftAnalysts.length > 0) {
-                const eligibleAnalysts = shiftAnalysts.filter(a => !a.vacations?.some((v: any) => new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate));
-                if(eligibleAnalysts.length > 0) {
-                    
-                    // Skill-based assignment for screeners
-                    const skilledAnalysts = eligibleAnalysts.filter(a => a.skills?.includes('screener-training'));
+          // Check if this is a major event requiring special coverage
+          const eventConstraints = await constraintHierarchy.resolveConstraints({
+            date: currentDate,
+            isScreenerAssignment: true
+          });
+          
+          const isMajorEvent = eventConstraints.some(c => 
+            c.source === 'EVENT' && c.constraint.minimumCoverage
+          );
 
-                    let selectedScreener;
-                    if (skilledAnalysts.length > 0) {
-                        selectedScreener = skilledAnalysts[screenerIndex % skilledAnalysts.length];
-                    } else {
-                        selectedScreener = eligibleAnalysts[screenerIndex % eligibleAnalysts.length];
-                    }
+          // Assign screeners using configured strategy
+          await this.assignScreenerUsingStrategy(
+            morningAnalysts, 
+            'MORNING', 
+            currentDate, 
+            algorithmConfig,
+            isMajorEvent,
+            existingSchedules,
+            result,
+            auditSessionId
+          );
 
-                    const screenerSchedule = this.createScreenerSchedule(selectedScreener, currentDate, shiftType, existingSchedules, result.overwrites);
-                    if (screenerSchedule) result.proposedSchedules.push(screenerSchedule);
-                }
-            }
-          };
+          await this.assignScreenerUsingStrategy(
+            eveningAnalysts, 
+            'EVENING', 
+            currentDate, 
+            algorithmConfig,
+            isMajorEvent,
+            existingSchedules,
+            result,
+            auditSessionId
+          );
       
-          assignScreener(morningAnalysts, 'MORNING');
-          assignScreener(eveningAnalysts, 'EVENING');
-      
-          screenerIndex++;
           currentDate.setDate(currentDate.getDate() + 1);
         }
       
         return result;
+    }
+
+    /**
+     * Assign screener using the configured strategy
+     */
+    private async assignScreenerUsingStrategy(
+      eligibleAnalysts: any[],
+      shiftType: 'MORNING' | 'EVENING',
+      date: Date,
+      config: any,
+      isMajorEvent: boolean,
+      existingSchedules: any[],
+      result: any,
+      auditSessionId?: string
+    ) {
+      if (eligibleAnalysts.length === 0) {
+        result.conflicts.push({
+          date: date.toISOString().split('T')[0],
+          type: 'NO_ELIGIBLE_SCREENERS',
+          description: `No eligible ${shiftType.toLowerCase()} analysts for screener assignment`,
+          severity: 'HIGH'
+        });
+        return;
+      }
+
+      // Filter out analysts on vacation
+      const availableAnalysts = eligibleAnalysts.filter(a => 
+        !a.vacations?.some((v: any) => 
+          new Date(v.startDate) <= date && new Date(v.endDate) >= date
+        )
+      );
+
+      if (availableAnalysts.length === 0) {
+        result.conflicts.push({
+          date: date.toISOString().split('T')[0],
+          type: 'NO_AVAILABLE_SCREENERS',
+          description: `All eligible ${shiftType.toLowerCase()} analysts are on vacation`,
+          severity: 'HIGH'
+        });
+        return;
+      }
+
+      try {
+        // Use the ScreenerSelectionEngine with configured strategy
+        const selectionResult = await screenerSelectionEngine.selectScreener(
+          {
+            date,
+            shiftType,
+            eligibleAnalysts: availableAnalysts,
+            existingSchedules,
+            isMajorEvent
+          },
+          config.screenerAssignmentStrategy,
+          config,
+          auditSessionId
+        );
+
+        // Create schedule entry for selected screener
+        const screenerSchedule = this.createScreenerSchedule(
+          selectionResult.selectedAnalyst, 
+          date, 
+          shiftType, 
+          existingSchedules, 
+          result.overwrites
+        );
+
+        if (screenerSchedule) {
+          result.proposedSchedules.push({
+            ...screenerSchedule,
+            selectionReason: selectionResult.reason,
+            selectionScore: selectionResult.selectionScore
+          });
+        }
+
+      } catch (error) {
+        result.conflicts.push({
+          date: date.toISOString().split('T')[0],
+          type: 'SCREENER_SELECTION_ERROR',
+          description: `Failed to assign ${shiftType.toLowerCase()} screener: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          severity: 'HIGH'
+        });
+      }
     }
 
     private createScreenerSchedule(

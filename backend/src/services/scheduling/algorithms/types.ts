@@ -16,6 +16,8 @@ export interface SchedulingResult {
     overwrites: ScheduleOverwrite[];
     fairnessMetrics: FairnessMetrics;
     performanceMetrics: PerformanceMetrics;
+    constraintValidation?: any; // Constraint validation results
+    confidenceScore?: any; // Reliability confidence scoring
 }
 
 // Enhanced schedule types
