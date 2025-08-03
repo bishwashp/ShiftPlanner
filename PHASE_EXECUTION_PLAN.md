@@ -462,7 +462,7 @@ Transform reactive fairness monitoring into predictive intelligence system with 
 ---
 
 ## Phase 4: Calendar UX Excellence & Multi-Modal Interface
-**Duration: 4-5 weeks | Priority: MEDIUM**
+**Duration: 3 weeks | Priority: MEDIUM | Status: IN PROGRESS (V0.6.4.1)**
 
 ### Objective
 Create intuitive, clutter-free calendar interface with advanced toggles and seamless multi-calendar support.
@@ -478,16 +478,16 @@ Create intuitive, clutter-free calendar interface with advanced toggles and seam
 ❌ **Missing**: Advanced view management  
 ❌ **Missing**: Shift overlay optimization  
 
-### Implementation Strategy:
+### Implementation Strategy (Dot Release Approach):
 
-#### 4.1 Multi-Calendar Architecture
-**Goal**: Seamless toggle between different calendar views
+#### **V0.6.4.1 - Multi-Layer Calendar Foundation** (Week 1) - **IN PROGRESS**
+**Goal**: Implement foundational multi-layer calendar architecture with basic toggle system
 
 **Tasks**:
 - Design calendar layer architecture (shifts, events, vacations, constraints)
 - Implement intelligent toggle system with smart defaults
 - Create calendar overlay management with conflict highlighting
-- Build synchronized multi-view navigation
+- Build layer preferences management system
 
 **Calendar Layers**:
 - **Base Layer**: Assigned shifts (always visible)
@@ -496,7 +496,14 @@ Create intuitive, clutter-free calendar interface with advanced toggles and seam
 - **Event Layer**: Special events and coverage needs (toggle)
 - **Fairness Layer**: Color-coded fairness indicators (toggle)
 
-#### 4.2 Advanced View Management
+**Deliverables**:
+- CalendarLayerService and ViewManagementService
+- Database schema for layer preferences
+- MultiLayerCalendar, CalendarLayerControl, and CalendarLegend components
+- 8 new API endpoints for layer management
+- Enhanced ScheduleView integration
+
+#### **V0.6.4.2 - Advanced View Management** (Week 2) - **PLANNED**
 **Goal**: Clutter-free interface with intelligent information density
 
 **Tasks**:
@@ -510,7 +517,7 @@ Create intuitive, clutter-free calendar interface with advanced toggles and seam
 - **Week View**: Shift types, coverage gaps, fairness indicators
 - **Month View**: High-level patterns, vacation blocks, special events
 
-#### 4.3 External Calendar Integration
+#### **V0.6.4.3 - External Calendar Integration** (Week 3) - **PLANNED**
 **Goal**: Seamless integration with external calendar systems
 
 **Tasks**:
@@ -518,6 +525,8 @@ Create intuitive, clutter-free calendar interface with advanced toggles and seam
 - Create conflict resolution for external calendar events
 - Implement smart scheduling around external commitments
 - Design unified view combining internal and external calendars
+
+**📋 Detailed Implementation Plan**: See `PHASE4_IMPLEMENTATION_PLAN.md` for complete technical specifications, API endpoints, database schema, and implementation timeline for V0.6.4.1.
 
 ---
 
