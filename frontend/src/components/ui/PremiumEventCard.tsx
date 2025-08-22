@@ -14,22 +14,22 @@ interface PremiumEventCardProps {
 
 const getShiftTypeColor = (shiftType: string) => {
   const colors = {
-    MORNING: 'bg-event-meeting', // #8b5a2b - matches inspiration
-    EVENING: 'bg-event-presentation', // #ea580c
-    NIGHT: 'bg-event-design', // #1e40af  
-    WEEKEND: 'bg-event-personal', // #7c3aed
+    MORNING: 'bg-blue-500', // #3b82f6 - matches legend
+    EVENING: 'bg-purple-500', // #8b5cf6 - matches legend
+    NIGHT: 'bg-blue-600', // #1e40af - darker blue for night
+    WEEKEND: 'bg-green-500', // #22c55e - matches legend
   };
-  return colors[shiftType as keyof typeof colors] || 'bg-event-meeting';
+  return colors[shiftType as keyof typeof colors] || 'bg-blue-500';
 };
 
 const getShiftTypeGlow = (shiftType: string) => {
   const glows = {
-    MORNING: 'shadow-[0_0_20px_rgba(139,90,43,0.3)]',
-    EVENING: 'shadow-[0_0_20px_rgba(234,88,12,0.3)]', 
-    NIGHT: 'shadow-[0_0_20px_rgba(30,64,175,0.3)]',
-    WEEKEND: 'shadow-[0_0_20px_rgba(124,58,237,0.3)]',
+    MORNING: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]', // blue glow
+    EVENING: 'shadow-[0_0_20px_rgba(139,92,246,0.3)]', // purple glow
+    NIGHT: 'shadow-[0_0_20px_rgba(30,64,175,0.3)]', // dark blue glow
+    WEEKEND: 'shadow-[0_0_20px_rgba(34,197,94,0.3)]', // green glow
   };
-  return glows[shiftType as keyof typeof glows] || 'shadow-[0_0_20px_rgba(139,90,43,0.3)]';
+  return glows[shiftType as keyof typeof glows] || 'shadow-[0_0_20px_rgba(59,130,246,0.3)]';
 };
 
 export const PremiumEventCard: React.FC<PremiumEventCardProps> = ({

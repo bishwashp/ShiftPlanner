@@ -294,6 +294,37 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     });
   }, [isMobile]);
 
+  // Create shift time overlays for Day/Week views
+  const createShiftTimeOverlays = useCallback(() => {
+    if (view === 'month') return null;
+
+    return (
+      <div className="shift-time-overlays">
+        {/* This will be positioned absolutely over the time grid */}
+        <div
+          className="shift-time-overlay"
+          style={{
+            top: '25%', // Approximate position for 9 AM (assuming 24-hour view starts at midnight)
+            height: '37.5%', // 9 hours out of 24 hours = 37.5%
+          }}
+        />
+      </div>
+    );
+  }, [view]);
+
+  // Add class to time slots during shift hours (9 AM - 6 PM)
+  const slotPropGetter = useCallback((date: Date) => {
+    if (view === 'month') return {};
+    
+    const hour = moment(date).hour();
+    if (hour >= 9 && hour < 18) {
+      return {
+        className: 'shift-hour'
+      };
+    }
+    return {};
+  }, [view]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -346,6 +377,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         onSelectEvent={handleEventSelect}
         onSelectSlot={handleSelectSlot}
         selectable={true}
+        slotPropGetter={slotPropGetter}
         formats={{
           eventTimeRangeFormat: () => '',
         }}
@@ -360,6 +392,9 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         popup={!isMobile} // Disable popup on mobile for better touch experience
         tooltipAccessor={(event) => `${event.title} - ${event.resource.shiftType}${event.resource.isScreener ? ' (Screener)' : ''}`}
       />
+      
+      {/* Shift Time Overlays for Day/Week Views */}
+      {(view === 'day' || view === 'week') && createShiftTimeOverlays()}
       
       {/* Enhanced quick actions floating button with mobile optimization */}
       <div className={`fixed z-40 ${isMobile ? 'bottom-4 right-4' : 'bottom-6 right-6'}`}>

@@ -48,7 +48,6 @@ const TimezoneSelector: React.FC<TimezoneSelectorProps> = ({ timezone, onTimezon
               {/* Show short labels on mobile, full labels on desktop */}
               <span className="sm:hidden">{getShortLabel(tz)}</span>
               <span className="hidden sm:inline">{getFullLabel(tz)}</span>
-              {getShortLabel(tz)}
             </option>
           ))}
         </optgroup>

@@ -681,4 +681,62 @@
   .slide-in {
     animation: none;
   }
-} 
+}
+
+/* Shift Time Overlays - 9am to 6pm highlights */
+.shift-time-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.08),
+    rgba(139, 92, 246, 0.08)
+  );
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1;
+  backdrop-filter: blur(1px);
+}
+
+.shift-time-overlay::before {
+  content: 'Shift Hours (9 AM - 6 PM)';
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(59, 130, 246, 0.8);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* Dark mode overlay styling */
+[data-theme="dark"] .shift-time-overlay {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.12),
+    rgba(139, 92, 246, 0.12)
+  );
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .shift-time-overlay::before {
+  color: rgba(59, 130, 246, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Time slot highlighting for shift hours */
+.rbc-time-slot.shift-hour {
+  background: linear-gradient(90deg,
+    rgba(59, 130, 246, 0.05),
+    rgba(139, 92, 246, 0.05)
+  );
+  border-left: 3px solid rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .rbc-time-slot.shift-hour {
+  background: linear-gradient(90deg,
+    rgba(59, 130, 246, 0.08),
+    rgba(139, 92, 246, 0.08)
+  );
+  border-left-color: rgba(59, 130, 246, 0.5);
+}

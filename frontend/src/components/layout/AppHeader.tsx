@@ -132,9 +132,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               onChange={handleViewChange}
               className="px-2 py-2 text-sm border border-border rounded-md bg-card text-card-foreground focus:ring-2 focus:ring-primary min-h-[44px] w-16 sm:w-auto"
             >
-              <option value="day">D</option>
-              <option value="week">W</option>
-              <option value="month">M</option>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month">Month</option>
             </select>
           </>
         )}
