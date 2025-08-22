@@ -16,7 +16,8 @@
     "backend:restart": "npm run backend:kill && sleep 2 && npm run backend",
     "full:start": "npm run backend & npm start",
     "full:kill": "npm run kill && npm run backend:kill",
-    "full:restart": "npm run full:kill && sleep 2 && npm run full:start"
+    "full:restart": "npm run full:kill && sleep 2 && npm run full:start",
+    "postinstall": "cd frontend && npm ci"
   },
   "keywords": [
     "scheduling",
