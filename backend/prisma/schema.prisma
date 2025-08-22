@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Analyst {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  shiftType   String   // AM or PM shift assignment (MORNING, EVENING, WEEKEND)
+  isActive    Boolean  @default(true)
+  customAttributes String? // JSON as string for SQLite compatibility
+  skills      String?  // Comma-separated skills for SQLite compatibility
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  preferences AnalystPreference[]
+  schedules   Schedule[]
+  vacations   Vacation[]
+  constraints SchedulingConstraint[]
+  
+  // Performance indexes for common queries
+  @@index([isActive, shiftType]) // For filtering active analysts by shift
+  @@index([email]) // Already unique, but explicit for performance
+  @@index([createdAt]) // For sorting and date-based queries
+  @@map("analysts")
+}
+
+model AnalystPreference {
+  id          String   @id @default(cuid())
+  analystId   String
+  shiftType   String   // MORNING, EVENING, WEEKEND
+  dayOfWeek   String   // MONDAY, TUESDAY, etc.
+  preference  String   // PREFERRED, AVAILABLE, UNAVAILABLE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  // Performance indexes
+  @@index([analystId, shiftType, dayOfWeek]) // For preference lookups
+  @@index([shiftType, dayOfWeek]) // For shift-based preference queries
+  @@unique([analystId, shiftType, dayOfWeek])
+  @@map("analyst_preferences")
+}
+
+model Vacation {
+  id          String   @id @default(cuid())
+  analystId   String
+  startDate   DateTime
+  endDate     DateTime
+  reason      String?
+  isApproved  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  // Performance indexes for date range queries
+  @@index([analystId, startDate, endDate]) // For analyst vacation lookups
+  @@index([startDate, endDate, isApproved]) // For date range queries with approval status
+  @@index([isApproved]) // For filtering approved vacations
+  @@map("vacations")
+}
+
+model SchedulingConstraint {
+  id          String   @id @default(cuid())
+  analystId   String?
+  shiftType   String?  // MORNING, EVENING, WEEKEND
+  startDate   DateTime
+  endDate     DateTime
+  constraintType String // BLACKOUT_DATE, MAX_SCREENER_DAYS, etc.
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst? @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  // Performance indexes for constraint queries
+  @@index([analystId, startDate, endDate, isActive]) // For analyst constraint lookups
+  @@index([startDate, endDate, isActive]) // For date range constraint queries
+  @@index([constraintType, isActive]) // For constraint type filtering
+  @@map("scheduling_constraints")
+}
+
+model Schedule {
+  id          String   @id @default(cuid())
+  analystId   String
+  date        DateTime
+  shiftType   String   // MORNING, EVENING, WEEKEND
+  isScreener  Boolean  @default(false)  // Whether this analyst is designated as Screener for this shift
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  // Critical performance indexes for schedule queries
+  @@index([date, shiftType]) // For date-based schedule queries (most common)
+  @@index([analystId, date]) // For analyst schedule lookups
+  @@index([date, isScreener]) // For screener assignment queries
+  @@index([analystId, date, shiftType]) // For specific analyst/date/shift queries
+  @@index([date]) // For pure date-based queries
+  @@unique([analystId, date])
+  @@map("schedules")
+}
+
+model AlgorithmConfig {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  config      String   // JSON as string for SQLite compatibility
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Performance indexes
+  @@index([isActive]) // For filtering active algorithms
+  @@index([name]) // For algorithm name lookups
+  @@map("algorithm_configs")
+}
+
+// SQLite doesn't support enums, so we use string constants
+// ShiftType: "MORNING", "EVENING", "WEEKEND"
+// DayOfWeek: "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
+// PreferenceType: "PREFERRED", "AVAILABLE", "UNAVAILABLE"
+// ConstraintType: "BLACKOUT_DATE", "MAX_SCREENER_DAYS", "MIN_SCREENER_DAYS", "PREFERRED_SCREENER", "UNAVAILABLE_SCREENER"

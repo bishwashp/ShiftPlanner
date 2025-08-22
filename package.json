@@ -1,0 +1,42 @@
+{
+  "name": "shiftplanner",
+  "version": "1.0.0",
+  "description": "ShiftPlanner - Automated scheduling system for analysts",
+  "scripts": {
+    "start": "cd frontend && npm start",
+    "dev": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "test": "cd frontend && npm test",
+    "kill": "pkill -f react-scripts || true && lsof -i :3000 -t | xargs kill -9 2>/dev/null || true",
+    "restart": "npm run kill && sleep 2 && npm start",
+    "clean": "cd frontend && rm -rf node_modules package-lock.json && npm install",
+    "backend": "cd backend && npm run dev",
+    "backend:start": "cd backend && npm start",
+    "backend:kill": "pkill -f 'ts-node-dev' || true && lsof -i :4000 -t | xargs kill -9 2>/dev/null || true",
+    "backend:restart": "npm run backend:kill && sleep 2 && npm run backend",
+    "full:start": "npm run backend & npm start",
+    "full:kill": "npm run kill && npm run backend:kill",
+    "full:restart": "npm run full:kill && sleep 2 && npm run full:start"
+  },
+  "keywords": [
+    "scheduling",
+    "analysts",
+    "shifts",
+    "automation"
+  ],
+  "author": "ShiftPlanner Team",
+  "license": "MIT",
+  "dependencies": {
+    "@fullcalendar/core": "^6.1.18",
+    "@fullcalendar/daygrid": "^6.1.18",
+    "@fullcalendar/interaction": "^6.1.18",
+    "@fullcalendar/react": "^6.1.18",
+    "@fullcalendar/timegrid": "^6.1.18",
+    "axios": "^1.11.0",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.526.0",
+    "moment": "^2.30.1",
+    "moment-timezone": "^0.6.0",
+    "next-themes": "^0.4.6"
+  }
+}
