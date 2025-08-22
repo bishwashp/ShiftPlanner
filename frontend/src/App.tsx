@@ -14,6 +14,7 @@ import CalendarExport from './components/CalendarExport';
 import { View as BigCalendarView } from 'react-big-calendar';
 import moment from 'moment-timezone';
 import { useTheme } from 'react18-themes';
+import { notificationService } from './services/notificationService';
 
 // Toast notification component for better UX
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => (
@@ -81,25 +82,46 @@ function App() {
   const handleTimezoneChange = (tz: string) => {
     setTimezone(tz);
     localStorage.setItem('timezone', tz);
-    showToast('Timezone updated successfully', 'success');
+    // No toast spam - timezone changes are not actionable notifications
   };
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
+    // Only show toasts for critical errors now
+    if (type === 'error') {
+      setToast({ message, type });
+      setTimeout(() => setToast(null), 5000);
+    }
   };
 
   const handleViewChange = (view: SidebarView) => {
     setActiveView(view);
-    showToast(`Switched to ${view} view`, 'info');
+    // Removed toast spam - view changes are not actionable notifications
   };
 
   const handleError = useCallback((error: string) => {
+    // Show critical errors as both toast and notification
     showToast(error, 'error');
+    notificationService.addNotification({
+      type: 'error',
+      priority: 'high',
+      title: 'System Error',
+      message: error,
+      isActionable: true,
+    });
   }, []);
 
   const handleSuccess = useCallback((message: string) => {
-    showToast(message, 'success');
+    // Only add success notifications for actionable items
+    if (message.includes('conflict') || message.includes('schedule') || message.includes('error')) {
+      notificationService.addNotification({
+        type: 'success',
+        priority: 'medium',
+        title: 'Action Completed',
+        message: message,
+        isActionable: false,
+      });
+    }
+    // No toast spam for regular success messages
   }, []);
 
   const handleLoading = useCallback((loading: boolean) => {

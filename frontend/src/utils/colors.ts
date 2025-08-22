@@ -2,31 +2,31 @@
 
 export const eventColors = {
   MORNING: {
-    bg: '#8b5a2b',
-    glow: 'rgba(139, 90, 43, 0.3)',
-    name: 'Meeting'
+    bg: '#3b82f6', // Blue to match legend
+    glow: 'rgba(59, 130, 246, 0.3)',
+    name: 'Morning Shift'
   },
   EVENING: {
-    bg: '#ea580c', 
-    glow: 'rgba(234, 88, 12, 0.3)',
-    name: 'Presentation'
+    bg: '#8b5cf6', // Purple to match legend
+    glow: 'rgba(139, 92, 246, 0.3)',
+    name: 'Evening Shift'
   },
   NIGHT: {
-    bg: '#1e40af',
-    glow: 'rgba(30, 64, 175, 0.3)', 
-    name: 'Design'
+    bg: '#1e40af', // Keep existing blue for night
+    glow: 'rgba(30, 64, 175, 0.3)',
+    name: 'Night Shift'
   },
   WEEKEND: {
-    bg: '#7c3aed',
-    glow: 'rgba(124, 58, 237, 0.3)',
-    name: 'Personal'
+    bg: '#22c55e', // Green to match legend
+    glow: 'rgba(34, 197, 94, 0.3)',
+    name: 'Weekend Shift'
   }
 } as const;
 
 export const screenerColor = {
-  bg: '#eab308',
+  bg: '#f59e0b', // Amber to match legend
   text: '#000000',
-  glow: 'rgba(234, 179, 8, 0.4)'
+  glow: 'rgba(245, 158, 11, 0.4)'
 } as const;
 
 export const getShiftTypeColor = (shiftType: string): string => {

@@ -11,6 +11,8 @@ import { apiService, DashboardStats } from '../services/api';
 import { formatDateTime } from '../utils/formatDateTime';
 import { useTheme } from 'react18-themes';
 import moment from 'moment-timezone';
+import { useNotifications } from '../hooks/useNotifications';
+import BellIcon from './icons/BellIcon';
 
 interface StatCardProps {
     title: string;
@@ -58,6 +60,7 @@ interface DashboardProps { onViewChange: (view: View) => void; }
 
 const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
   const { theme } = useTheme();
+  const { addDemoNotifications } = useNotifications();
   const [stats, setStats] = useState<DashboardStats>({
     totalAnalysts: 0,
     activeAnalysts: 0,
@@ -136,6 +139,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     onViewChange('analytics');
   };
 
+  const handleTestNotifications = () => {
+    addDemoNotifications();
+  };
+
   const handleNavigateToSchedule = (conflict: { date: string; shiftType?: string }) => {
     // Use your router/navigation logic to go to Schedule tab, passing conflict context
     window.location.hash = '#/schedule?date=' + conflict.date + (conflict.shiftType ? ('&shiftType=' + conflict.shiftType) : '');
@@ -197,21 +204,26 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
 
         <div className="mt-8 bg-card text-card-foreground rounded-2xl p-6 shadow-sm border border-border">
           <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
-          <div className="flex items-center space-x-4">
-            <QuickActionButton 
-              text="Add New Analyst" 
-              icon={PlusIcon} 
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <QuickActionButton
+              text="Add New Analyst"
+              icon={PlusIcon}
               onClick={handleAddAnalyst}
             />
-            <QuickActionButton 
-              text="Generate Schedule" 
-              icon={ScheduleIcon} 
+            <QuickActionButton
+              text="Generate Schedule"
+              icon={ScheduleIcon}
               onClick={handleGenerateSchedule}
             />
-            <QuickActionButton 
-              text="View Analytics" 
-              icon={AnalyticsIcon} 
+            <QuickActionButton
+              text="View Analytics"
+              icon={AnalyticsIcon}
               onClick={handleViewAnalytics}
+            />
+            <QuickActionButton
+              text="Test Notifications"
+              icon={BellIcon}
+              onClick={handleTestNotifications}
             />
           </div>
         </div>

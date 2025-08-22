@@ -6,6 +6,7 @@ import { apiService, Schedule, Analyst } from '../services/api';
 import { View as AppView } from './layout/CollapsibleSidebar';
 import { useTheme } from 'react18-themes';
 import { PremiumEventCard } from './ui/PremiumEventCard';
+import { notificationService } from '../services/notificationService';
 import './ScheduleView.css';
 
 const localizer = momentLocalizer(moment);
@@ -29,6 +30,51 @@ interface ScheduleViewProps {
   onSuccess?: (message: string) => void;
   isLoading?: (loading: boolean) => void;
 }
+
+// Mobile gesture detection hook
+const useSwipeGesture = (onSwipeLeft?: () => void, onSwipeRight?: () => void) => {
+  const [touchStart, setTouchStart] = React.useState<{ x: number; y: number } | null>(null);
+  const [touchEnd, setTouchEnd] = React.useState<{ x: number; y: number } | null>(null);
+
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    });
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    });
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distanceX = touchStart.x - touchEnd.x;
+    const distanceY = Math.abs(touchStart.y - touchEnd.y);
+    
+    // Only trigger swipe if horizontal distance is greater than vertical (horizontal swipe)
+    if (Math.abs(distanceX) > minSwipeDistance && Math.abs(distanceX) > distanceY) {
+      if (distanceX > 0 && onSwipeLeft) {
+        onSwipeLeft();
+      } else if (distanceX < 0 && onSwipeRight) {
+        onSwipeRight();
+      }
+    }
+  };
+
+  return {
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd
+  };
+};
 
 // Premium event component for standard calendar views
 const PremiumStandardEvent = ({ event }: { event: CalendarEvent }) => (
@@ -70,6 +116,46 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [analysts, setAnalysts] = useState<Analyst[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Gesture handlers for mobile navigation
+  const handleSwipeLeft = useCallback(() => {
+    if (isMobile && view === 'month') {
+      const nextMonth = moment(date).add(1, 'month').toDate();
+      setDate(nextMonth);
+      
+      // Add haptic feedback if available
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+    }
+  }, [date, setDate, view, isMobile]);
+
+  const handleSwipeRight = useCallback(() => {
+    if (isMobile && view === 'month') {
+      const prevMonth = moment(date).subtract(1, 'month').toDate();
+      setDate(prevMonth);
+      
+      // Add haptic feedback if available
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+    }
+  }, [date, setDate, view, isMobile]);
+
+  // Swipe gesture handlers
+  const swipeHandlers = useSwipeGesture(handleSwipeLeft, handleSwipeRight);
 
   const { startDate, endDate } = useMemo(() => {
     // Use local timezone for date range calculation (user's perspective)
@@ -94,7 +180,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
       setSchedules(schedulesData);
       setAnalysts(analystsData.filter(a => a.isActive));
       
-      if (onSuccess) onSuccess('Schedule data loaded successfully');
+      // No toast spam - successful data loads are not actionable
     } catch (err) {
       console.error('Error fetching data:', err);
       const errorMessage = 'Failed to load schedule data. Please try again.';
@@ -168,20 +254,45 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     return newProps;
   }, []);
 
-  // Enhanced event handlers
+  // Enhanced event handlers with mobile feedback
   const handleEventSelect = useCallback((event: CalendarEvent) => {
+    // Add haptic feedback for mobile
+    if (isMobile && 'vibrate' in navigator) {
+      navigator.vibrate(30);
+    }
+    
     // Could open a modal or sidebar with event details
-    if (onSuccess) onSuccess(`Selected: ${event.title}`);
-  }, [onSuccess]);
+    console.log('Event selected:', event.title);
+  }, [isMobile]);
 
   // Note: handleEventDrop and handleEventResize are currently disabled for premium UI
   // These will be re-implemented in Week 2 with enhanced UX
 
   const handleSelectSlot = useCallback((slotInfo: any) => {
+    // Add haptic feedback for mobile
+    if (isMobile && 'vibrate' in navigator) {
+      navigator.vibrate(40);
+    }
+    
     // Could open a modal to create a new schedule
     console.log('Selected slot:', slotInfo);
-    if (onSuccess) onSuccess('Slot selected - create new schedule feature coming soon');
-  }, [onSuccess]);
+    
+    // Add actionable notification for schedule creation opportunity
+    notificationService.addNotification({
+      type: 'schedule',
+      priority: 'medium',
+      title: 'Schedule Slot Available',
+      message: `Selected ${new Date(slotInfo.start).toLocaleDateString()} - Create new schedule?`,
+      isActionable: true,
+      action: {
+        label: 'Create Schedule',
+        callback: () => {
+          // Future: Open schedule creation modal
+          console.log('Create schedule for slot:', slotInfo);
+        }
+      }
+    });
+  }, [isMobile]);
 
   if (loading) {
     return (
@@ -216,7 +327,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   }
 
   return (
-    <div className={`relative h-full p-4 bg-background text-foreground transition-colors duration-200 ${theme}`}>
+    <div
+      className={`relative h-full p-4 bg-background text-foreground transition-colors duration-200 ${theme}`}
+      {...(isMobile ? swipeHandlers : {})}
+    >
       <Calendar
         localizer={localizer}
         events={calendarEvents}
@@ -243,22 +357,44 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         }}
         className="rbc-calendar"
         dayLayoutAlgorithm="no-overlap"
-        popup={true}
+        popup={!isMobile} // Disable popup on mobile for better touch experience
         tooltipAccessor={(event) => `${event.title} - ${event.resource.shiftType}${event.resource.isScreener ? ' (Screener)' : ''}`}
       />
       
-      {/* Quick actions floating button */}
-      <div className="fixed bottom-6 right-6 z-40">
+      {/* Enhanced quick actions floating button with mobile optimization */}
+      <div className={`fixed z-40 ${isMobile ? 'bottom-4 right-4' : 'bottom-6 right-6'}`}>
         <button
-          onClick={() => onSuccess?.('Quick actions coming soon')}
-          className="w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-all duration-200 flex items-center justify-center"
+          onClick={() => {
+            // Add haptic feedback for mobile
+            if (isMobile && 'vibrate' in navigator) {
+              navigator.vibrate(50);
+            }
+            
+            // Add actionable notification for quick actions
+            notificationService.addNotification({
+              type: 'system',
+              priority: 'low',
+              title: 'Quick Actions',
+              message: 'Enhanced quick actions panel coming in next update!',
+              isActionable: false,
+            });
+          }}
+          className={`${isMobile ? 'w-12 h-12' : 'w-14 h-14'} bg-primary text-primary-foreground rounded-full shadow-lg hover:bg-primary/90 transition-all duration-200 flex items-center justify-center active:scale-95 touch-manipulation`}
           title="Quick Actions"
+          style={{ minHeight: '44px', minWidth: '44px' }}
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
         </button>
       </div>
+      
+      {/* Mobile swipe indicator */}
+      {isMobile && view === 'month' && (
+        <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground bg-muted/80 px-3 py-1 rounded-full backdrop-blur-sm">
+          ← Swipe to navigate →
+        </div>
+      )}
     </div>
   );
 };
