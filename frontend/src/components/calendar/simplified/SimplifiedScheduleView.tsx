@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import moment from 'moment-timezone';
 import { apiService, Schedule, Analyst } from '../../../services/api';
 import { View as AppView } from '../../layout/CollapsibleSidebar';
@@ -8,6 +8,44 @@ import { notificationService } from '../../../services/notificationService';
 // Simplified calendar imports
 import { CalendarGrid } from './CalendarGrid';
 import { CalendarHeader } from './CalendarHeader';
+
+// Performance monitoring utilities
+interface PerformanceMetrics {
+  renderTime: number;
+  navigationTime: number;
+  memoryUsage: number;
+  eventCount: number;
+}
+
+const trackCalendarPerformance = (calendarType: 'legacy' | 'simplified') => {
+  const startTime = performance.now();
+  
+  return {
+    measureRender: (): PerformanceMetrics => {
+      const renderTime = performance.now() - startTime;
+      const memory = (performance as any).memory?.usedJSHeapSize || 0;
+      
+      // Log performance metrics for monitoring
+      console.log(`📊 Calendar Performance (${calendarType}):`, {
+        renderTime: `${renderTime.toFixed(2)}ms`,
+        memoryMB: `${(memory / 1024 / 1024).toFixed(2)}MB`,
+        target: 'render <100ms, memory <5MB'
+      });
+      
+      return {
+        renderTime,
+        navigationTime: 0,
+        memoryUsage: memory,
+        eventCount: 0
+      };
+    },
+    measureNavigation: (): number => {
+      const navTime = performance.now() - startTime;
+      console.log(`⚡ Navigation Performance: ${navTime.toFixed(2)}ms (target: <50ms)`);
+      return navTime;
+    }
+  };
+};
 
 // Types matching the original ScheduleView interface
 interface SimplifiedScheduleViewProps {
@@ -73,7 +111,7 @@ const useSwipeGesture = (onSwipeLeft?: () => void, onSwipeRight?: () => void) =>
   };
 };
 
-const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
+const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   onViewChange,
   date,
   setDate,
@@ -90,6 +128,10 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
+  
+  // Performance tracking
+  const performanceTracker = useMemo(() => trackCalendarPerformance('simplified'), []);
   
   // Mobile detection
   useEffect(() => {
@@ -112,6 +154,7 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
   }, [date, timezone]);
 
   // Gesture handlers for mobile navigation
+  // Enhanced navigation with performance tracking
   const handleSwipeLeft = useCallback(() => {
     if (isMobile && view === 'month') {
       const nextMonth = moment(date).add(1, 'month').toDate();
@@ -120,8 +163,12 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
       if ('vibrate' in navigator) {
         navigator.vibrate(50);
       }
+      
+      // Track navigation performance
+      const navTime = performanceTracker.measureNavigation();
+      console.log(`⚡ Navigation Performance (Next): ${navTime.toFixed(2)}ms`);
     }
-  }, [date, setDate, view, isMobile]);
+  }, [date, setDate, view, isMobile, performanceTracker]);
 
   const handleSwipeRight = useCallback(() => {
     if (isMobile && view === 'month') {
@@ -131,8 +178,12 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
       if ('vibrate' in navigator) {
         navigator.vibrate(50);
       }
+      
+      // Track navigation performance
+      const navTime = performanceTracker.measureNavigation();
+      console.log(`⚡ Navigation Performance (Prev): ${navTime.toFixed(2)}ms`);
     }
-  }, [date, setDate, view, isMobile]);
+  }, [date, setDate, view, isMobile, performanceTracker]);
 
   const swipeHandlers = useSwipeGesture(handleSwipeLeft, handleSwipeRight);
 
@@ -188,8 +239,10 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
     });
   }, [isMobile]);
 
-  // Data fetching (same logic as original)
+  // Enhanced data fetching with performance monitoring
   const fetchSchedulesAndAnalysts = useCallback(async () => {
+    const fetchStart = performance.now();
+    
     try {
       setLoading(true);
       setError(null);
@@ -199,8 +252,29 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
         apiService.getAnalysts()
       ]);
       
+      // Filter active analysts (performance optimization)
+      const activeAnalysts = analystsData.filter(a => a.isActive);
+      
       setSchedules(schedulesData);
-      setAnalysts(analystsData.filter(a => a.isActive));
+      setAnalysts(activeAnalysts);
+      
+      // Track performance metrics
+      const fetchTime = performance.now() - fetchStart;
+      const metrics = {
+        renderTime: fetchTime,
+        navigationTime: 0,
+        memoryUsage: (performance as any).memory?.usedJSHeapSize || 0,
+        eventCount: schedulesData.length
+      };
+      
+      setPerformanceMetrics(metrics);
+      
+      console.log('📊 Data Fetch Performance:', {
+        fetchTime: `${fetchTime.toFixed(2)}ms`,
+        scheduleCount: schedulesData.length,
+        analystCount: activeAnalysts.length,
+        memoryMB: `${(metrics.memoryUsage / 1024 / 1024).toFixed(2)}MB`
+      });
       
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -216,19 +290,29 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
     fetchSchedulesAndAnalysts();
   }, [fetchSchedulesAndAnalysts]);
 
-  // Get analyst name helper
-  const getAnalystName = useCallback((analystId: string) => {
-    const analyst = analysts.find(a => a.id === analystId);
-    return analyst ? analyst.name : 'Unknown Analyst';
+  // Optimized analyst lookup with Map for O(1) performance
+  const analystMap = useMemo(() => {
+    const map = new Map();
+    analysts.forEach(analyst => {
+      map.set(analyst.id, analyst.name);
+    });
+    return map;
   }, [analysts]);
 
-  // Transform schedules to simplified calendar events
+  // Enhanced getAnalystName with Map lookup
+  const getAnalystName = useCallback((analystId: string) => {
+    return analystMap.get(analystId) || 'Unknown Analyst';
+  }, [analystMap]);
+
+  // Optimized event transformation with memoization
   const calendarEvents = useMemo(() => {
+    const transformStart = performance.now();
     const events: CalendarEvent[] = [];
 
-    schedules.forEach(schedule => {
-      if (!schedule.date) return;
-
+    // Batch processing for better performance
+    const validSchedules = schedules.filter(schedule => schedule.date);
+    
+    validSchedules.forEach(schedule => {
       const scheduleDateUtc = moment.utc(schedule.date);
       const dateString = scheduleDateUtc.format('YYYY-MM-DD');
       
@@ -240,8 +324,17 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
       });
     });
 
+    const transformTime = performance.now() - transformStart;
+    console.log(`🔄 Event Transform Performance: ${transformTime.toFixed(2)}ms (${events.length} events)`);
+
     return events;
   }, [schedules, getAnalystName]);
+
+  // Performance monitoring on render (after calendarEvents is defined)
+  useEffect(() => {
+    const metrics = performanceTracker.measureRender();
+    setPerformanceMetrics(prev => prev ? { ...prev, ...metrics } : metrics);
+  }, [performanceTracker, calendarEvents.length]);
 
   // Loading state
   if (loading) {
@@ -332,14 +425,26 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
         </div>
       )}
 
-      {/* Feature flag indicator */}
+      {/* Performance metrics display */}
+      {performanceMetrics && (
+        <div className="absolute bottom-16 right-4 text-xs text-muted-foreground bg-muted/90 px-3 py-2 rounded-lg backdrop-blur-sm font-mono">
+          <div>📊 Render: {performanceMetrics.renderTime.toFixed(1)}ms</div>
+          <div>🔄 Events: {performanceMetrics.eventCount}</div>
+          <div>💾 Memory: {(performanceMetrics.memoryUsage / 1024 / 1024).toFixed(1)}MB</div>
+        </div>
+      )}
+
+      {/* Feature flag indicator - Updated to Phase 3.1 */}
       <div className="absolute top-4 right-4">
-        <div className="inline-flex items-center gap-2 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs font-medium">
-          <span>✅ Phase 2.2</span>
+        <div className="inline-flex items-center gap-2 px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded text-xs font-medium">
+          <span>⚡ Phase 3.1</span>
         </div>
       </div>
     </div>
   );
-};
+});
+
+// Add display name for debugging
+SimplifiedScheduleView.displayName = 'SimplifiedScheduleView';
 
 export default SimplifiedScheduleView;
