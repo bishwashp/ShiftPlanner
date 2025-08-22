@@ -9,6 +9,9 @@ import { PremiumEventCard } from './ui/PremiumEventCard';
 import { notificationService } from '../services/notificationService';
 import './ScheduleView.css';
 
+// Simplified Calendar Components (Phase 1.1)
+import SimplifiedScheduleView from './calendar/simplified/SimplifiedScheduleView';
+
 const localizer = momentLocalizer(moment);
 
 interface CalendarEvent {
@@ -118,6 +121,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   
+  // Feature Flag State for Calendar Migration (Phase 1.1)
+  const [useSimplifiedCalendar, setUseSimplifiedCalendar] = useState(() => {
+    const stored = localStorage.getItem('shiftplanner-simplified-calendar');
+    return stored === 'true';
+  });
+  
   // Mobile detection
   useEffect(() => {
     const checkMobile = () => {
@@ -128,6 +137,30 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Feature flag persistence
+  useEffect(() => {
+    localStorage.setItem('shiftplanner-simplified-calendar', useSimplifiedCalendar.toString());
+  }, [useSimplifiedCalendar]);
+
+  // Toggle handler for feature flag
+  const toggleCalendarMode = useCallback(() => {
+    setUseSimplifiedCalendar(prev => !prev);
+    
+    // Add haptic feedback if available
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
+    
+    // Notify user of the change
+    notificationService.addNotification({
+      type: 'system',
+      priority: 'low',
+      title: 'Calendar Mode Changed',
+      message: `Switched to ${!useSimplifiedCalendar ? 'Simplified' : 'Legacy'} calendar view`,
+      isActionable: false,
+    });
+  }, [useSimplifiedCalendar]);
 
   // Gesture handlers for mobile navigation
   const handleSwipeLeft = useCallback(() => {
@@ -357,44 +390,78 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
     );
   }
 
+  // Conditional rendering based on feature flag
   return (
     <div
       className={`relative h-full p-4 bg-background text-foreground transition-colors duration-200 ${theme}`}
       {...(isMobile ? swipeHandlers : {})}
     >
-      <Calendar
-        localizer={localizer}
-        events={calendarEvents}
-        startAccessor="start"
-        endAccessor="end"
-        allDayAccessor="allDay"
-        views={['month', 'week', 'day']}
-        view={view}
-        date={date}
-        onView={setView}
-        onNavigate={setDate}
-        eventPropGetter={eventPropGetter}
-        onSelectEvent={handleEventSelect}
-        onSelectSlot={handleSelectSlot}
-        selectable={true}
-        slotPropGetter={slotPropGetter}
-        formats={{
-          eventTimeRangeFormat: () => '',
-        }}
-        components={{
-          toolbar: () => null,
-          month: { event: PremiumStandardEvent },
-          day: { event: PremiumStandardEvent },
-          week: { event: PremiumRotatedEvent },
-        }}
-        className="rbc-calendar"
-        dayLayoutAlgorithm="no-overlap"
-        popup={!isMobile} // Disable popup on mobile for better touch experience
-        tooltipAccessor={(event) => `${event.title} - ${event.resource.shiftType}${event.resource.isScreener ? ' (Screener)' : ''}`}
-      />
+      {useSimplifiedCalendar ? (
+        /* Simplified Calendar (Phase 1.1) */
+        <SimplifiedScheduleView
+          onViewChange={onViewChange}
+          date={date}
+          setDate={setDate}
+          view={view === 'month' || view === 'week' || view === 'day' ? view : 'month'}
+          setView={setView}
+          timezone={timezone}
+          onError={onError}
+          onSuccess={onSuccess}
+          isLoading={isLoading}
+        />
+      ) : (
+        /* Legacy React Big Calendar */
+        <>
+          <Calendar
+            localizer={localizer}
+            events={calendarEvents}
+            startAccessor="start"
+            endAccessor="end"
+            allDayAccessor="allDay"
+            views={['month', 'week', 'day']}
+            view={view}
+            date={date}
+            onView={setView}
+            onNavigate={setDate}
+            eventPropGetter={eventPropGetter}
+            onSelectEvent={handleEventSelect}
+            onSelectSlot={handleSelectSlot}
+            selectable={true}
+            slotPropGetter={slotPropGetter}
+            formats={{
+              eventTimeRangeFormat: () => '',
+            }}
+            components={{
+              toolbar: () => null,
+              month: { event: PremiumStandardEvent },
+              day: { event: PremiumStandardEvent },
+              week: { event: PremiumRotatedEvent },
+            }}
+            className="rbc-calendar"
+            dayLayoutAlgorithm="no-overlap"
+            popup={!isMobile} // Disable popup on mobile for better touch experience
+            tooltipAccessor={(event) => `${event.title} - ${event.resource.shiftType}${event.resource.isScreener ? ' (Screener)' : ''}`}
+          />
+          
+          {/* Shift Time Overlays for Day/Week Views (Legacy only) */}
+          {(view === 'day' || view === 'week') && createShiftTimeOverlays()}
+        </>
+      )}
       
-      {/* Shift Time Overlays for Day/Week Views */}
-      {(view === 'day' || view === 'week') && createShiftTimeOverlays()}
+      {/* Calendar Mode Toggle Button */}
+      <div className={`fixed z-50 ${isMobile ? 'bottom-20 right-4' : 'bottom-24 right-6'}`}>
+        <button
+          onClick={toggleCalendarMode}
+          className={`${isMobile ? 'px-3 py-2 text-sm' : 'px-4 py-2'} bg-secondary text-secondary-foreground rounded-lg shadow-lg hover:bg-secondary/90 transition-all duration-200 flex items-center space-x-2 active:scale-95 touch-manipulation border border-border`}
+          title={`Switch to ${useSimplifiedCalendar ? 'Legacy' : 'Simplified'} Calendar`}
+          style={{ minHeight: '44px' }}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          <span>{useSimplifiedCalendar ? 'Legacy' : 'Simplified'}</span>
+        </button>
+      </div>
       
       {/* Enhanced quick actions floating button with mobile optimization */}
       <div className={`fixed z-40 ${isMobile ? 'bottom-4 right-4' : 'bottom-6 right-6'}`}>
@@ -424,12 +491,24 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({
         </button>
       </div>
       
-      {/* Mobile swipe indicator */}
-      {isMobile && view === 'month' && (
-        <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground bg-muted/80 px-3 py-1 rounded-full backdrop-blur-sm">
+      {/* Mobile swipe indicator (Legacy calendar only) */}
+      {!useSimplifiedCalendar && isMobile && view === 'month' && (
+        <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground bg-muted/80 px-3 py-1 rounded-full backdrop-blur-sm">
           ← Swipe to navigate →
         </div>
       )}
+      
+      {/* Feature Flag Development Info */}
+      <div className={`fixed z-30 ${isMobile ? 'top-16 left-2' : 'top-20 left-4'}`}>
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          <div className="flex items-center space-x-2">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Phase 1.1: {useSimplifiedCalendar ? 'Simplified' : 'Legacy'} Calendar</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
