@@ -14,6 +14,8 @@ interface CalendarGridProps {
   timezone: string;
   events: CalendarEvent[];
   isMobile: boolean;
+  onEventSelect?: (event: CalendarEvent) => void;
+  onDateSelect?: (date: Date) => void;
 }
 
 interface CalendarDay {

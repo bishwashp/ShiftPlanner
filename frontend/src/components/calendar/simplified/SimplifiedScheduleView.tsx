@@ -7,7 +7,7 @@ import { notificationService } from '../../../services/notificationService';
 
 // Simplified calendar imports
 import { CalendarGrid } from './CalendarGrid';
-import { NameBox } from './NameBox';
+import { CalendarHeader } from './CalendarHeader';
 
 // Types matching the original ScheduleView interface
 interface SimplifiedScheduleViewProps {
@@ -136,6 +136,58 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
 
   const swipeHandlers = useSwipeGesture(handleSwipeLeft, handleSwipeRight);
 
+  // Enhanced event handlers matching original ScheduleView functionality
+  const handleEventSelect = useCallback((event: CalendarEvent) => {
+    // Add haptic feedback for mobile
+    if (isMobile && 'vibrate' in navigator) {
+      navigator.vibrate(30);
+    }
+    
+    console.log('Event selected:', event.title, event.resource);
+    
+    // Add notification with event details
+    notificationService.addNotification({
+      type: 'schedule',
+      priority: 'low',
+      title: 'Schedule Selected',
+      message: `${event.title} - ${event.resource.shiftType}${event.resource.isScreener ? ' (Screener)' : ''}`,
+      isActionable: true,
+      action: {
+        label: 'View Details',
+        callback: () => {
+          console.log('Show event details for:', event);
+          // Future: Open event details modal
+        }
+      }
+    });
+  }, [isMobile]);
+
+  const handleDateSelect = useCallback((date: Date) => {
+    // Add haptic feedback for mobile
+    if (isMobile && 'vibrate' in navigator) {
+      navigator.vibrate(40);
+    }
+    
+    console.log('Date selected:', date);
+    
+    // Add actionable notification for schedule creation opportunity
+    const dateString = moment(date).format('MMMM D, YYYY');
+    notificationService.addNotification({
+      type: 'schedule',
+      priority: 'medium',
+      title: 'Schedule Slot Available',
+      message: `Selected ${dateString} - Create new schedule?`,
+      isActionable: true,
+      action: {
+        label: 'Create Schedule',
+        callback: () => {
+          console.log('Create schedule for date:', date);
+          // Future: Open schedule creation modal
+        }
+      }
+    });
+  }, [isMobile]);
+
   // Data fetching (same logic as original)
   const fetchSchedulesAndAnalysts = useCallback(async () => {
     try {
@@ -230,38 +282,42 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
       className={`relative h-full p-4 bg-background text-foreground transition-colors duration-200 ${theme}`}
       {...(isMobile ? swipeHandlers : {})}
     >
-      {/* Simplified Calendar Header */}
-      <div className="mb-4 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-lg">
-          <span className="text-xs font-medium text-muted-foreground">SIMPLIFIED CALENDAR</span>
-          <span className="inline-flex h-2 w-2 bg-green-500 rounded-full animate-pulse" title="Active Development"></span>
-        </div>
-      </div>
+      {/* Calendar Header with Navigation */}
+      <CalendarHeader
+        date={date}
+        setDate={setDate}
+        view={view}
+        setView={setView}
+        timezone={timezone}
+        isMobile={isMobile}
+      />
 
-      {/* Month View Only (simplified) */}
+      {/* Calendar Content based on view */}
       {view === 'month' && (
         <CalendarGrid
           date={date}
           timezone={timezone}
           events={calendarEvents}
           isMobile={isMobile}
+          onEventSelect={handleEventSelect}
+          onDateSelect={handleDateSelect}
         />
       )}
 
-      {/* Week/Day views - placeholder for Phase 2 */}
+      {/* Week/Day views - Phase 2.2 implementation */}
       {view !== 'month' && (
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
             <div className="text-muted-foreground mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium mb-2">Week/Day Views</h3>
-            <p className="text-muted-foreground mb-4">Coming in Phase 2</p>
+            <h3 className="text-lg font-medium mb-2">{view.charAt(0).toUpperCase() + view.slice(1)} View</h3>
+            <p className="text-muted-foreground mb-4">Coming in Phase 2.2 - Enhanced Views</p>
             <button
               onClick={() => setView('month')}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors touch-manipulation min-h-[44px]"
             >
               Return to Month View
             </button>
@@ -279,7 +335,7 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = ({
       {/* Feature flag indicator */}
       <div className="absolute top-4 right-4">
         <div className="inline-flex items-center gap-2 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs font-medium">
-          <span>🚧 Phase 1.1</span>
+          <span>✅ Phase 2.2</span>
         </div>
       </div>
     </div>
