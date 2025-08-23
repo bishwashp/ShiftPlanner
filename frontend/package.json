@@ -1,7 +1,8 @@
 {
-  "name": "frontend",
+  "name": "shiftplanner-frontend",
   "version": "0.1.0",
   "private": true,
+  "homepage": "./",
   "dependencies": {
     "@headlessui/react": "^2.2.6",
     "@tailwindcss/forms": "^0.5.10",
