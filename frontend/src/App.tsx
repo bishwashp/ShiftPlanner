@@ -11,7 +11,6 @@ import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
 import CalendarExport from './components/CalendarExport';
-import { View as BigCalendarView } from 'react-big-calendar';
 import moment from 'moment-timezone';
 import { useTheme } from 'react18-themes';
 import { notificationService } from './services/notificationService';
@@ -40,7 +39,7 @@ function App() {
     // Ensure we start with August 2025 regardless of timezone
     return new Date(2025, 7, 1); // Month is 0-indexed, so 7 = August
   });
-  const [calendarView, setCalendarView] = useState<BigCalendarView>('month');
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
   const [timezone, setTimezone] = useState<string>(() => {
     return localStorage.getItem('timezone') || moment.tz.guess();
   });
@@ -59,7 +58,7 @@ function App() {
   useEffect(() => {
     const savedSidebarOpen = localStorage.getItem('sidebarOpen');
     const savedActiveView = localStorage.getItem('activeView') as SidebarView;
-    const savedCalendarView = localStorage.getItem('calendarView') as BigCalendarView;
+    const savedCalendarView = localStorage.getItem('calendarView') as 'month' | 'week' | 'day';
     const savedCalendarDate = localStorage.getItem('calendarDate');
     
     if (savedSidebarOpen !== null) {
@@ -68,7 +67,7 @@ function App() {
     if (savedActiveView && ['schedule', 'dashboard', 'analysts', 'conflicts', 'analytics', 'constraints', 'algorithms', 'export'].includes(savedActiveView)) {
       setActiveView(savedActiveView);
     }
-    if (savedCalendarView && ['month', 'week', 'day'].includes(savedCalendarView)) {
+    if (savedCalendarView && (['month', 'week', 'day'] as const).includes(savedCalendarView)) {
       setCalendarView(savedCalendarView);
     }
     if (savedCalendarDate) {

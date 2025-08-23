@@ -31,7 +31,9 @@ const TimezoneSelector: React.FC<TimezoneSelectorProps> = ({ timezone, onTimezon
   };
 
   const getFullLabel = (tz: string): string => {
-    return tz.replace(/_/g, ' ');
+    const shortLabel = getShortLabel(tz);
+    const fullName = tz.replace(/_/g, ' ');
+    return `(${shortLabel}) ${fullName}`;
   };
 
   return (
@@ -45,9 +47,7 @@ const TimezoneSelector: React.FC<TimezoneSelectorProps> = ({ timezone, onTimezon
         <optgroup label={region} key={region}>
           {zones.map(tz => (
             <option key={tz} value={tz}>
-              {/* Show short labels on mobile, full labels on desktop */}
-              <span className="sm:hidden">{getShortLabel(tz)}</span>
-              <span className="hidden sm:inline">{getFullLabel(tz)}</span>
+              {getFullLabel(tz)}
             </option>
           ))}
         </optgroup>

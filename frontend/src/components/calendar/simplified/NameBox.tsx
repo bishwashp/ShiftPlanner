@@ -15,6 +15,23 @@ export const NameBox: React.FC<NameBoxProps> = ({
   size = 'medium',
   onClick
 }) => {
+  // Generate accessible descriptions
+  const getAccessibleDescription = () => {
+    let description = `${name} - ${shiftType} shift`;
+    if (isScreener) {
+      description += ', screener role';
+    }
+    return description;
+  };
+
+  // Generate ARIA label for screen readers
+  const getAriaLabel = () => {
+    const baseLabel = `${name}, ${shiftType} shift`;
+    if (isScreener) {
+      return `${baseLabel}, screener role`;
+    }
+    return baseLabel;
+  };
   // Color mapping based on shift type (matching existing system)
   const getShiftColor = (type: string, screener: boolean) => {
     if (screener) {
@@ -55,22 +72,51 @@ export const NameBox: React.FC<NameBoxProps> = ({
         ${colorClasses}
         ${sizeClasses}
         border rounded-md truncate font-medium
-        transition-all duration-200 cursor-pointer
-        hover:shadow-sm hover:scale-105
-        flex items-center justify-center
-        ${onClick ? 'hover:opacity-80' : ''}
+        transition-all duration-200
+        flex items-center justify-center relative
+        ${onClick ? 'cursor-pointer hover:opacity-80 hover:shadow-sm hover:scale-105 focus:scale-105 focus:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1' : ''}
       `}
       onClick={onClick}
-      title={`${name} - ${shiftType}${isScreener ? ' (Screener)' : ''}`}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      title={getAccessibleDescription()}
+      aria-label={getAriaLabel()}
+      role={onClick ? 'button' : 'text'}
+      tabIndex={onClick ? 0 : -1}
+      aria-describedby={isScreener ? `screener-${name.replace(/\s+/g, '-').toLowerCase()}` : undefined}
     >
-      <span className="truncate text-center leading-tight">
+      {/* Hidden description for screen readers */}
+      {isScreener && (
+        <span
+          id={`screener-${name.replace(/\s+/g, '-').toLowerCase()}`}
+          className="sr-only"
+        >
+          This person has screener responsibilities for this shift
+        </span>
+      )}
+      <span className="truncate text-center leading-tight" aria-hidden="true">
         {name}
       </span>
       
       {/* Screener indicator */}
       {isScreener && size !== 'small' && (
-        <span className="ml-1 text-[10px] opacity-75">
+        <span
+          className="ml-1 text-[10px] opacity-75"
+          aria-label="Screener role indicator"
+          role="img"
+        >
           📋
+        </span>
+      )}
+      
+      {/* Accessibility enhancements for small size screeners */}
+      {isScreener && size === 'small' && (
+        <span className="sr-only">
+          (Screener)
         </span>
       )}
     </div>

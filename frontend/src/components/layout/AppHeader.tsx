@@ -2,7 +2,6 @@ import React from 'react';
 import { Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ThemeSwitcher } from '../ThemeSwitcher';
 import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } from 'date-fns';
-import { View as BigCalendarView } from 'react-big-calendar';
 import { View as SidebarView } from './CollapsibleSidebar';
 import TimezoneSelector from '../TimezoneSelector';
 import CalendarLegend from '../CalendarLegend';
@@ -12,8 +11,8 @@ interface AppHeaderProps {
   setSidebarOpen: (open: boolean) => void;
   date: Date;
   setDate: (date: Date) => void;
-  view: BigCalendarView;
-  setView: (view: BigCalendarView) => void;
+  view: 'month' | 'week' | 'day';
+  setView: (view: 'month' | 'week' | 'day') => void;
   activeView: SidebarView;
   timezone: string;
   onTimezoneChange: (tz: string) => void;
@@ -47,7 +46,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   };
   
   const handleViewChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setView(e.target.value as BigCalendarView);
+    setView(e.target.value as 'month' | 'week' | 'day');
   }
 
   const getTitle = () => {

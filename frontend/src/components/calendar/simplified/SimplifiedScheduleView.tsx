@@ -4,10 +4,12 @@ import { apiService, Schedule, Analyst } from '../../../services/api';
 import { View as AppView } from '../../layout/CollapsibleSidebar';
 import { useTheme } from 'react18-themes';
 import { notificationService } from '../../../services/notificationService';
+import { Filter } from 'lucide-react';
 
 // Simplified calendar imports
 import { CalendarGrid } from './CalendarGrid';
-import { CalendarHeader } from './CalendarHeader';
+import CalendarFilterPanel from '../filtering/CalendarFilterPanel';
+import { useCalendarFilters } from '../../../hooks/useCalendarFilters';
 
 // Performance monitoring utilities
 interface PerformanceMetrics {
@@ -128,7 +130,10 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [performanceMetrics, setPerformanceMetrics] = useState<PerformanceMetrics | null>(null);
+
+  // Initialize filtering system
+  const filterHook = useCalendarFilters(schedules, analysts);
+  const { filters, filteredSchedules, toggleSidebar } = filterHook;
   
   // Performance tracking
   const performanceTracker = useMemo(() => trackCalendarPerformance('simplified'), []);
@@ -260,20 +265,12 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
       
       // Track performance metrics
       const fetchTime = performance.now() - fetchStart;
-      const metrics = {
-        renderTime: fetchTime,
-        navigationTime: 0,
-        memoryUsage: (performance as any).memory?.usedJSHeapSize || 0,
-        eventCount: schedulesData.length
-      };
-      
-      setPerformanceMetrics(metrics);
       
       console.log('📊 Data Fetch Performance:', {
         fetchTime: `${fetchTime.toFixed(2)}ms`,
         scheduleCount: schedulesData.length,
         analystCount: activeAnalysts.length,
-        memoryMB: `${(metrics.memoryUsage / 1024 / 1024).toFixed(2)}MB`
+        memoryMB: `${((performance as any).memory?.usedJSHeapSize / 1024 / 1024 || 0).toFixed(2)}MB`
       });
       
     } catch (err) {
@@ -304,13 +301,13 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
     return analystMap.get(analystId) || 'Unknown Analyst';
   }, [analystMap]);
 
-  // Optimized event transformation with memoization
+  // Optimized event transformation with memoization using filtered schedules
   const calendarEvents = useMemo(() => {
     const transformStart = performance.now();
     const events: CalendarEvent[] = [];
 
-    // Batch processing for better performance
-    const validSchedules = schedules.filter(schedule => schedule.date);
+    // Use filtered schedules instead of all schedules
+    const validSchedules = filteredSchedules.filter(schedule => schedule.date);
     
     validSchedules.forEach(schedule => {
       const scheduleDateUtc = moment.utc(schedule.date);
@@ -328,13 +325,8 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
     console.log(`🔄 Event Transform Performance: ${transformTime.toFixed(2)}ms (${events.length} events)`);
 
     return events;
-  }, [schedules, getAnalystName]);
+  }, [filteredSchedules, getAnalystName]);
 
-  // Performance monitoring on render (after calendarEvents is defined)
-  useEffect(() => {
-    const metrics = performanceTracker.measureRender();
-    setPerformanceMetrics(prev => prev ? { ...prev, ...metrics } : metrics);
-  }, [performanceTracker, calendarEvents.length]);
 
   // Loading state
   if (loading) {
@@ -372,30 +364,58 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
 
   return (
     <div
-      className={`relative h-full p-4 bg-background text-foreground transition-colors duration-200 ${theme}`}
+      className={`relative h-full bg-background text-foreground transition-colors duration-200 ${theme}`}
       {...(isMobile ? swipeHandlers : {})}
+      role="application"
+      aria-label="ShiftPlanner Simplified Schedule Calendar"
     >
-      {/* Calendar Header with Navigation */}
-      <CalendarHeader
-        date={date}
-        setDate={setDate}
-        view={view}
-        setView={setView}
-        timezone={timezone}
-        isMobile={isMobile}
-      />
+      {/* Filter Toggle Button - Fixed position */}
+      <div className="absolute top-4 right-4 z-40">
+        <button
+          onClick={toggleSidebar}
+          className={`px-4 py-2 text-sm font-medium border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg ${
+            filters.isOpen
+              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+              : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+          }`}
+          aria-label={filters.isOpen ? 'Close filters' : 'Open filters'}
+          aria-pressed={filters.isOpen}
+        >
+          <Filter className="h-4 w-4 mr-2 inline-block" />
+          Filters
+          {filterHook.activeFilterCount > 0 && (
+            <span className="ml-2 bg-white/20 text-xs px-1.5 py-0.5 rounded-full">
+              {filterHook.activeFilterCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Calendar Container - Adjust margin when filter panel is open */}
+      <div className={`h-full p-4 transition-all duration-300 ${filters.isOpen ? 'mr-80' : ''}`}>
+      {/* Screen reader announcements */}
+      <div
+        id="calendar-announcements"
+        className="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {`Viewing ${view} calendar for ${moment(date).format('MMMM yyyy')}. ${calendarEvents.length} scheduled shifts found.${filterHook.activeFilterCount > 0 ? ` ${filterHook.activeFilterCount} filters active.` : ''}`}
+      </div>
 
       {/* Calendar Content based on view */}
-      {view === 'month' && (
-        <CalendarGrid
-          date={date}
-          timezone={timezone}
-          events={calendarEvents}
-          isMobile={isMobile}
-          onEventSelect={handleEventSelect}
-          onDateSelect={handleDateSelect}
-        />
-      )}
+      <main role="main" aria-label="Calendar content">
+        {view === 'month' && (
+          <CalendarGrid
+            date={date}
+            timezone={timezone}
+            events={calendarEvents}
+            isMobile={isMobile}
+            onEventSelect={handleEventSelect}
+            onDateSelect={handleDateSelect}
+          />
+        )}
+      </main>
 
       {/* Week/Day views - Phase 2.2 implementation */}
       {view !== 'month' && (
@@ -425,21 +445,17 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
         </div>
       )}
 
-      {/* Performance metrics display */}
-      {performanceMetrics && (
-        <div className="absolute bottom-16 right-4 text-xs text-muted-foreground bg-muted/90 px-3 py-2 rounded-lg backdrop-blur-sm font-mono">
-          <div>📊 Render: {performanceMetrics.renderTime.toFixed(1)}ms</div>
-          <div>🔄 Events: {performanceMetrics.eventCount}</div>
-          <div>💾 Memory: {(performanceMetrics.memoryUsage / 1024 / 1024).toFixed(1)}MB</div>
-        </div>
+      </div>
+
+      {/* Filter Panel */}
+      {filters.isOpen && (
+        <CalendarFilterPanel
+          filterHook={filterHook}
+          onClose={() => toggleSidebar()}
+          className="animate-slide-in-right"
+        />
       )}
 
-      {/* Feature flag indicator - Updated to Phase 3.1 */}
-      <div className="absolute top-4 right-4">
-        <div className="inline-flex items-center gap-2 px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded text-xs font-medium">
-          <span>⚡ Phase 3.1</span>
-        </div>
-      </div>
     </div>
   );
 });
