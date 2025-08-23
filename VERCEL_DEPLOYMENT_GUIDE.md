@@ -169,7 +169,21 @@ Vercel provides built-in analytics:
 
 ### Common Issues and Solutions
 
-#### Build Failures
+#### "Could not find a required file. Name: index.html"
+**Cause**: Conflicting build configuration in `vercel.json` using both legacy `builds` array and modern `buildCommand`/`outputDirectory`.
+
+**Solution**: The repository has been updated to use the simplified modern configuration:
+```json
+{
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/build",
+  "installCommand": "cd frontend && npm install"
+}
+```
+
+This issue has been resolved in the current repository.
+
+#### Other Build Failures
 ```bash
 # Check build locally first:
 cd frontend
