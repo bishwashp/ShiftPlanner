@@ -86,7 +86,8 @@ jspm_packages/
 
 # Gatsby files
 .cache/
-public
+# Note: Only ignore root-level public for Gatsby projects
+# React frontend/public/ should be tracked
 
 # Storybook build outputs
 .out
