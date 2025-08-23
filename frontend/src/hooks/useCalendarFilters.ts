@@ -5,8 +5,6 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   CalendarFilters,
   FilterPreset,
-  FilterCounts,
-  FilterValidation,
   UseCalendarFilters,
   DEFAULT_FILTERS,
   FILTER_PRESETS

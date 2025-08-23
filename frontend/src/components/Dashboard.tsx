@@ -3,13 +3,11 @@ import { View } from './layout/CollapsibleSidebar';
 import AnalystsIcon from './icons/AnalystsIcon';
 import CheckIcon from './icons/CheckIcon';
 import ScheduleIcon from './icons/ScheduleIcon';
-import HourglassIcon from './icons/HourglassIcon';
 import PlusIcon from './icons/PlusIcon';
 import AnalyticsIcon from './icons/AnalyticsIcon';
 import AlertIcon from './icons/AlertIcon';
 import { apiService, DashboardStats } from '../services/api';
 import { formatDateTime } from '../utils/formatDateTime';
-import { useTheme } from 'react18-themes';
 import moment from 'moment-timezone';
 import { useNotifications } from '../hooks/useNotifications';
 import BellIcon from './icons/BellIcon';
@@ -59,7 +57,6 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({ text, icon: Icon,
 interface DashboardProps { onViewChange: (view: View) => void; }
 
 const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
-  const { theme } = useTheme();
   const { addDemoNotifications } = useNotifications();
   const [stats, setStats] = useState<DashboardStats>({
     totalAnalysts: 0,
@@ -143,10 +140,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     addDemoNotifications();
   };
 
-  const handleNavigateToSchedule = (conflict: { date: string; shiftType?: string }) => {
-    // Use your router/navigation logic to go to Schedule tab, passing conflict context
-    window.location.hash = '#/schedule?date=' + conflict.date + (conflict.shiftType ? ('&shiftType=' + conflict.shiftType) : '');
-  };
 
   return (
     <div className="bg-background text-foreground p-6">

@@ -3,7 +3,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Filter, Search, Users, Layers, Clock, Tag, ChevronDown, ChevronUp } from 'lucide-react';
-import { CalendarFilters, FilterPreset, FilterTab } from '../../../types/CalendarFilters';
+import { FilterTab } from '../../../types/CalendarFilters';
 import { UseCalendarFilters } from '../../../types/CalendarFilters';
 import './CalendarFilterPanel.css';
 
@@ -260,12 +260,11 @@ const CalendarFilterPanel: React.FC<CalendarFilterPanelProps> = ({
   onClose,
   className = '',
 }) => {
-  const { 
-    filters, 
-    activeFilterCount, 
-    filterSummary, 
-    applyPreset, 
-    resetFilters, 
+  const {
+    activeFilterCount,
+    filterSummary,
+    applyPreset,
+    resetFilters,
     clearAllFilters,
     presets
   } = filterHook;
