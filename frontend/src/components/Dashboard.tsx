@@ -10,6 +10,7 @@ import { apiService, DashboardStats } from '../services/api';
 import { formatDateTime } from '../utils/formatDateTime';
 import moment from 'moment-timezone';
 import { useNotifications } from '../hooks/useNotifications';
+import { useActionPrompts } from '../contexts/ActionPromptContext';
 import BellIcon from './icons/BellIcon';
 
 interface StatCardProps {
@@ -58,6 +59,7 @@ interface DashboardProps { onViewChange: (view: View) => void; }
 
 const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
   const { addDemoNotifications } = useNotifications();
+  const { showCriticalPrompt } = useActionPrompts();
   const [stats, setStats] = useState<DashboardStats>({
     totalAnalysts: 0,
     activeAnalysts: 0,
@@ -73,8 +75,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     setLoading(true);
     setError(null);
     try {
-      const startDate = new Date().toISOString().split('T')[0];
-      const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const startDate = '2025-10-08';
+      const endDate = '2025-11-08';
 
       const [stats, conflictsData] = await Promise.all([
         apiService.getDashboardStats(),
@@ -94,6 +96,32 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Show action prompt for critical conflicts
+  useEffect(() => {
+    if (conflicts.critical.length > 0 && !loading) {
+      showCriticalPrompt(
+        'Critical Schedule Conflicts Detected',
+        `Found ${conflicts.critical.length} critical conflict(s) that require immediate attention. These conflicts may affect operations and need to be resolved.`,
+        [
+          {
+            label: 'Review & Fix Conflicts',
+            variant: 'primary' as const,
+            onClick: () => onViewChange('conflicts')
+          },
+          {
+            label: 'Auto-Fix All Conflicts',
+            variant: 'secondary' as const,
+            onClick: () => {
+              // This would trigger the auto-fix functionality
+              console.log('Auto-fix all conflicts triggered');
+            }
+          }
+        ],
+        { relatedView: 'conflicts', conflictCount: conflicts.critical.length }
+      );
+    }
+  }, [conflicts.critical.length, loading, showCriticalPrompt, onViewChange]);
 
   const conflictCard = {
     title: 'Schedule Conflicts',

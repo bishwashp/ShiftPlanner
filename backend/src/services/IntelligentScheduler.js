@@ -43,6 +43,8 @@ class IntelligentScheduler {
                     }
                 }
             });
+            console.log(`👥 Found ${analysts.length} active analysts for conflict resolution`);
+            console.log('📅 Date range:', startDate, 'to', endDate);
             const proposedAssignments = [];
             let criticalConflicts = 0;
             for (const conflict of conflicts) {
@@ -50,9 +52,14 @@ class IntelligentScheduler {
                     criticalConflicts++;
                 }
                 for (const shiftType of conflict.missingShifts) {
+                    console.log(`🔧 Attempting to assign ${shiftType} shift for ${conflict.date}`);
                     const assignment = yield this.assignAnalyst(conflict.date, shiftType, analysts, startDate, endDate);
                     if (assignment) {
+                        console.log(`✅ Successfully assigned analyst ${assignment.analystId} for ${shiftType} on ${conflict.date}`);
                         proposedAssignments.push(assignment);
+                    }
+                    else {
+                        console.log(`❌ No suitable analyst found for ${shiftType} shift on ${conflict.date}`);
                     }
                 }
             }
@@ -78,7 +85,10 @@ class IntelligentScheduler {
         return __awaiter(this, void 0, void 0, function* () {
             const strategy = this.getAssignmentStrategy(date, shiftType);
             const availableAnalysts = this.getAvailableAnalysts(date, shiftType, analysts);
+            console.log(`🔍 Assignment strategy for ${date} ${shiftType}:`, strategy.logic);
+            console.log(`👥 Available analysts: ${availableAnalysts.length}/${analysts.length}`);
             if (availableAnalysts.length === 0) {
+                console.log(`❌ No available analysts for ${shiftType} on ${date}`);
                 return null;
             }
             let selectedAnalyst;

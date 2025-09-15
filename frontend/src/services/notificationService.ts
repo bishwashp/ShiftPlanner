@@ -1,5 +1,5 @@
-export type NotificationType = 'conflict' | 'schedule' | 'system' | 'success' | 'warning' | 'error';
-export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
+export type NotificationType = 'recommendation' | 'history' | 'system' | 'success' | 'analytics';
+export type NotificationPriority = 'low' | 'medium' | 'high';
 
 export interface Notification {
   id: string;
@@ -9,15 +9,13 @@ export interface Notification {
   message: string;
   timestamp: Date;
   isRead: boolean;
-  isActionable: boolean;
-  action?: {
-    label: string;
-    callback: () => void;
-  };
   metadata?: {
     relatedView?: string;
     analystId?: string;
     scheduleId?: string;
+    conflictId?: string;
+    category?: string;
+    tags?: string[];
   };
 }
 
@@ -30,7 +28,7 @@ class NotificationService {
     this.loadFromStorage();
   }
 
-  // Add a new notification
+  // Add a new notification (for recommendations, history, system status)
   addNotification(notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>): string {
     const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newNotification: Notification = {
@@ -40,22 +38,18 @@ class NotificationService {
       isRead: false,
     };
 
-    // Only keep actionable notifications or high/critical priority
-    if (notification.isActionable || ['high', 'critical'].includes(notification.priority)) {
-      this.notifications.unshift(newNotification);
-      
-      // Limit the number of notifications
-      if (this.notifications.length > this.maxNotifications) {
-        this.notifications = this.notifications.slice(0, this.maxNotifications);
-      }
-
-      this.saveToStorage();
-      this.notifyListeners();
-      
-      return id;
-    }
+    // Store all notifications (recommendations, history, system status)
+    this.notifications.unshift(newNotification);
     
-    return id; // Still return ID even if not stored
+    // Limit the number of notifications
+    if (this.notifications.length > this.maxNotifications) {
+      this.notifications = this.notifications.slice(0, this.maxNotifications);
+    }
+
+    this.saveToStorage();
+    this.notifyListeners();
+    
+    return id;
   }
 
   // Get all notifications
@@ -143,35 +137,43 @@ class NotificationService {
     }
   }
 
-  // Smart notification methods for common scenarios
-  addConflictNotification(title: string, message: string, action?: Notification['action']): string {
+  // Smart notification methods for recommendations, history, and system status
+  addRecommendationNotification(title: string, message: string, metadata?: any): string {
     return this.addNotification({
-      type: 'conflict',
-      priority: 'high',
+      type: 'recommendation',
+      priority: 'medium',
       title,
       message,
-      isActionable: true,
-      action,
+      metadata,
     });
   }
 
-  addScheduleNotification(title: string, message: string, priority: NotificationPriority = 'medium'): string {
+  addHistoryNotification(title: string, message: string, metadata?: any): string {
     return this.addNotification({
-      type: 'schedule',
-      priority,
+      type: 'history',
+      priority: 'low',
       title,
       message,
-      isActionable: priority === 'high' || priority === 'critical',
+      metadata,
     });
   }
 
-  addSystemNotification(title: string, message: string, priority: NotificationPriority = 'low'): string {
+  addSystemNotification(title: string, message: string, priority: NotificationPriority = 'medium'): string {
     return this.addNotification({
       type: 'system',
       priority,
       title,
       message,
-      isActionable: false,
+    });
+  }
+
+  addSuccessNotification(title: string, message: string, metadata?: any): string {
+    return this.addNotification({
+      type: 'success',
+      priority: 'low',
+      title,
+      message,
+      metadata,
     });
   }
 }

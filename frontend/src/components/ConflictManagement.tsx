@@ -17,14 +17,15 @@ const ConflictManagement: React.FC = () => {
   const [autoFixMsg, setAutoFixMsg] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [proposals, setProposals] = useState<AssignmentProposal[]>([]);
+  const [analysts, setAnalysts] = useState<any[]>([]);
+  const [showManualAssignment, setShowManualAssignment] = useState<string | null>(null);
 
   const fetchConflicts = async () => {
     setLoading(true);
     try {
-      // Get conflicts for the next 30 days
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setDate(startDate.getDate() + 30);
+      // Get conflicts for the next 30 days (using 2025 dates to match database)
+      const startDate = new Date('2025-10-08');
+      const endDate = new Date('2025-11-08');
 
       const data = await apiService.getAllConflicts(
         startDate.toISOString().split('T')[0],
@@ -39,8 +40,18 @@ const ConflictManagement: React.FC = () => {
     }
   };
 
+  const fetchAnalysts = async () => {
+    try {
+      const data = await apiService.getAnalysts();
+      setAnalysts(data);
+    } catch (error) {
+      console.error("Failed to fetch analysts:", error);
+    }
+  };
+
   useEffect(() => {
     fetchConflicts();
+    fetchAnalysts();
   }, []);
 
   const currentConflicts = conflicts[selectedTab] || [];
@@ -49,8 +60,8 @@ const ConflictManagement: React.FC = () => {
     setAutoFixing(true);
     setAutoFixMsg(null);
     try {
-      const startDate = new Date().toISOString().split('T')[0];
-      const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const startDate = '2025-10-08';
+      const endDate = '2025-11-08';
       const result = await apiService.autoFixConflicts({ startDate, endDate });
 
       if (!result.proposals || result.proposals.length === 0) {
@@ -78,6 +89,53 @@ const ConflictManagement: React.FC = () => {
       await fetchConflicts(); // Refresh conflict list
     } catch (err: any) {
       setAutoFixMsg('Auto-fix failed to apply: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setAutoFixing(false);
+    }
+  };
+
+  const handleAutoFixSingle = async (conflict: any) => {
+    setAutoFixing(true);
+    setAutoFixMsg(null);
+    try {
+      // Call the backend to generate proposals for this single conflict
+      const result = await apiService.autoFixConflicts({ 
+        startDate: conflict.date, 
+        endDate: conflict.date 
+      });
+
+      if (!result.suggestedAssignments || result.suggestedAssignments.length === 0) {
+        setAutoFixMsg(`No auto-fix available for ${formatDateTime(conflict.date, moment.tz.guess(), 'MMM D, YYYY')}. No suitable analysts found.`);
+        setAutoFixing(false);
+        return;
+      }
+      
+      setProposals(result.suggestedAssignments);
+      setIsPreviewOpen(true);
+    } catch (err: any) {
+      setAutoFixMsg('Failed to generate auto-fix for this conflict: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setAutoFixing(false);
+    }
+  };
+
+  const handleManualAssignment = async (conflict: any, analystId: string, shiftType: string) => {
+    setAutoFixing(true);
+    try {
+      // Create a manual assignment
+      const manualAssignment = {
+        date: conflict.date,
+        analystId: analystId,
+        shiftType: shiftType.toUpperCase(),
+        isScreener: false
+      };
+
+      const result = await apiService.applyAutoFix({ assignments: [manualAssignment] });
+      setAutoFixMsg(`Manual assignment complete! ${result.createdSchedules.length} schedule(s) created.`);
+      setShowManualAssignment(null);
+      await fetchConflicts(); // Refresh conflict list
+    } catch (err: any) {
+      setAutoFixMsg('Manual assignment failed: ' + (err?.message || 'Unknown error'));
     } finally {
       setAutoFixing(false);
     }
@@ -116,15 +174,68 @@ const ConflictManagement: React.FC = () => {
           )}
           <div className="space-y-4">
             {currentConflicts.map((conflict, idx) => (
-              <div key={idx} className="p-4 bg-card text-card-foreground rounded-lg shadow border border-border flex items-center justify-between">
-                <div>
-                  <div className="font-semibold text-foreground">{formatDateTime(conflict.date, moment.tz.guess(), 'MMM D, YYYY')} {conflict.shiftType && <span className="ml-2 text-xs bg-muted px-2 py-1 rounded">{conflict.shiftType}</span>}</div>
-                  <div className="text-muted-foreground mt-1">{conflict.message}</div>
+              <div key={idx}>
+                <div className="p-4 bg-card text-card-foreground rounded-lg shadow border border-border flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-foreground dark:text-white">
+                      <span className="text-primary dark:text-primary-foreground font-bold">
+                        {formatDateTime(conflict.date, moment.tz.guess(), 'MMM D, YYYY')}
+                      </span>
+                      {conflict.shiftType && <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-1 rounded">{conflict.shiftType}</span>}
+                    </div>
+                    <div className="text-muted-foreground dark:text-gray-300 mt-1">{conflict.message}</div>
+                  </div>
+                  {/* Auto-fix/recommendation actions */}
+                  <div className="flex gap-2">
+                    <button 
+                      className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => handleAutoFixSingle(conflict)}
+                      disabled={autoFixing}
+                    >
+                      {autoFixing ? 'Fixing...' : 'Auto-Fix'}
+                    </button>
+                    <button 
+                      className="px-3 py-1 bg-muted text-muted-foreground rounded hover:bg-muted/80 font-medium"
+                      onClick={() => setShowManualAssignment(showManualAssignment === conflict.date ? null : conflict.date)}
+                    >
+                      Manual
+                    </button>
+                  </div>
                 </div>
-                {/* Placeholder for auto-fix/recommendation actions */}
-                <div>
-                  <button className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 font-medium">Auto-Fix</button>
-                </div>
+                
+                {/* Manual Assignment Interface */}
+                {showManualAssignment === conflict.date && (
+                  <div className="mt-2 p-4 bg-muted/20 rounded-lg border border-border">
+                    <h4 className="text-sm font-semibold text-foreground dark:text-white mb-3">
+                      Manual Assignment for <span className="text-primary dark:text-primary-foreground font-bold">{formatDateTime(conflict.date, moment.tz.guess(), 'MMM D, YYYY')}</span>
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {['Morning', 'Evening'].map((shiftType) => (
+                        <div key={shiftType} className="space-y-2">
+                          <label className="text-sm font-medium text-foreground">{shiftType} Shift</label>
+                          <div className="flex gap-2">
+                            <select 
+                              className="flex-1 px-3 py-1 bg-background border border-border rounded text-foreground"
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleManualAssignment(conflict, e.target.value, shiftType);
+                                }
+                              }}
+                              disabled={autoFixing}
+                            >
+                              <option value="">Select Analyst</option>
+                              {analysts.map((analyst) => (
+                                <option key={analyst.id} value={analyst.id}>
+                                  {analyst.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

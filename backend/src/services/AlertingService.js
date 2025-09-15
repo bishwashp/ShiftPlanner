@@ -11,17 +11,21 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.alertingService = exports.AlertingService = void 0;
 const MonitoringService_1 = require("./MonitoringService");
+const sla_config_1 = require("../config/sla-config");
 class AlertingService {
     constructor() {
         this.alerts = [];
         this.alertRules = [];
         this.notifications = [];
         this.isMonitoring = false;
+        this.slaViolationStartTime = null;
         this.initializeDefaultRules();
         this.startMonitoring();
     }
     // Initialize default alert rules
     initializeDefaultRules() {
+        const slaConfig = (0, sla_config_1.getSLAConfig)();
+        const environment = process.env.NODE_ENV || 'development';
         this.alertRules = [
             {
                 id: 'perf-degradation',
@@ -30,7 +34,7 @@ class AlertingService {
                 condition: {
                     metric: 'averageResponseTime',
                     operator: 'gt',
-                    threshold: 500, // ms
+                    threshold: slaConfig.thresholds.averageResponseTime, // Environment-specific threshold
                     durationMinutes: 5,
                 },
                 severity: 'MEDIUM',
@@ -44,7 +48,7 @@ class AlertingService {
                 condition: {
                     metric: 'errorRate',
                     operator: 'gt',
-                    threshold: 0.05, // 5%
+                    threshold: slaConfig.thresholds.errorRate, // Environment-specific threshold
                     durationMinutes: 2,
                 },
                 severity: 'HIGH',
@@ -115,11 +119,11 @@ class AlertingService {
                     metric: 'slaCompliance',
                     operator: 'eq',
                     threshold: 0, // false
-                    durationMinutes: 1,
+                    durationMinutes: slaConfig.violationDurationMinutes, // Environment-specific duration
                 },
-                severity: 'CRITICAL',
-                enabled: true,
-                cooldownMinutes: 5,
+                severity: (0, sla_config_1.getAlertSeverity)('slaCompliance', environment),
+                enabled: environment !== 'development', // Disable in development
+                cooldownMinutes: slaConfig.alertCooldownMinutes,
             },
         ];
     }
@@ -194,6 +198,10 @@ class AlertingService {
                 default:
                     return false;
             }
+            // For SLA compliance, check if violation has been persistent
+            if (condition.metric === 'slaCompliance' && condition.durationMinutes) {
+                return this.checkDurationBasedCondition(currentValue, condition);
+            }
             switch (condition.operator) {
                 case 'gt':
                     return currentValue > condition.threshold;
@@ -209,6 +217,30 @@ class AlertingService {
                     return false;
             }
         });
+    }
+    // Check if condition has been met for the specified duration
+    checkDurationBasedCondition(currentValue, condition) {
+        const now = Date.now();
+        const durationMs = condition.durationMinutes * 60 * 1000;
+        // For SLA violations, we need to check if the service has been down for the full duration
+        if (condition.metric === 'slaCompliance' && currentValue === 0) {
+            // Initialize violation start time if not exists
+            if (!this.slaViolationStartTime) {
+                this.slaViolationStartTime = now;
+                return false; // Don't alert immediately
+            }
+            // Check if violation has persisted for the required duration
+            const violationDuration = now - this.slaViolationStartTime;
+            if (violationDuration >= durationMs) {
+                return true; // Alert after duration has passed
+            }
+            return false; // Still within duration window
+        }
+        else {
+            // Reset violation start time if SLA is now compliant
+            this.slaViolationStartTime = null;
+            return false;
+        }
     }
     // Create a new alert
     createAlert(rule, context) {

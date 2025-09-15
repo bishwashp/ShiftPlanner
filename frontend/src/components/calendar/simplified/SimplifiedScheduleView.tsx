@@ -234,20 +234,11 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
     
     // Add actionable notification for schedule creation opportunity
     const dateString = moment(date).format('MMMM D, YYYY');
-    notificationService.addNotification({
-      type: 'schedule',
-      priority: 'medium',
-      title: 'Schedule Slot Available',
-      message: `Selected ${dateString} - Create new schedule?`,
-      isActionable: true,
-      action: {
-        label: 'Create Schedule',
-        callback: () => {
-          console.log('Create schedule for date:', date);
-          setShowGenerationForm(true);
-        }
-      }
-    });
+    notificationService.addRecommendationNotification(
+      'Schedule Slot Available',
+      `Selected ${dateString} - Create new schedule?`,
+      { category: 'scheduling', tags: ['creation-opportunity'] }
+    );
   }, [isMobile]);
 
   // Schedule generation handlers - will be triggered by onGenerateSchedule prop

@@ -11,6 +11,7 @@ import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
 import CalendarExport from './components/CalendarExport';
+import ActionPromptProvider from './contexts/ActionPromptContext';
 import moment from 'moment-timezone';
 import { useTheme } from 'react18-themes';
 import { notificationService } from './services/notificationService';
@@ -99,27 +100,24 @@ function App() {
   };
 
   const handleError = useCallback((error: string) => {
-    // Show critical errors as both toast and notification
+    // Show critical errors as toast only (no actionable notifications)
     showToast(error, 'error');
-    notificationService.addNotification({
-      type: 'error',
-      priority: 'high',
-      title: 'System Error',
-      message: error,
-      isActionable: true,
-    });
+    // Add to notification history for tracking
+    notificationService.addSystemNotification(
+      'System Error Occurred',
+      error,
+      'high'
+    );
   }, []);
 
   const handleSuccess = useCallback((message: string) => {
-    // Only add success notifications for actionable items
+    // Add success notifications to history for tracking
     if (message.includes('conflict') || message.includes('schedule') || message.includes('error')) {
-      notificationService.addNotification({
-        type: 'success',
-        priority: 'medium',
-        title: 'Action Completed',
-        message: message,
-        isActionable: false,
-      });
+      notificationService.addSuccessNotification(
+        'Action Completed',
+        message,
+        { category: 'user-action', tags: ['success'] }
+      );
     }
     // No toast spam for regular success messages
   }, []);
@@ -157,7 +155,7 @@ function App() {
       case 'export':
         return <CalendarExport {...commonProps} />;
       case 'dashboard':
-        return <Dashboard onViewChange={() => {}} />;
+        return <Dashboard onViewChange={setActiveView} />;
       case 'schedule':
       default:
         return (
@@ -176,42 +174,44 @@ function App() {
   };
 
   return (
-    <div className={`flex h-screen bg-background text-foreground transition-colors duration-200 ${theme}`}>
-      <CollapsibleSidebar 
-        isOpen={sidebarOpen} 
-        onViewChange={handleViewChange} 
-        activeView={activeView}
-      />
-      <div className="flex-1 flex flex-col">
-        <AppHeader 
-          sidebarOpen={sidebarOpen} 
-          setSidebarOpen={setSidebarOpen} 
-          date={calendarDate}
-          setDate={setCalendarDate}
-          view={calendarView}
-          setView={setCalendarView}
+    <ActionPromptProvider>
+      <div className={`flex h-screen bg-background text-foreground transition-colors duration-200 ${theme}`}>
+        <CollapsibleSidebar 
+          isOpen={sidebarOpen} 
+          onViewChange={handleViewChange} 
           activeView={activeView}
-          timezone={timezone}
-          onTimezoneChange={handleTimezoneChange}
-          onGenerateSchedule={handleGenerateSchedule}
         />
-        <main className="flex-1 overflow-auto relative">
-          {isLoading && (
-            <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          )}
-          {renderView()}
-        </main>
+        <div className="flex-1 flex flex-col">
+          <AppHeader 
+            sidebarOpen={sidebarOpen} 
+            setSidebarOpen={setSidebarOpen} 
+            date={calendarDate}
+            setDate={setCalendarDate}
+            view={calendarView}
+            setView={setCalendarView}
+            activeView={activeView}
+            timezone={timezone}
+            onTimezoneChange={handleTimezoneChange}
+            onGenerateSchedule={handleGenerateSchedule}
+          />
+          <main className="flex-1 overflow-auto relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            )}
+            {renderView()}
+          </main>
+        </div>
+        {toast && (
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={() => setToast(null)} 
+          />
+        )}
       </div>
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
-        />
-      )}
-    </div>
+    </ActionPromptProvider>
   );
 }
 

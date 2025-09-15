@@ -372,9 +372,31 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
     }
 
     const conflicts: { date: string; message: string; type: string; missingShifts: string[]; severity: string }[] = [];
+    
+    // Get screener assignments for each date
+    const screenerAssignments = new Map<string, { morning: number, evening: number }>();
+    schedules.forEach(schedule => {
+      const dateStr = schedule.date.toISOString().split('T')[0];
+      if (schedule.isScreener) {
+        if (!screenerAssignments.has(dateStr)) {
+          screenerAssignments.set(dateStr, { morning: 0, evening: 0 });
+        }
+        const assignments = screenerAssignments.get(dateStr)!;
+        if (schedule.shiftType === 'MORNING') {
+          assignments.morning++;
+        } else if (schedule.shiftType === 'EVENING') {
+          assignments.evening++;
+        }
+      }
+    });
+
     allDates.forEach(dateStr => {
       const shifts = scheduledDates.get(dateStr);
+      const screeners = screenerAssignments.get(dateStr) || { morning: 0, evening: 0 };
       let missingShifts: string[] = [];
+      let screenerIssues: string[] = [];
+      
+      // Check for missing shifts
       if (!shifts || !shifts.morning) {
         missingShifts.push('Morning');
       }
@@ -382,6 +404,21 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
         missingShifts.push('Evening');
       }
 
+      // Check for screener requirements
+      if (shifts && shifts.morning && screeners.morning === 0) {
+        screenerIssues.push('Morning screener missing');
+      }
+      if (shifts && shifts.evening && screeners.evening === 0) {
+        screenerIssues.push('Evening screener missing');
+      }
+      if (screeners.morning > 1) {
+        screenerIssues.push(`Multiple morning screeners (${screeners.morning})`);
+      }
+      if (screeners.evening > 1) {
+        screenerIssues.push(`Multiple evening screeners (${screeners.evening})`);
+      }
+
+      // Add missing shift conflicts
       if (missingShifts.length > 0) {
         conflicts.push({
           date: dateStr,
@@ -391,11 +428,26 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
           severity: 'critical'
         });
       }
+
+      // Add screener conflicts
+      if (screenerIssues.length > 0) {
+        conflicts.push({
+          date: dateStr,
+          message: `${screenerIssues.join(', ')} on ${moment(dateStr).format('MMM D')}`,
+          type: 'SCREENER_CONFLICT',
+          missingShifts: screenerIssues,
+          severity: screenerIssues.some(issue => issue.includes('missing')) ? 'critical' : 'recommended'
+        });
+      }
     });
 
+    // Categorize conflicts by severity
+    const criticalConflicts = conflicts.filter(c => c.severity === 'critical');
+    const recommendedConflicts = conflicts.filter(c => c.severity === 'recommended');
+
     const responseData = {
-      critical: conflicts,
-      recommended: [],
+      critical: criticalConflicts,
+      recommended: recommendedConflicts,
     };
 
     res.json(responseData);
@@ -471,8 +523,14 @@ router.post('/auto-fix-conflicts', async (req: Request, res: Response) => {
     });
 
     // Use IntelligentScheduler to resolve conflicts
+    console.log(`🔍 Auto-fix: Found ${conflictList.length} conflicts to resolve`);
+    console.log('📋 Conflicts:', conflictList);
+    
     const scheduler = new IntelligentScheduler(prisma);
     const resolution = await scheduler.resolveConflicts(conflictList, startDate, endDate);
+
+    console.log(`✅ Auto-fix: Generated ${resolution.suggestedAssignments?.length || 0} proposals`);
+    console.log('📊 Resolution summary:', resolution.summary);
 
     res.json(resolution);
   } catch (error) {

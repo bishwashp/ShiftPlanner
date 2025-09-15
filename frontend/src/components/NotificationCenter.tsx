@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { notificationService, Notification, NotificationType } from '../services/notificationService';
-import { X, Check, AlertTriangle, Calendar, Settings, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { X, Check, AlertTriangle, Calendar, Settings, CheckCircle, BarChart3 } from 'lucide-react';
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -31,18 +31,16 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
     };
 
     switch (type) {
-      case 'conflict':
-        return <AlertTriangle {...iconProps} />;
-      case 'schedule':
-        return <Calendar {...iconProps} />;
+      case 'recommendation':
+        return <AlertTriangle {...iconProps} className="text-blue-500" />;
+      case 'history':
+        return <Calendar {...iconProps} className="text-gray-500" />;
       case 'system':
         return <Settings {...iconProps} />;
       case 'success':
         return <CheckCircle {...iconProps} className="text-green-500" />;
-      case 'warning':
-        return <AlertCircle {...iconProps} className="text-yellow-500" />;
-      case 'error':
-        return <XCircle {...iconProps} className="text-red-500" />;
+      case 'analytics':
+        return <BarChart3 {...iconProps} className="text-purple-500" />;
       default:
         return <Settings {...iconProps} />;
     }
@@ -217,17 +215,15 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                         </div>
                       </div>
                       
-                      {/* Action button */}
-                      {notification.action && (
-                        <button
-                          onClick={() => {
-                            notification.action?.callback();
-                            handleMarkAsRead(notification.id);
-                          }}
-                          className="mt-2 px-3 py-1 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                        >
-                          {notification.action.label}
-                        </button>
+                      {/* Notification metadata */}
+                      {notification.metadata?.tags && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {notification.metadata.tags.map((tag, index) => (
+                            <span key={index} className="px-2 py-1 bg-muted text-muted-foreground rounded text-xs">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>

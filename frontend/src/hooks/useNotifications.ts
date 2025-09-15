@@ -19,36 +19,35 @@ export const useNotifications = () => {
     return unsubscribe;
   }, []);
 
-  // Helper methods for common notification scenarios
-  const addConflictNotification = (title: string, message: string, actionLabel?: string, actionCallback?: () => void) => {
-    return notificationService.addConflictNotification(title, message, 
-      actionLabel && actionCallback ? { label: actionLabel, callback: actionCallback } : undefined
-    );
+  // Helper methods for recommendations, history, and system status
+  const addRecommendation = (title: string, message: string, metadata?: any) => {
+    return notificationService.addRecommendationNotification(title, message, metadata);
   };
 
-  const addScheduleIssue = (title: string, message: string) => {
-    return notificationService.addScheduleNotification(title, message, 'high');
+  const addHistory = (title: string, message: string, metadata?: any) => {
+    return notificationService.addHistoryNotification(title, message, metadata);
   };
 
-  const addSystemAlert = (title: string, message: string) => {
-    return notificationService.addSystemNotification(title, message, 'medium');
+  const addSystemStatus = (title: string, message: string, priority: 'low' | 'medium' | 'high' = 'medium') => {
+    return notificationService.addSystemNotification(title, message, priority);
   };
 
-  // Add some demo notifications for testing
+  const addSuccess = (title: string, message: string, metadata?: any) => {
+    return notificationService.addSuccessNotification(title, message, metadata);
+  };
+
+  // Add some demo notifications for testing (recommendations, history, system status)
   const addDemoNotifications = () => {
-    notificationService.addConflictNotification(
-      'Schedule Conflict Detected',
-      'John Smith has overlapping shifts on August 25th. Review and resolve conflicts.',
-      {
-        label: 'Review Conflicts',
-        callback: () => console.log('Navigating to conflicts view')
-      }
+    notificationService.addRecommendationNotification(
+      'Schedule Optimization Suggestion',
+      'Consider adding 2 more analysts for weekend coverage to improve fairness score.',
+      { category: 'scheduling', tags: ['optimization', 'fairness'] }
     );
 
-    notificationService.addScheduleNotification(
-      'Weekend Coverage Gap',
-      'No analyst assigned for Saturday morning shift (Aug 24, 9:00 AM)',
-      'high'
+    notificationService.addHistoryNotification(
+      'Schedule Generated Successfully',
+      'Generated schedule for August 2024 with 95% fairness score.',
+      { category: 'scheduling', tags: ['generation', 'success'] }
     );
 
     notificationService.addSystemNotification(
@@ -57,25 +56,20 @@ export const useNotifications = () => {
       'low'
     );
 
-    notificationService.addNotification({
-      type: 'warning',
-      priority: 'medium',
-      title: 'Vacation Overlap Warning',
-      message: 'Multiple analysts have requested vacation for the same week in September.',
-      isActionable: true,
-      action: {
-        label: 'View Vacations',
-        callback: () => console.log('Navigating to vacation management')
-      }
-    });
+    notificationService.addSuccessNotification(
+      'Conflicts Resolved',
+      'All 3 critical conflicts were successfully resolved using auto-fix.',
+      { category: 'conflicts', tags: ['resolution', 'auto-fix'] }
+    );
   };
 
   return {
     notifications,
     unreadCount,
-    addConflictNotification,
-    addScheduleIssue,
-    addSystemAlert,
+    addRecommendation,
+    addHistory,
+    addSystemStatus,
+    addSuccess,
     addDemoNotifications,
     markAsRead: notificationService.markAsRead.bind(notificationService),
     markAllAsRead: notificationService.markAllAsRead.bind(notificationService),
