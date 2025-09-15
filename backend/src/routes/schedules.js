@@ -497,6 +497,108 @@ router.post('/apply-auto-fix', (req, res) => __awaiter(void 0, void 0, void 0, f
         res.status(500).json({ error: 'Failed to apply auto-fix assignments' });
     }
 }));
+// Generate schedule for a date range - MVP endpoint
+router.post('/generate', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { startDate, endDate, algorithm = 'WeekendRotationAlgorithm' } = req.body;
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: 'startDate and endDate are required' });
+        }
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (start >= end) {
+            return res.status(400).json({ error: 'startDate must be before endDate' });
+        }
+        // Get all active analysts
+        const analysts = yield prisma_1.prisma.analyst.findMany({
+            where: { isActive: true },
+            include: {
+                schedules: {
+                    where: {
+                        date: {
+                            gte: start,
+                            lte: end
+                        }
+                    }
+                }
+            }
+        });
+        if (analysts.length === 0) {
+            return res.status(400).json({ error: 'No active analysts found. Please add analysts first.' });
+        }
+        // Check if we have analysts for both shifts
+        const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
+        const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
+        if (morningAnalysts.length === 0) {
+            return res.status(400).json({ error: 'No morning shift analysts found. Please add morning shift analysts first.' });
+        }
+        if (eveningAnalysts.length === 0) {
+            return res.status(400).json({ error: 'No evening shift analysts found. Please add evening shift analysts first.' });
+        }
+        // Get existing schedules for the date range
+        const existingSchedules = yield prisma_1.prisma.schedule.findMany({
+            where: {
+                date: {
+                    gte: start,
+                    lte: end
+                }
+            },
+            include: { analyst: true }
+        });
+        // Use IntelligentScheduler for basic schedule generation
+        const scheduler = new IntelligentScheduler_1.IntelligentScheduler(prisma_1.prisma);
+        // Generate all dates in range and identify missing shifts
+        const allDates = [];
+        const currentDate = new Date(start);
+        while (currentDate <= end) {
+            allDates.push(currentDate.toISOString().split('T')[0]);
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        // Find conflicts (missing shifts)
+        const conflicts = [];
+        for (const dateStr of allDates) {
+            const daySchedules = existingSchedules.filter(s => s.date.toISOString().split('T')[0] === dateStr);
+            const hasMorning = daySchedules.some(s => s.shiftType === 'MORNING');
+            const hasEvening = daySchedules.some(s => s.shiftType === 'EVENING');
+            const missingShifts = [];
+            if (!hasMorning)
+                missingShifts.push('MORNING');
+            if (!hasEvening)
+                missingShifts.push('EVENING');
+            if (missingShifts.length > 0) {
+                conflicts.push({
+                    date: dateStr,
+                    missingShifts,
+                    severity: 'critical'
+                });
+            }
+        }
+        if (conflicts.length === 0) {
+            return res.json({
+                message: 'Schedule is already complete for the specified date range',
+                existingSchedules: existingSchedules.length,
+                dateRange: { startDate: startDate, endDate: endDate },
+                schedules: existingSchedules
+            });
+        }
+        console.log(`🚀 Generating schedule for ${conflicts.length} missing shifts`);
+        // Use IntelligentScheduler to resolve conflicts
+        const resolution = yield scheduler.resolveConflicts(conflicts, startDate, endDate);
+        res.json({
+            message: `Schedule generation completed. Found ${resolution.summary.assignmentsNeeded} assignments for ${conflicts.length} conflicts.`,
+            summary: resolution.summary,
+            suggestedAssignments: resolution.suggestedAssignments,
+            dateRange: { startDate: startDate, endDate: endDate },
+            algorithm: algorithm,
+            existingSchedules: existingSchedules.length,
+            newAssignments: resolution.summary.assignmentsNeeded
+        });
+    }
+    catch (error) {
+        console.error('Error generating schedule:', error);
+        res.status(500).json({ error: 'Failed to generate schedule' });
+    }
+}));
 // Test endpoint for debugging IntelligentScheduler
 router.get('/test-scheduler', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -542,168 +644,6 @@ router.get('/test-scheduler', (req, res) => __awaiter(void 0, void 0, void 0, fu
     catch (error) {
         console.error('Error in test endpoint:', error);
         res.status(500).json({ error: 'Failed to test scheduler' });
-    }
-}));
-// MVP Schedule Generation endpoint - POST /api/schedules/generate
-router.post('/generate', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { startDate, endDate, analysts } = req.body;
-        if (!startDate || !endDate) {
-            return res.status(400).json({ error: 'startDate and endDate are required' });
-        }
-        // Get all active analysts if none specified
-        let availableAnalysts;
-        if (analysts && analysts.length > 0) {
-            availableAnalysts = yield prisma_1.prisma.analyst.findMany({
-                where: {
-                    id: { in: analysts },
-                    isActive: true
-                }
-            });
-        } else {
-            availableAnalysts = yield prisma_1.prisma.analyst.findMany({
-                where: { isActive: true }
-            });
-        }
-        
-        if (availableAnalysts.length === 0) {
-            return res.status(400).json({ error: 'No active analysts available' });
-        }
-        
-        // Generate date range
-        const dates = [];
-        const current = new Date(startDate);
-        const end = new Date(endDate);
-        
-        while (current <= end) {
-            dates.push(new Date(current));
-            current.setDate(current.getDate() + 1);
-        }
-        
-        // Simple round-robin assignment for MVP
-        const schedules = [];
-        let analystIndex = 0;
-        
-        for (const date of dates) {
-            // Morning shift
-            const morningAnalysts = availableAnalysts.filter(a => a.shiftType === 'MORNING');
-            if (morningAnalysts.length > 0) {
-                const analyst = morningAnalysts[analystIndex % morningAnalysts.length];
-                
-                // Check if analyst already has schedule for this date
-                const existing = yield prisma_1.prisma.schedule.findUnique({
-                    where: { analystId_date: { analystId: analyst.id, date } }
-                });
-                
-                if (!existing) {
-                    const schedule = yield prisma_1.prisma.schedule.create({
-                        data: {
-                            analystId: analyst.id,
-                            date,
-                            shiftType: 'MORNING',
-                            isScreener: false
-                        },
-                        include: { analyst: true }
-                    });
-                    schedules.push(schedule);
-                }
-            }
-            
-            // Evening shift
-            const eveningAnalysts = availableAnalysts.filter(a => a.shiftType === 'EVENING');
-            if (eveningAnalysts.length > 0) {
-                const analyst = eveningAnalysts[analystIndex % eveningAnalysts.length];
-                
-                // Check if analyst already has schedule for this date
-                const existing = yield prisma_1.prisma.schedule.findUnique({
-                    where: { analystId_date: { analystId: analyst.id, date } }
-                });
-                
-                if (!existing) {
-                    const schedule = yield prisma_1.prisma.schedule.create({
-                        data: {
-                            analystId: analyst.id,
-                            date,
-                            shiftType: 'EVENING',
-                            isScreener: false
-                        },
-                        include: { analyst: true }
-                    });
-                    schedules.push(schedule);
-                }
-            }
-            
-            analystIndex++;
-        }
-        
-        res.json({
-            success: true,
-            message: 'Schedule generated successfully',
-            data: {
-                schedules,
-                summary: {
-                    totalDays: dates.length,
-                    totalSchedules: schedules.length,
-                    availableAnalysts: availableAnalysts.length
-                }
-            },
-            startDate,
-            endDate,
-            totalSchedules: schedules.length
-        });
-    }
-    catch (error) {
-        console.error('Error generating schedule:', error);
-        res.status(500).json({
-            error: 'Failed to generate schedule',
-            message: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
-}));
-// CSV Export endpoint - GET /api/schedules/export/csv
-router.get('/export/csv', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const { startDate, endDate, analystId } = req.query;
-        const where = {};
-        if (startDate && endDate) {
-            where.date = {
-                gte: new Date(startDate),
-                lte: new Date(endDate)
-            };
-        }
-        if (analystId) {
-            where.analystId = analystId;
-        }
-        const schedules = yield prisma_1.prisma.schedule.findMany({
-            where,
-            include: {
-                analyst: true
-            },
-            orderBy: { date: 'asc' }
-        });
-        // Create CSV content
-        const csvHeaders = 'Date,Analyst Name,Email,Shift Type,Is Screener,Created At\n';
-        const csvRows = schedules.map(schedule => {
-            const date = schedule.date.toISOString().split('T')[0];
-            const name = schedule.analyst.name.replace(/,/g, '');
-            const email = schedule.analyst.email;
-            const shiftType = schedule.shiftType;
-            const isScreener = schedule.isScreener ? 'Yes' : 'No';
-            const createdAt = schedule.createdAt.toISOString().split('T')[0];
-            return `${date},${name},${email},${shiftType},${isScreener},${createdAt}`;
-        }).join('\n');
-        const csvContent = csvHeaders + csvRows;
-        // Set CSV headers
-        const filename = `schedules_${startDate || 'all'}_${endDate || 'all'}.csv`;
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Pragma', 'no-cache');
-        res.send(csvContent);
-    }
-    catch (error) {
-        console.error('Error exporting CSV:', error);
-        res.status(500).json({ error: 'Failed to export CSV' });
     }
 }));
 exports.default = router;

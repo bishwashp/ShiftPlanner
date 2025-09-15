@@ -11,22 +11,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CACHE_TTL = exports.CACHE_KEYS = exports.cacheService = void 0;
 const prisma_1 = require("./prisma");
-
 // MVP: Use only in-memory cache for maximum performance and zero dependencies
 const memoryCache = new Map();
-
 console.log('📦 ShiftPlanner MVP - Using high-performance in-memory cache');
-
 // Cache configuration
 const CACHE_TTL = {
     SCHEDULES: 300, // 5 minutes
-    ANALYSTS: 600,  // 10 minutes
+    ANALYSTS: 600, // 10 minutes
     ANALYTICS: 1800, // 30 minutes
     ALGORITHM_RESULTS: 3600, // 1 hour
     QUERY_RESULTS: 300, // 5 minutes
 };
 exports.CACHE_TTL = CACHE_TTL;
-
 // Cache key generators
 const CACHE_KEYS = {
     schedules: (dateRange) => `schedules:${dateRange}`,
@@ -37,13 +33,11 @@ const CACHE_KEYS = {
     queryResult: (query) => `query:${Buffer.from(query).toString('base64')}`,
 };
 exports.CACHE_KEYS = CACHE_KEYS;
-
 // High-performance in-memory cache service for MVP
 class CacheService {
     constructor() {
         console.log('⚡ MVP Cache Service initialized - In-memory only');
     }
-
     // Clean expired entries from memory cache
     cleanMemoryCache() {
         const now = Date.now();
@@ -53,7 +47,6 @@ class CacheService {
             }
         }
     }
-
     // Generic cache get/set with TTL
     get(key) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -65,22 +58,19 @@ class CacheService {
             return null;
         });
     }
-
-    set(key, value, ttl = 300) {
-        return __awaiter(this, void 0, void 0, function* () {
+    set(key_1, value_1) {
+        return __awaiter(this, arguments, void 0, function* (key, value, ttl = 300) {
             memoryCache.set(key, {
                 value,
                 expiry: Date.now() + (ttl * 1000)
             });
         });
     }
-
     del(key) {
         return __awaiter(this, void 0, void 0, function* () {
             memoryCache.delete(key);
         });
     }
-
     // Pattern-based cache invalidation
     invalidatePattern(pattern) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -97,20 +87,17 @@ class CacheService {
             }
         });
     }
-
     // Schedule-specific caching
     getSchedules(dateRange) {
         return __awaiter(this, void 0, void 0, function* () {
             return this.get(CACHE_KEYS.schedules(dateRange));
         });
     }
-
     setSchedules(dateRange, schedules) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.set(CACHE_KEYS.schedules(dateRange), schedules, CACHE_TTL.SCHEDULES);
         });
     }
-
     invalidateScheduleCache(dateRange) {
         return __awaiter(this, void 0, void 0, function* () {
             if (dateRange) {
@@ -121,32 +108,27 @@ class CacheService {
             }
         });
     }
-
     // Analyst-specific caching
     getAnalyst(id) {
         return __awaiter(this, void 0, void 0, function* () {
             return this.get(CACHE_KEYS.analyst(id));
         });
     }
-
     setAnalyst(id, analyst) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.set(CACHE_KEYS.analyst(id), analyst, CACHE_TTL.ANALYSTS);
         });
     }
-
     getAnalysts(filters) {
         return __awaiter(this, void 0, void 0, function* () {
             return this.get(CACHE_KEYS.analysts(filters));
         });
     }
-
     setAnalysts(filters, analysts) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.set(CACHE_KEYS.analysts(filters), analysts, CACHE_TTL.ANALYSTS);
         });
     }
-
     invalidateAnalystCache(analystId) {
         return __awaiter(this, void 0, void 0, function* () {
             if (analystId) {
@@ -158,42 +140,36 @@ class CacheService {
             }
         });
     }
-
     // Analytics caching
     getAnalytics(period) {
         return __awaiter(this, void 0, void 0, function* () {
             return this.get(CACHE_KEYS.analytics(period));
         });
     }
-
     setAnalytics(period, data) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.set(CACHE_KEYS.analytics(period), data, CACHE_TTL.ANALYTICS);
         });
     }
-
     invalidateAnalyticsCache() {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.invalidatePattern('analytics:*');
         });
     }
-
     // Algorithm result caching
     getAlgorithmResult(params) {
         return __awaiter(this, void 0, void 0, function* () {
             return this.get(CACHE_KEYS.algorithmResult(params));
         });
     }
-
     setAlgorithmResult(params, result) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.set(CACHE_KEYS.algorithmResult(params), result, CACHE_TTL.ALGORITHM_RESULTS);
         });
     }
-
     // Query result caching with intelligent key generation
-    getCachedOrCompute(key, computeFn, ttl = CACHE_TTL.QUERY_RESULTS) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getCachedOrCompute(key_1, computeFn_1) {
+        return __awaiter(this, arguments, void 0, function* (key, computeFn, ttl = CACHE_TTL.QUERY_RESULTS) {
             // Try to get from cache first
             const cached = yield this.get(key);
             if (cached !== null) {
@@ -207,7 +183,6 @@ class CacheService {
             return result;
         });
     }
-
     // Cache warming for frequently accessed data
     warmCache() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -237,7 +212,6 @@ class CacheService {
             }
         });
     }
-
     // Cache statistics
     getStats() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -254,7 +228,6 @@ class CacheService {
             };
         });
     }
-
     // Health check
     healthCheck() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -263,8 +236,6 @@ class CacheService {
         });
     }
 }
-
 // Export singleton instance
 exports.cacheService = new CacheService();
-
 // MVP: No Redis client needed - pure in-memory performance

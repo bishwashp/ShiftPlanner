@@ -73,7 +73,7 @@ const ConflictManagement: React.FC = () => {
     setIsPreviewOpen(false);
     try {
       const applyResult = await apiService.applyAutoFix({ assignments: proposals });
-      setAutoFixMsg(`Auto-fix complete! ${applyResult.created} changes applied.`);
+      setAutoFixMsg(`Auto-fix complete! ${applyResult.createdSchedules.length} changes applied.`);
       setProposals([]);
       await fetchConflicts(); // Refresh conflict list
     } catch (err: any) {

@@ -15,6 +15,7 @@ interface ScheduleViewProps {
   onError?: (error: string) => void;
   onSuccess?: (message: string) => void;
   isLoading?: (loading: boolean) => void;
+  onGenerateSchedule?: () => void;
 }
 
 const ScheduleView: React.FC<ScheduleViewProps> = (props) => {
@@ -22,6 +23,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = (props) => {
   return (
     <SimplifiedScheduleView
       {...props}
+      onGenerateSchedule={props.onGenerateSchedule}
     />
   );
 };

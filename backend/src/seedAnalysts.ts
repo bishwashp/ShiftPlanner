@@ -1,4 +1,4 @@
-import { PrismaClient, ShiftType } from '../generated/prisma';
+import { PrismaClient } from '../generated/prisma';
 
 const prisma = new PrismaClient();
 
@@ -9,8 +9,7 @@ async function main() {
       { name: 'Bob Morning', email: 'bob.morning@example.com', shiftType: 'MORNING' },
       { name: 'Carol Evening', email: 'carol.evening@example.com', shiftType: 'EVENING' },
       { name: 'Dave Evening', email: 'dave.evening@example.com', shiftType: 'EVENING' }
-    ],
-    skipDuplicates: true
+    ]
   });
   console.log('Dummy analysts created');
 }

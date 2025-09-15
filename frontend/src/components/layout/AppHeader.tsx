@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Menu, ChevronLeft, ChevronRight, CalendarPlus } from 'lucide-react';
 import { ThemeSwitcher } from '../ThemeSwitcher';
 import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } from 'date-fns';
 import { View as SidebarView } from './CollapsibleSidebar';
@@ -16,6 +16,7 @@ interface AppHeaderProps {
   activeView: SidebarView;
   timezone: string;
   onTimezoneChange: (tz: string) => void;
+  onGenerateSchedule?: () => void;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({ 
@@ -27,7 +28,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   setView,
   activeView,
   timezone,
-  onTimezoneChange
+  onTimezoneChange,
+  onGenerateSchedule
 }) => {
   const handlePrev = () => {
     if (view === 'month') setDate(subMonths(date, 1));
@@ -135,6 +137,15 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               <option value="week">Week</option>
               <option value="month">Month</option>
             </select>
+
+            {/* Generate Schedule Button */}
+            <button
+              onClick={onGenerateSchedule}
+              className="px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors min-h-[44px] flex items-center space-x-2"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Generate</span>
+            </button>
           </>
         )}
 

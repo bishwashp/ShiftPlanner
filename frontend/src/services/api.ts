@@ -456,9 +456,17 @@ export const apiService = {
   },
 
   // Applies a list of assignments to resolve conflicts
-  applyAutoFix: async (data: { assignments: any[] }): Promise<{ message: string; created: number }> => {
+  applyAutoFix: async (data: { assignments: any[] }): Promise<{ 
+    message: string; 
+    createdSchedules: any[]; 
+    errors?: Array<{ assignment: any; error: string }> 
+  }> => {
     const response = await apiClient.post('/schedules/apply-auto-fix', data);
-    return response.data as { message: string; created: number };
+    return response.data as { 
+      message: string; 
+      createdSchedules: any[]; 
+      errors?: Array<{ assignment: any; error: string }> 
+    };
   },
 
   // Calendar Export & Integration

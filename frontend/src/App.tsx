@@ -127,6 +127,14 @@ function App() {
     setIsLoading(loading);
   }, []);
 
+  const handleGenerateSchedule = useCallback(() => {
+    // This will trigger the schedule generation form in ScheduleView
+    console.log('Generate schedule requested');
+    if ((window as any).triggerScheduleGeneration) {
+      (window as any).triggerScheduleGeneration();
+    }
+  }, []);
+
   const renderView = () => {
     const commonProps = {
       onError: handleError,
@@ -159,6 +167,7 @@ function App() {
             view={calendarView}
             setView={setCalendarView}
             timezone={timezone}
+            onGenerateSchedule={handleGenerateSchedule}
             {...commonProps}
           />
         );
@@ -183,6 +192,7 @@ function App() {
           activeView={activeView}
           timezone={timezone}
           onTimezoneChange={handleTimezoneChange}
+          onGenerateSchedule={handleGenerateSchedule}
         />
         <main className="flex-1 overflow-auto relative">
           {isLoading && (

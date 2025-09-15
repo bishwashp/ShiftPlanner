@@ -5,6 +5,8 @@ import { View as AppView } from '../../layout/CollapsibleSidebar';
 import { useTheme } from 'react18-themes';
 import { notificationService } from '../../../services/notificationService';
 import { Filter } from 'lucide-react';
+import ScheduleGenerationForm from '../../ScheduleGenerationForm';
+import ScheduleGenerationModal from '../../ScheduleGenerationModal';
 
 // Simplified calendar imports
 import { CalendarGrid } from './CalendarGrid';
@@ -60,6 +62,7 @@ interface SimplifiedScheduleViewProps {
   onError?: (error: string) => void;
   onSuccess?: (message: string) => void;
   isLoading?: (loading: boolean) => void;
+  onGenerateSchedule?: () => void;
 }
 
 interface CalendarEvent {
@@ -122,7 +125,8 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   timezone,
   onError,
   onSuccess,
-  isLoading
+  isLoading,
+  onGenerateSchedule
 }) => {
   const { theme } = useTheme();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
@@ -130,6 +134,13 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Schedule generation state
+  const [showGenerationForm, setShowGenerationForm] = useState(false);
+  const [showGenerationModal, setShowGenerationModal] = useState(false);
+  const [generatedSchedules, setGeneratedSchedules] = useState<any[]>([]);
+  const [generationSummary, setGenerationSummary] = useState<any>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Initialize filtering system
   const filterHook = useCalendarFilters(schedules, analysts);
@@ -238,13 +249,57 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
         label: 'Create Schedule',
         callback: () => {
           console.log('Create schedule for date:', date);
-          // Future: Open schedule creation modal
+          setShowGenerationForm(true);
         }
       }
     });
   }, [isMobile]);
 
+  // Schedule generation handlers - will be triggered by onGenerateSchedule prop
+  const triggerGenerateSchedule = useCallback(() => {
+    setShowGenerationForm(true);
+  }, []);
+
+  // Expose the trigger function to parent via ref or callback
+  useEffect(() => {
+    if (onGenerateSchedule) {
+      // Store the trigger function so parent can call it
+      (window as any).triggerScheduleGeneration = triggerGenerateSchedule;
+    }
+  }, [onGenerateSchedule, triggerGenerateSchedule]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const handleGenerateSchedules = useCallback(async (startDate: string, endDate: string, algorithm: string) => {
+    setIsGenerating(true);
+    try {
+      const result = await apiService.generateSchedulePreview({
+        startDate,
+        endDate,
+        algorithmType: algorithm
+      });
+      
+      setGeneratedSchedules(result.proposedSchedules);
+      setGenerationSummary({
+        totalConflicts: result.conflicts.length,
+        criticalConflicts: result.conflicts.filter(c => c.type === 'CRITICAL').length,
+        assignmentsNeeded: result.proposedSchedules.length,
+        estimatedTime: 'Generated'
+      });
+      setShowGenerationForm(false);
+      setShowGenerationModal(true);
+      
+      onSuccess?.(`Generated ${result.proposedSchedules.length} schedule assignments`);
+    } catch (err) {
+      console.error('Error generating schedules:', err);
+      onError?.('Failed to generate schedules. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Enhanced data fetching with performance monitoring
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchSchedulesAndAnalysts = useCallback(async () => {
     const fetchStart = performance.now();
     
@@ -277,11 +332,53 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
       console.error('Error fetching data:', err);
       const errorMessage = 'Failed to load schedule data. Please try again.';
       setError(errorMessage);
-      if (onError) onError(errorMessage);
+      // Call onError directly without including it in dependencies
+      onError?.(errorMessage);
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, onError]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const handleApplySchedules = useCallback(async (schedulesToApply: any[]) => {
+    try {
+      console.log('Applying schedules:', schedulesToApply);
+      
+      // Transform the schedules to the format expected by the API
+      const assignments = schedulesToApply.map(schedule => ({
+        date: schedule.date,
+        analystId: schedule.analystId,
+        shiftType: schedule.shiftType,
+        isScreener: schedule.isScreener
+      }));
+      
+      // Call the API to apply the schedules
+      const result = await apiService.applyAutoFix({ assignments });
+      
+      console.log('Schedules applied successfully:', result);
+      
+      // Refresh the data to show the new schedules
+      await fetchSchedulesAndAnalysts();
+      
+      setShowGenerationModal(false);
+      
+      // Handle success message with details
+      const successCount = result.createdSchedules?.length || 0;
+      const errorCount = result.errors?.length || 0;
+      
+      if (errorCount > 0) {
+        onSuccess?.(`Applied ${successCount} schedules successfully, ${errorCount} failed. Check console for details.`);
+        console.warn('Some schedules failed to apply:', result.errors);
+      } else {
+        onSuccess?.(`Successfully applied ${successCount} schedules to the calendar`);
+      }
+    } catch (err) {
+      console.error('Error applying schedules:', err);
+      onError?.('Failed to apply schedules. Please try again.');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     fetchSchedulesAndAnalysts();
@@ -455,6 +552,43 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
           className="animate-slide-in-right"
         />
       )}
+
+      {/* Schedule Generation Form */}
+      {showGenerationForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background border border-border rounded-lg shadow-xl max-w-2xl w-full">
+            <div className="p-6">
+              <ScheduleGenerationForm
+                onGenerate={handleGenerateSchedules}
+                isLoading={isGenerating}
+              />
+            </div>
+            <div className="flex justify-end p-6 border-t border-border">
+              <button
+                onClick={() => setShowGenerationForm(false)}
+                className="px-4 py-2 border border-border rounded-md hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Generation Modal */}
+      <ScheduleGenerationModal
+        isOpen={showGenerationModal}
+        onClose={() => setShowGenerationModal(false)}
+        onApply={handleApplySchedules}
+        generatedSchedules={generatedSchedules}
+        summary={generationSummary || {
+          totalConflicts: 0,
+          criticalConflicts: 0,
+          assignmentsNeeded: 0,
+          estimatedTime: '0ms'
+        }}
+        isLoading={isGenerating}
+      />
 
     </div>
   );

@@ -212,15 +212,14 @@ class MonitoringService {
     }
     getDatabaseConnections() {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
             try {
-                // PostgreSQL equivalent of MySQL's SHOW STATUS
-                const result = yield prisma_1.prisma.$queryRaw `
-        SELECT 1 as connection_count
-      `;
-                return parseInt(((_a = result[0]) === null || _a === void 0 ? void 0 : _a.connection_count) || '0');
+                // For SQLite, we don't have pg_stat_activity table
+                // SQLite doesn't expose connection count in the same way
+                // Return a reasonable default for MVP (single connection for SQLite)
+                yield prisma_1.prisma.$queryRaw `SELECT 1`;
+                return 1; // SQLite typically uses a single connection in our setup
             }
-            catch (_b) {
+            catch (_a) {
                 return 0;
             }
         });

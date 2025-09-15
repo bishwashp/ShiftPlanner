@@ -62,10 +62,8 @@ router.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             },
             orderBy: { name: 'asc' }
         });
-        
-        // Format response data to deserialize SQLite strings
-        const formattedAnalysts = analysts.map(analyst => (Object.assign(Object.assign({}, analyst), { customAttributes: analyst.customAttributes ? JSON.parse(analyst.customAttributes) : {}, skills: analyst.skills ? analyst.skills.split(',').filter(s => s.trim()) : [] })));
-        
+        // Convert SQLite strings back to objects/arrays for JSON response
+        const formattedAnalysts = analysts.map(analyst => (Object.assign(Object.assign({}, analyst), { customAttributes: analyst.customAttributes ? JSON.parse(analyst.customAttributes) : null, skills: analyst.skills ? analyst.skills.split(',') : [] })));
         // Cache the result
         yield cache_1.cacheService.setAnalysts(filters, formattedAnalysts);
         res.json(formattedAnalysts);
@@ -131,9 +129,8 @@ router.get('/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         if (!analyst) {
             return res.status(404).json({ error: 'Analyst not found' });
         }
-        // Format response data to deserialize SQLite strings
-        const formattedAnalyst = Object.assign(Object.assign({}, analyst), { customAttributes: analyst.customAttributes ? JSON.parse(analyst.customAttributes) : {}, skills: analyst.skills ? analyst.skills.split(',').filter(s => s.trim()) : [] });
-        
+        // Convert SQLite strings back to objects/arrays for JSON response
+        const formattedAnalyst = Object.assign(Object.assign({}, analyst), { customAttributes: analyst.customAttributes ? JSON.parse(analyst.customAttributes) : null, skills: analyst.skills ? analyst.skills.split(',') : [] });
         // Cache the result
         yield cache_1.cacheService.setAnalyst(id, formattedAnalyst);
         res.json(formattedAnalyst);
@@ -156,16 +153,15 @@ router.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 name,
                 email,
                 shiftType,
-                customAttributes: JSON.stringify(customAttributes || {}),
-                skills: Array.isArray(skills) ? skills.join(',') : ''
+                customAttributes: customAttributes ? JSON.stringify(customAttributes) : null,
+                skills: skills ? skills.join(',') : null
             },
             include: {
                 preferences: true
             }
         });
-        // Format response data to deserialize SQLite strings
-        const formattedAnalyst = Object.assign(Object.assign({}, analyst), { customAttributes: analyst.customAttributes ? JSON.parse(analyst.customAttributes) : {}, skills: analyst.skills ? analyst.skills.split(',').filter(s => s.trim()) : [] });
-        
+        // Convert SQLite strings back to objects/arrays for JSON response
+        const formattedAnalyst = Object.assign(Object.assign({}, analyst), { customAttributes: analyst.customAttributes ? JSON.parse(analyst.customAttributes) : null, skills: analyst.skills ? analyst.skills.split(',') : [] });
         // Invalidate relevant caches
         yield cache_1.cacheService.invalidateAnalystCache();
         yield cache_1.cacheService.invalidatePattern('analysts:*');
@@ -188,14 +184,13 @@ router.put('/:id', (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         const { name, email, shiftType, isActive, customAttributes, skills } = req.body;
         const analyst = yield prisma_1.prisma.analyst.update({
             where: { id },
-            data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, (name && { name })), (email && { email })), (shiftType && { shiftType })), (typeof isActive === 'boolean' && { isActive })), (customAttributes && { customAttributes: JSON.stringify(customAttributes) })), (skills && { skills: Array.isArray(skills) ? skills.join(',') : skills })),
+            data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, (name && { name })), (email && { email })), (shiftType && { shiftType })), (typeof isActive === 'boolean' && { isActive })), (customAttributes && { customAttributes: JSON.stringify(customAttributes) })), (skills && { skills: skills.join(',') })),
             include: {
                 preferences: true
             }
         });
-        // Format response data to deserialize SQLite strings
-        const formattedAnalyst = Object.assign(Object.assign({}, analyst), { customAttributes: analyst.customAttributes ? JSON.parse(analyst.customAttributes) : {}, skills: analyst.skills ? analyst.skills.split(',').filter(s => s.trim()) : [] });
-        
+        // Convert SQLite strings back to objects/arrays for JSON response
+        const formattedAnalyst = Object.assign(Object.assign({}, analyst), { customAttributes: analyst.customAttributes ? JSON.parse(analyst.customAttributes) : null, skills: analyst.skills ? analyst.skills.split(',') : [] });
         // Invalidate specific analyst cache and general caches
         yield cache_1.cacheService.invalidateAnalystCache(id);
         yield cache_1.cacheService.invalidatePattern('analysts:*');
