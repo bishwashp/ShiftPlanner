@@ -1,4 +1,5 @@
 import { monitoringService } from './MonitoringService';
+import { getSLAConfig, getAlertSeverity } from '../config/sla-config';
 
 // Types and interfaces
 interface AlertCondition {
@@ -60,6 +61,7 @@ export class AlertingService {
   private alertRules: AlertRule[] = [];
   private notifications: Notification[] = [];
   private isMonitoring: boolean = false;
+  private slaViolationStartTime: number | null = null;
 
   constructor() {
     this.initializeDefaultRules();
@@ -68,6 +70,9 @@ export class AlertingService {
 
   // Initialize default alert rules
   private initializeDefaultRules(): void {
+    const slaConfig = getSLAConfig();
+    const environment = process.env.NODE_ENV || 'development';
+    
     this.alertRules = [
       {
         id: 'perf-degradation',
@@ -76,7 +81,7 @@ export class AlertingService {
         condition: {
           metric: 'averageResponseTime',
           operator: 'gt',
-          threshold: 500, // ms
+          threshold: slaConfig.thresholds.averageResponseTime, // Environment-specific threshold
           durationMinutes: 5,
         },
         severity: 'MEDIUM',
@@ -90,7 +95,7 @@ export class AlertingService {
         condition: {
           metric: 'errorRate',
           operator: 'gt',
-          threshold: 0.05, // 5%
+          threshold: slaConfig.thresholds.errorRate, // Environment-specific threshold
           durationMinutes: 2,
         },
         severity: 'HIGH',
@@ -161,11 +166,11 @@ export class AlertingService {
           metric: 'slaCompliance',
           operator: 'eq',
           threshold: 0, // false
-          durationMinutes: 1,
+          durationMinutes: slaConfig.violationDurationMinutes, // Environment-specific duration
         },
-        severity: 'CRITICAL',
-        enabled: true,
-        cooldownMinutes: 5,
+        severity: getAlertSeverity('slaCompliance', environment),
+        enabled: environment !== 'development', // Disable in development
+        cooldownMinutes: slaConfig.alertCooldownMinutes,
       },
     ];
   }
@@ -247,6 +252,11 @@ export class AlertingService {
         return false;
     }
 
+    // For SLA compliance, check if violation has been persistent
+    if (condition.metric === 'slaCompliance' && condition.durationMinutes) {
+      return this.checkDurationBasedCondition(currentValue, condition);
+    }
+
     switch (condition.operator) {
       case 'gt':
         return currentValue > condition.threshold;
@@ -260,6 +270,33 @@ export class AlertingService {
         return currentValue <= condition.threshold;
       default:
         return false;
+    }
+  }
+
+  // Check if condition has been met for the specified duration
+  private checkDurationBasedCondition(currentValue: number, condition: AlertCondition): boolean {
+    const now = Date.now();
+    const durationMs = condition.durationMinutes * 60 * 1000;
+    
+    // For SLA violations, we need to check if the service has been down for the full duration
+    if (condition.metric === 'slaCompliance' && currentValue === 0) {
+      // Initialize violation start time if not exists
+      if (!this.slaViolationStartTime) {
+        this.slaViolationStartTime = now;
+        return false; // Don't alert immediately
+      }
+      
+      // Check if violation has persisted for the required duration
+      const violationDuration = now - this.slaViolationStartTime;
+      if (violationDuration >= durationMs) {
+        return true; // Alert after duration has passed
+      }
+      
+      return false; // Still within duration window
+    } else {
+      // Reset violation start time if SLA is now compliant
+      this.slaViolationStartTime = null;
+      return false;
     }
   }
 

@@ -92,7 +92,8 @@ export const useCalendarFilters = (
     setUrlUpdateTimeout(timeout);
 
     return () => clearTimeout(timeout);
-  }, [filters, urlUpdateTimeout]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]); // Remove urlUpdateTimeout from dependencies to break the loop
 
   // Filtered data calculation with memoization for performance
   const filteredSchedules = useMemo(() => {

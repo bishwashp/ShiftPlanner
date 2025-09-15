@@ -10,6 +10,7 @@ import ScheduleGenerationModal from '../../ScheduleGenerationModal';
 
 // Simplified calendar imports
 import { CalendarGrid } from './CalendarGrid';
+import WeekScheduleView from './WeekScheduleView';
 import CalendarFilterPanel from '../filtering/CalendarFilterPanel';
 import { useCalendarFilters } from '../../../hooks/useCalendarFilters';
 
@@ -142,6 +143,10 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   const [generationSummary, setGenerationSummary] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Week view state
+  const [showWeekView, setShowWeekView] = useState(false);
+  const [clickedDay, setClickedDay] = useState<Date | undefined>(undefined);
+
   // Initialize filtering system
   const filterHook = useCalendarFilters(schedules, analysts);
   const { filters, filteredSchedules, toggleSidebar } = filterHook;
@@ -160,11 +165,12 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Date range calculation
+  // Date range calculation - extend to cover cross-month weeks
   const { startDate, endDate } = useMemo(() => {
     const localDate = moment(date).tz(timezone);
-    const start = localDate.clone().startOf('month').format('YYYY-MM-DD');
-    const end = localDate.clone().endOf('month').format('YYYY-MM-DD');
+    // Extend range to cover weeks that span multiple months
+    const start = localDate.clone().startOf('month').subtract(7, 'days').format('YYYY-MM-DD');
+    const end = localDate.clone().endOf('month').add(7, 'days').format('YYYY-MM-DD');
     
     return { startDate: start, endDate: end };
   }, [date, timezone]);
@@ -204,30 +210,7 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   const swipeHandlers = useSwipeGesture(handleSwipeLeft, handleSwipeRight);
 
   // Enhanced event handlers matching original ScheduleView functionality
-  const handleEventSelect = useCallback((event: CalendarEvent) => {
-    // Add haptic feedback for mobile
-    if (isMobile && 'vibrate' in navigator) {
-      navigator.vibrate(30);
-    }
-    
-    console.log('Event selected:', event.title, event.resource);
-    
-    // Add notification with event details
-    notificationService.addNotification({
-      type: 'schedule',
-      priority: 'low',
-      title: 'Schedule Selected',
-      message: `${event.title} - ${event.resource.shiftType}${event.resource.isScreener ? ' (Screener)' : ''}`,
-      isActionable: true,
-      action: {
-        label: 'View Details',
-        callback: () => {
-          console.log('Show event details for:', event);
-          // Future: Open event details modal
-        }
-      }
-    });
-  }, [isMobile]);
+  // Removed handleEventSelect - schedule selection not needed
 
   const handleDateSelect = useCallback((date: Date) => {
     // Add haptic feedback for mobile
@@ -299,7 +282,6 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   }, []);
 
   // Enhanced data fetching with performance monitoring
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchSchedulesAndAnalysts = useCallback(async () => {
     const fetchStart = performance.now();
     
@@ -337,8 +319,7 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]);
+  }, [startDate, endDate, onError]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleApplySchedules = useCallback(async (schedulesToApply: any[]) => {
@@ -382,7 +363,30 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
 
   useEffect(() => {
     fetchSchedulesAndAnalysts();
-  }, [fetchSchedulesAndAnalysts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]); // Only refetch when date range changes, not when function changes
+
+  // Week view handlers
+  const handleShowMoreClick = useCallback((clickedDate: Date) => {
+    setClickedDay(clickedDate);
+    setShowWeekView(true);
+  }, []);
+
+  const handleReturnToMonth = useCallback(() => {
+    setShowWeekView(false);
+    setClickedDay(undefined);
+  }, []);
+
+  const handleWeekViewDateChange = useCallback((newDate: Date) => {
+    setDate(newDate);
+    // Clear clicked day when navigating to new week
+    setClickedDay(undefined);
+  }, [setDate]);
+
+  const handleScheduleUpdate = useCallback((updatedSchedules: Schedule[]) => {
+    setSchedules(updatedSchedules);
+    // No need to refetch - we already have the updated data
+  }, []);
 
   // Optimized analyst lookup with Map for O(1) performance
   const analystMap = useMemo(() => {
@@ -459,6 +463,22 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
     );
   }
 
+  // Show week view if enabled
+  if (showWeekView) {
+    return (
+      <WeekScheduleView
+        date={date}
+        timezone={timezone}
+        onDateChange={handleWeekViewDateChange}
+        onReturnToMonth={handleReturnToMonth}
+        clickedDay={clickedDay}
+        events={calendarEvents}
+        analysts={analysts}
+        onScheduleUpdate={handleScheduleUpdate}
+      />
+    );
+  }
+
   return (
     <div
       className={`relative h-full bg-background text-foreground transition-colors duration-200 ${theme}`}
@@ -508,8 +528,8 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
             timezone={timezone}
             events={calendarEvents}
             isMobile={isMobile}
-            onEventSelect={handleEventSelect}
             onDateSelect={handleDateSelect}
+            onShowMoreClick={handleShowMoreClick}
           />
         )}
       </main>

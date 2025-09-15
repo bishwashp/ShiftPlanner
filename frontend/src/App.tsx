@@ -36,8 +36,9 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState<SidebarView>('schedule');
   const [calendarDate, setCalendarDate] = useState(() => {
-    // Ensure we start with August 2025 regardless of timezone
-    return new Date(2025, 7, 1); // Month is 0-indexed, so 7 = August
+    // Start with current month
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
   const [timezone, setTimezone] = useState<string>(() => {

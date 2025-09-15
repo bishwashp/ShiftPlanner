@@ -14,8 +14,9 @@ interface CalendarGridProps {
   timezone: string;
   events: CalendarEvent[];
   isMobile: boolean;
-  onEventSelect?: (event: CalendarEvent) => void;
+  onEventSelect?: (event: CalendarEvent) => void; // Optional - not used in current implementation
   onDateSelect?: (date: Date) => void;
+  onShowMoreClick?: (date: Date) => void; // New prop for "+X more" clicks
 }
 
 interface CalendarDay {
@@ -31,7 +32,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   events,
   isMobile,
   onEventSelect,
-  onDateSelect
+  onDateSelect,
+  onShowMoreClick
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [focusedDate, setFocusedDate] = React.useState<string | null>(null);
@@ -163,7 +165,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             aria-label={`View ${overflowCount} additional shifts for ${dayDate.format('MMMM D')}`}
             onClick={() => {
               console.log('Overflow clicked:', dayDate.format('YYYY-MM-DD'), overflowCount);
-              // Could trigger a modal or expanded view
+              // Switch to week view with this day highlighted
+              onShowMoreClick?.(dayDate.toDate());
             }}
           >
             +{overflowCount} more
