@@ -147,6 +147,18 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   const [showWeekView, setShowWeekView] = useState(false);
   const [clickedDay, setClickedDay] = useState<Date | undefined>(undefined);
 
+  // Sync internal week view state with main view prop
+  useEffect(() => {
+    if (view === 'week' && !showWeekView) {
+      // If main view is week but we're not showing week view, enter week view
+      setShowWeekView(true);
+    } else if (view === 'month' && showWeekView) {
+      // If main view is month but we're showing week view, exit week view
+      setShowWeekView(false);
+      setClickedDay(undefined);
+    }
+  }, [view, showWeekView]);
+
   // Initialize filtering system
   const filterHook = useCalendarFilters(schedules, analysts);
   const { filters, filteredSchedules, toggleSidebar } = filterHook;
@@ -370,12 +382,14 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   const handleShowMoreClick = useCallback((clickedDate: Date) => {
     setClickedDay(clickedDate);
     setShowWeekView(true);
-  }, []);
+    setView('week'); // Update main view state for AppHeader
+  }, [setView]);
 
   const handleReturnToMonth = useCallback(() => {
     setShowWeekView(false);
     setClickedDay(undefined);
-  }, []);
+    setView('month'); // Update main view state for AppHeader
+  }, [setView]);
 
   const handleWeekViewDateChange = useCallback((newDate: Date) => {
     setDate(newDate);
