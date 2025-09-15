@@ -6,6 +6,7 @@ import CollapsibleSidebar from './components/layout/CollapsibleSidebar';
 import { View as SidebarView } from './components/layout/CollapsibleSidebar';
 import AnalystManagement from './components/AnalystManagement';
 import Analytics from './components/Analytics';
+import MLInsights from './components/MLInsights';
 import ConflictManagement from './components/ConflictManagement';
 import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
@@ -148,6 +149,8 @@ function App() {
         return <ConflictManagement />;
       case 'analytics':
         return <Analytics />;
+      case 'ml-insights':
+        return <MLInsights />;
       case 'constraints':
         return <ConstraintManagement />;
       case 'algorithms':

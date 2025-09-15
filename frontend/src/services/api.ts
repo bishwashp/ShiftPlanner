@@ -447,6 +447,41 @@ export const apiService = {
     return (response.data as any).data;
   },
 
+  // ML Services
+  getWorkloadPrediction: async (date: string): Promise<any> => {
+    const response = await apiClient.get(`/ml/workload-prediction/${date}`);
+    return (response.data as any).data;
+  },
+
+  getBurnoutRiskAssessment: async (): Promise<any> => {
+    const response = await apiClient.get('/ml/burnout-risk');
+    return (response.data as any).data;
+  },
+
+  getOptimalAssignment: async (date: string, shiftType: 'MORNING' | 'EVENING'): Promise<any> => {
+    const response = await apiClient.get('/ml/optimal-assignment', {
+      params: { date, shiftType }
+    });
+    return (response.data as any).data;
+  },
+
+  getDemandForecast: async (period: 'WEEK' | 'MONTH'): Promise<any> => {
+    const response = await apiClient.get(`/ml/demand-forecast/${period}`);
+    return (response.data as any).data;
+  },
+
+  getConflictPrediction: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.get('/ml/conflict-prediction', {
+      params: { startDate, endDate }
+    });
+    return (response.data as any).data;
+  },
+
+  getMLHealth: async (): Promise<any> => {
+    const response = await apiClient.get('/ml/health');
+    return (response.data as any).data;
+  },
+
   // Dashboard Stats (computed from other endpoints)
   getDashboardStats: async (): Promise<DashboardStats> => {
     try {

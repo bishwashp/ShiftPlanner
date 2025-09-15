@@ -5,6 +5,7 @@ import {
   Users,
   AlertTriangle,
   BarChart2,
+  Brain,
   ListTodo,
   Cpu,
   Download
@@ -13,7 +14,7 @@ import BellIcon from '../icons/BellIcon';
 import NotificationCenter from '../NotificationCenter';
 import { notificationService } from '../../services/notificationService';
 
-export type View = 'schedule' | 'dashboard' | 'analysts' | 'conflicts' | 'analytics' | 'constraints' | 'algorithms' | 'export';
+export type View = 'schedule' | 'dashboard' | 'analysts' | 'conflicts' | 'analytics' | 'ml-insights' | 'constraints' | 'algorithms' | 'export';
 
 interface CollapsibleSidebarProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
     { view: 'analysts', label: 'Analysts', icon: Users },
     { view: 'conflicts', label: 'Conflicts', icon: AlertTriangle },
     { view: 'analytics', label: 'Analytics', icon: BarChart2 },
+    { view: 'ml-insights', label: 'ML Insights', icon: Brain },
     { view: 'constraints', label: 'Constraints', icon: ListTodo },
     { view: 'algorithms', label: 'Algorithms', icon: Cpu },
     { view: 'export', label: 'Export & Integration', icon: Download },

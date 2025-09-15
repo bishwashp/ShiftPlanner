@@ -7,6 +7,7 @@ import analyticsRoutes from './routes/analytics';
 import calendarRoutes from './routes/calendar';
 import monitoringRoutes from './routes/monitoring';
 import authRoutes from './routes/auth';
+import mlRoutes from './routes/ml';
 
 const router = Router();
 
@@ -65,7 +66,8 @@ router.get('/', (req, res) => {
       constraints: '/constraints',
       analytics: '/analytics',
       calendar: '/calendar',
-      monitoring: '/monitoring'
+      monitoring: '/monitoring',
+      ml: '/ml'
     }
     });
 });
@@ -79,5 +81,6 @@ router.use('/constraints', constraintRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/calendar', calendarRoutes);
 router.use('/monitoring', monitoringRoutes);
+router.use('/ml', mlRoutes);
 
 export default router;
