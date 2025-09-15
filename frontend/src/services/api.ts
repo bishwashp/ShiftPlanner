@@ -407,9 +407,44 @@ export const apiService = {
   },
 
   // Analytics
-  getWorkDayTally: async (month: number, year: number): Promise<Array<{ analystId: string; analystName: string; workDays: number }>> => {
-    const response = await apiClient.get('/analytics/tally', { params: { month, year } });
-    return response.data as Array<{ analystId: string; analystName: string; workDays: number }>;
+  getWorkDayTally: async (month: number, year: number): Promise<Array<{ 
+    analystId: string; 
+    analystName: string; 
+    month: number;
+    year: number;
+    totalWorkDays: number;
+    regularShiftDays: number;
+    screenerDays: number;
+    weekendDays: number;
+    consecutiveWorkDayStreaks: number;
+    fairnessScore: number;
+  }>> => {
+    const response = await apiClient.get(`/analytics/monthly-tallies/${year}/${month}`);
+    return (response.data as any).data as Array<{ 
+      analystId: string; 
+      analystName: string; 
+      month: number;
+      year: number;
+      totalWorkDays: number;
+      regularShiftDays: number;
+      screenerDays: number;
+      weekendDays: number;
+      consecutiveWorkDayStreaks: number;
+      fairnessScore: number;
+    }>;
+  },
+
+  // Enhanced Analytics Endpoints
+  getFairnessReport: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.get('/analytics/fairness-report', { 
+      params: { startDate, endDate } 
+    });
+    return (response.data as any).data;
+  },
+
+  getAnalyticsHealth: async (): Promise<any> => {
+    const response = await apiClient.get('/analytics/health');
+    return (response.data as any).data;
   },
 
   // Dashboard Stats (computed from other endpoints)

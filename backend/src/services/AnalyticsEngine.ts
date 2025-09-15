@@ -275,10 +275,15 @@ export class AnalyticsEngine {
       individualScores,
     });
 
+    // Calculate overall fairness score with null-safe operations
+    const workloadScore = Math.max(0, 1 - (workloadDistribution.standardDeviation / 10)); // Normalize workload score
+    const screenerScore = screenerDistribution.fairnessScore || 1;
+    const weekendScore = weekendDistribution.fairnessScore || 1;
+    
     const overallFairnessScore = (
-      workloadDistribution.standardDeviation * 0.4 +
-      screenerDistribution.fairnessScore * 0.3 +
-      weekendDistribution.fairnessScore * 0.3
+      workloadScore * 0.4 +
+      screenerScore * 0.3 +
+      weekendScore * 0.3
     );
 
     const result: FairnessReport = {
@@ -472,6 +477,8 @@ export class AnalyticsEngine {
     if (values.length === 0) return 1;
     
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    if (mean === 0) return 1; // If all values are 0, it's perfectly fair
+    
     const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
     const standardDeviation = Math.sqrt(variance);
     
