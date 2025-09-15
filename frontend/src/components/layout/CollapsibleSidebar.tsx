@@ -46,6 +46,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
     { view: 'analysts', label: 'Analysts', icon: Users },
     { view: 'conflicts', label: 'Conflicts', icon: AlertTriangle },
     { view: 'analytics', label: 'Analytics', icon: BarChart2 },
+    { view: 'background-analytics', label: 'Background Analytics', icon: BarChart2 },
     { view: 'constraints', label: 'Constraints', icon: ListTodo },
     { view: 'algorithms', label: 'Algorithms', icon: Cpu },
     { view: 'export', label: 'Export & Integration', icon: Download },

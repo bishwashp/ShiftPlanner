@@ -8,6 +8,7 @@ import AnalystManagement from './components/AnalystManagement';
 import Analytics from './components/Analytics';
 import ConflictManagement from './components/ConflictManagement';
 import ConstraintManagement from './components/ConstraintManagement';
+import BackgroundAnalytics from './components/BackgroundAnalytics';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
 import CalendarExport from './components/CalendarExport';
@@ -150,6 +151,8 @@ function App() {
         return <ConflictManagement />;
       case 'analytics':
         return <Analytics />;
+      case 'background-analytics':
+        return <BackgroundAnalytics />;
       case 'constraints':
         return <ConstraintManagement />;
       case 'algorithms':

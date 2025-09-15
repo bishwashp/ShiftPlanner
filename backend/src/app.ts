@@ -12,11 +12,39 @@ import { monitoringService } from './services/MonitoringService';
 import { alertingService } from './services/AlertingService';
 import { webhookService } from './services/WebhookService';
 
+// Analytics Services
+import { AnalyticsEngine } from './services/AnalyticsEngine';
+import { PredictiveEngine } from './services/PredictiveEngine';
+import { DashboardService } from './services/DashboardService';
+import { BackgroundAnalyticsService } from './services/BackgroundAnalyticsService';
+
 // Export prisma for use in other modules
 export { prisma };
 
 const app = express();
 const httpServer = createServer(app);
+
+// Initialize Analytics Services
+const analyticsEngine = new AnalyticsEngine(prisma, cacheService);
+const predictiveEngine = new PredictiveEngine(prisma, cacheService);
+const dashboardService = new DashboardService(prisma, cacheService, analyticsEngine, predictiveEngine);
+
+// Initialize Background Analytics Service
+const backgroundAnalyticsService = new BackgroundAnalyticsService(
+  prisma,
+  cacheService,
+  analyticsEngine,
+  predictiveEngine,
+  dashboardService
+);
+
+// Make services available globally for routes
+(app as any).analyticsServices = {
+  analyticsEngine,
+  predictiveEngine,
+  dashboardService,
+  backgroundAnalyticsService
+};
 
 // Security middleware
 app.use(helmet({

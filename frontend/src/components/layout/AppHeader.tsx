@@ -64,6 +64,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         return 'Conflict Management';
       case 'analytics':
         return 'Analytics';
+      case 'background-analytics':
+        return 'Background Analytics';
       case 'constraints':
         return 'Constraint Management';
       case 'algorithms':
