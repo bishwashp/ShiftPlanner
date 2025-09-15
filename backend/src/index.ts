@@ -35,6 +35,18 @@ async function startServer() {
       await apolloServer.stop();
       console.log('🔌 Apollo Server stopped');
       
+      // Shutdown proactive analysis if running
+      try {
+        const { proactiveAnalysisService } = await import('./services/ProactiveAnalysisService');
+        if (proactiveAnalysisService.isAvailable()) {
+          await proactiveAnalysisService.shutdown();
+          console.log('🔌 Proactive analysis service stopped');
+        }
+      } catch (error) {
+        // Don't break shutdown if proactive analysis fails to stop
+        console.warn('⚠️ Error stopping proactive analysis:', error);
+      }
+
       // Close database connection
       await prisma.$disconnect();
       console.log('🔌 Database disconnected');

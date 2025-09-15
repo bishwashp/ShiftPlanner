@@ -65,8 +65,12 @@ export class ProactiveAnalysisEngine {
   private scheduler: IntelligentScheduler;
   
   private isRunning: boolean = false;
+  private isEnabled: boolean = false; // Safe default - disabled by default
   private analysisHistory: Map<string, DecisionOutcome[]> = new Map();
   private adaptiveThresholds: Map<string, number> = new Map();
+  
+  // Interval references for cleanup
+  private intervals: NodeJS.Timeout[] = [];
   
   private config: ProactiveConfig = {
     enabledAnalysis: {
@@ -108,24 +112,57 @@ export class ProactiveAnalysisEngine {
   }
 
   /**
-   * Start the proactive analysis engine
+   * Enable the proactive analysis engine
+   */
+  async enable(): Promise<void> {
+    this.isEnabled = true;
+    await this.cache.set('proactive_analysis_enabled', true, 86400 * 30);
+    console.log('🧠 ProactiveAnalysisEngine enabled');
+  }
+
+  /**
+   * Disable the proactive analysis engine
+   */
+  async disable(): Promise<void> {
+    this.isEnabled = false;
+    await this.stop();
+    await this.cache.set('proactive_analysis_enabled', false, 86400 * 30);
+    console.log('🧠 ProactiveAnalysisEngine disabled');
+  }
+
+  /**
+   * Start the proactive analysis engine (only if enabled)
    */
   async start(): Promise<void> {
     if (this.isRunning) return;
     
+    // Check if enabled from cache or config
+    const enabled = await this.cache.get('proactive_analysis_enabled');
+    if (!this.isEnabled && !enabled) {
+      console.log('🧠 ProactiveAnalysisEngine is disabled - not starting');
+      return;
+    }
+    
+    this.isEnabled = true;
     this.isRunning = true;
     console.log('🧠 ProactiveAnalysisEngine starting...');
     
-    // Start continuous monitoring
-    this.startContinuousAnalysis();
-    
-    // Schedule periodic analysis
-    this.schedulePeriodicAnalysis();
-    
-    // Set up event listeners for reactive analysis
-    this.setupEventListeners();
-    
-    console.log('✅ ProactiveAnalysisEngine active');
+    try {
+      // Start continuous monitoring
+      this.startContinuousAnalysis();
+      
+      // Schedule periodic analysis
+      this.schedulePeriodicAnalysis();
+      
+      // Set up event listeners for reactive analysis
+      this.setupEventListeners();
+      
+      console.log('✅ ProactiveAnalysisEngine active');
+    } catch (error) {
+      console.error('❌ Error starting ProactiveAnalysisEngine:', error);
+      await this.stop();
+      throw error;
+    }
   }
 
   /**
@@ -133,6 +170,11 @@ export class ProactiveAnalysisEngine {
    */
   async stop(): Promise<void> {
     this.isRunning = false;
+    
+    // Clear all intervals
+    this.intervals.forEach(interval => clearInterval(interval));
+    this.intervals = [];
+    
     console.log('⏹️ ProactiveAnalysisEngine stopped');
   }
 
@@ -140,15 +182,18 @@ export class ProactiveAnalysisEngine {
    * Continuous analysis loop - runs every 30 seconds
    */
   private startContinuousAnalysis(): void {
-    setInterval(async () => {
-      if (!this.isRunning) return;
+    const interval = setInterval(async () => {
+      if (!this.isRunning || !this.isEnabled) return;
       
       try {
         await this.runContinuousAnalysis();
       } catch (error) {
         console.error('❌ Error in continuous analysis:', error);
+        // Don't break existing functionality - just log and continue
       }
     }, 30000); // 30 seconds
+    
+    this.intervals.push(interval);
   }
 
   /**
@@ -181,22 +226,36 @@ export class ProactiveAnalysisEngine {
    */
   private schedulePeriodicAnalysis(): void {
     // Hourly analysis
-    setInterval(async () => {
-      if (!this.isRunning) return;
-      await this.runHourlyAnalysis();
+    const hourlyInterval = setInterval(async () => {
+      if (!this.isRunning || !this.isEnabled) return;
+      try {
+        await this.runHourlyAnalysis();
+      } catch (error) {
+        console.error('❌ Error in hourly analysis:', error);
+      }
     }, 60 * 60 * 1000); // 1 hour
 
     // Daily analysis
-    setInterval(async () => {
-      if (!this.isRunning) return;
-      await this.runDailyAnalysis();
+    const dailyInterval = setInterval(async () => {
+      if (!this.isRunning || !this.isEnabled) return;
+      try {
+        await this.runDailyAnalysis();
+      } catch (error) {
+        console.error('❌ Error in daily analysis:', error);
+      }
     }, 24 * 60 * 60 * 1000); // 24 hours
 
     // Weekly analysis
-    setInterval(async () => {
-      if (!this.isRunning) return;
-      await this.runWeeklyAnalysis();
+    const weeklyInterval = setInterval(async () => {
+      if (!this.isRunning || !this.isEnabled) return;
+      try {
+        await this.runWeeklyAnalysis();
+      } catch (error) {
+        console.error('❌ Error in weekly analysis:', error);
+      }
     }, 7 * 24 * 60 * 60 * 1000); // 7 days
+    
+    this.intervals.push(hourlyInterval, dailyInterval, weeklyInterval);
   }
 
   /**
@@ -639,9 +698,16 @@ export class ProactiveAnalysisEngine {
     // This would hook into your existing event system
     // For now, we'll add periodic checks for data changes
     
-    setInterval(async () => {
-      await this.checkForDataChanges();
+    const eventInterval = setInterval(async () => {
+      if (!this.isRunning || !this.isEnabled) return;
+      try {
+        await this.checkForDataChanges();
+      } catch (error) {
+        console.error('❌ Error in event listener:', error);
+      }
     }, 60000); // Check every minute
+    
+    this.intervals.push(eventInterval);
   }
 
   /**

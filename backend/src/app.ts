@@ -11,6 +11,8 @@ import { securityService } from './services/SecurityService';
 import { monitoringService } from './services/MonitoringService';
 import { alertingService } from './services/AlertingService';
 import { webhookService } from './services/WebhookService';
+// Import but don't initialize proactive analysis (optional feature)
+import { proactiveAnalysisService } from './services/ProactiveAnalysisService';
 
 // Export prisma for use in other modules
 export { prisma };

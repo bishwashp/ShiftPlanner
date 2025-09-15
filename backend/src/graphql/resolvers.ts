@@ -575,6 +575,25 @@ const Query = {
     } catch (error) {
       throw new GraphQLError(`Failed to generate team calendar export: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  },
+
+  // Proactive Analysis
+  proactiveAnalysisStatus: async () => {
+    try {
+      const { proactiveAnalysisService } = await import('../services/ProactiveAnalysisService');
+      return await proactiveAnalysisService.getStatus();
+    } catch (error) {
+      console.error('Error getting proactive analysis status:', error);
+      return {
+        initialized: false,
+        isRunning: false,
+        isEnabled: false,
+        config: null,
+        adaptiveThresholds: null,
+        performance: null,
+        lastUpdate: new Date(),
+      };
+    }
   }
 };
 
@@ -899,6 +918,41 @@ const Mutation = {
   warmCache: async () => {
     await cacheService.warmCache();
     return true;
+  },
+
+  // Proactive Analysis mutations
+  enableProactiveAnalysis: async () => {
+    try {
+      const { proactiveAnalysisService } = await import('../services/ProactiveAnalysisService');
+      await proactiveAnalysisService.enable();
+      return true;
+    } catch (error) {
+      console.error('Error enabling proactive analysis:', error);
+      throw new GraphQLError(`Failed to enable proactive analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  disableProactiveAnalysis: async () => {
+    try {
+      const { proactiveAnalysisService } = await import('../services/ProactiveAnalysisService');
+      await proactiveAnalysisService.disable();
+      return true;
+    } catch (error) {
+      console.error('Error disabling proactive analysis:', error);
+      throw new GraphQLError(`Failed to disable proactive analysis: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  updateProactiveAnalysisConfig: async (_: any, { config }: { config: any }) => {
+    try {
+      const { proactiveAnalysisService } = await import('../services/ProactiveAnalysisService');
+      const engine = await proactiveAnalysisService.getEngine();
+      await engine.updateConfig(config);
+      return true;
+    } catch (error) {
+      console.error('Error updating proactive analysis config:', error);
+      throw new GraphQLError(`Failed to update proactive analysis config: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 };
 

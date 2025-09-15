@@ -487,6 +487,17 @@ export const typeDefs = gql`
     systemHealth: String!
   }
 
+  # Proactive Analysis Types
+  type ProactiveAnalysisStatus {
+    initialized: Boolean!
+    isRunning: Boolean!
+    isEnabled: Boolean!
+    config: JSON
+    adaptiveThresholds: JSON
+    performance: JSON
+    lastUpdate: DateTime!
+  }
+
   type CustomReport {
     id: ID!
     name: String!
@@ -664,6 +675,9 @@ export const typeDefs = gql`
     # Calendar exports
     calendarExport(analystId: ID!, format: String!, options: JSON): CalendarExport!
     teamCalendarExport(format: String!, options: JSON): CalendarExport!
+    
+    # Proactive Analysis (optional feature)
+    proactiveAnalysisStatus: ProactiveAnalysisStatus!
   }
 
   # Mutations
@@ -700,5 +714,10 @@ export const typeDefs = gql`
     
     # System operations
     warmCache: Boolean!
+    
+    # Proactive Analysis (optional feature)
+    enableProactiveAnalysis: Boolean!
+    disableProactiveAnalysis: Boolean!
+    updateProactiveAnalysisConfig(config: JSON!): Boolean!
   }
 `; 

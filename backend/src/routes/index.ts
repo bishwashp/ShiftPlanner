@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import analystsRouter from './analysts';
 import schedulesRouter from './schedules';
+import proactiveRouter from './proactive';
 
 const router = Router();
 
 // Register all route modules
 router.use('/analysts', analystsRouter);
 router.use('/schedules', schedulesRouter);
+router.use('/proactive', proactiveRouter);
 
 // API info endpoint
 router.get('/', (req, res) => {
@@ -35,6 +37,16 @@ router.get('/', (req, res) => {
           'POST /api/schedules/apply-auto-fix': 'Apply auto-fix assignments',
           'GET /api/schedules/test-scheduler': 'Test scheduler availability'
         }
+      },
+      proactive: {
+        description: 'Proactive analysis and optimization (optional feature)',
+        routes: {
+          'GET /api/proactive/status': 'Get proactive analysis status',
+          'POST /api/proactive/enable': 'Enable proactive analysis',
+          'POST /api/proactive/disable': 'Disable proactive analysis',
+          'POST /api/proactive/config': 'Update configuration',
+          'POST /api/proactive/test': 'Test availability'
+        }
       }
     },
     features: [
@@ -43,7 +55,8 @@ router.get('/', (req, res) => {
       'Conflict Detection',
       'Auto-fix Scheduling',
       'SQLite Database',
-      'In-memory Cache Fallback'
+      'In-memory Cache Fallback',
+      'Proactive Analysis & Optimization (Optional)'
     ]
   });
 });
