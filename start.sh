@@ -12,14 +12,16 @@ npm run clean
 # Start in development mode with proper TypeScript handling
 echo "Starting TypeScript server in dev mode..."
 nohup npm run dev > ../backend.log 2>&1 &
-echo $! > ../backend.pid
+BACKEND_NPM_PID=$!
+echo $BACKEND_NPM_PID > ../backend.pid
 cd ..
 
 # Start frontend server
 echo "Starting frontend server..."
 cd frontend
 nohup npm start > ../frontend.log 2>&1 &
-echo $! > ../frontend.pid
+FRONTEND_NPM_PID=$!
+echo $FRONTEND_NPM_PID > ../frontend.pid
 cd ..
 
 echo "ShiftPlanner application started."
