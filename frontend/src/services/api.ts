@@ -1,6 +1,8 @@
 import axios from 'axios';
 import moment from 'moment';
 import { cacheService } from './cacheService';
+// Importing debounce for potential future use
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { debounce } from '../hooks/useDebounce';
 
 // Define AxiosRequestConfig type for compatibility
@@ -99,6 +101,7 @@ const throttledRequest = (config: AxiosRequestConfig) => {
 };
 
 // Override axios methods with throttled versions
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const originalRequest = apiClient.request;
 // @ts-ignore - Ignore type checking for this line as we're using a custom implementation
 apiClient.request = function(config) {

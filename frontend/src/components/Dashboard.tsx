@@ -142,7 +142,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
         { relatedView: 'conflicts', conflictCount: actualConflicts.length }
       );
     }
-  }, [conflicts.critical.length, loading, showCriticalPrompt, onViewChange]);
+  }, [conflicts.critical.length, conflicts.critical, loading, showCriticalPrompt, onViewChange]);
 
   // Check if there's a "no schedule exists" or "incomplete schedules" conflict (now in recommended section)
   const hasNoScheduleConflict = conflicts.recommended.some(conflict => 
