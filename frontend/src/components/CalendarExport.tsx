@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiService, Schedule, Analyst } from '../services/api';
 import moment from 'moment-timezone';
 
@@ -96,11 +96,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
     }
   ];
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       if (isLoading) isLoading(true);
       
@@ -119,7 +115,11 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
     } finally {
       if (isLoading) isLoading(false);
     }
-  };
+  }, [dateRange.start, dateRange.end, isLoading, onError]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleExport = async () => {
     try {
@@ -169,13 +169,6 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
     try {
       if (isLoading) isLoading(true);
 
-      const filteredSchedules = schedules.filter(schedule => 
-        selectedAnalysts.includes(schedule.analystId)
-      );
-
-      // Generate iCal content
-      const icalContent = await apiService.generateICal(filteredSchedules, analysts);
-      
       // For now, we'll open the external calendar in a new tab
       // In a real implementation, you'd use the specific API for each calendar
       window.open(calendar.url, '_blank');

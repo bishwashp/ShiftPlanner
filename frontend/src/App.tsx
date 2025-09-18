@@ -11,9 +11,10 @@ import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
 import CalendarExport from './components/CalendarExport';
-import { View as BigCalendarView } from 'react-big-calendar';
+import ActionPromptProvider from './contexts/ActionPromptContext';
 import moment from 'moment-timezone';
 import { useTheme } from 'react18-themes';
+import { notificationService } from './services/notificationService';
 
 // Toast notification component for better UX
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => (
@@ -36,10 +37,11 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState<SidebarView>('schedule');
   const [calendarDate, setCalendarDate] = useState(() => {
-    // Ensure we start with August 2025 regardless of timezone
-    return new Date(2025, 7, 1); // Month is 0-indexed, so 7 = August
+    // Start with current month
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [calendarView, setCalendarView] = useState<BigCalendarView>('month');
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
   const [timezone, setTimezone] = useState<string>(() => {
     return localStorage.getItem('timezone') || moment.tz.guess();
   });
@@ -58,7 +60,7 @@ function App() {
   useEffect(() => {
     const savedSidebarOpen = localStorage.getItem('sidebarOpen');
     const savedActiveView = localStorage.getItem('activeView') as SidebarView;
-    const savedCalendarView = localStorage.getItem('calendarView') as BigCalendarView;
+    const savedCalendarView = localStorage.getItem('calendarView') as 'month' | 'week' | 'day';
     const savedCalendarDate = localStorage.getItem('calendarDate');
     
     if (savedSidebarOpen !== null) {
@@ -67,7 +69,7 @@ function App() {
     if (savedActiveView && ['schedule', 'dashboard', 'analysts', 'conflicts', 'analytics', 'constraints', 'algorithms', 'export'].includes(savedActiveView)) {
       setActiveView(savedActiveView);
     }
-    if (savedCalendarView && ['month', 'week', 'day'].includes(savedCalendarView)) {
+    if (savedCalendarView && (['month', 'week', 'day'] as const).includes(savedCalendarView)) {
       setCalendarView(savedCalendarView);
     }
     if (savedCalendarDate) {
@@ -81,29 +83,55 @@ function App() {
   const handleTimezoneChange = (tz: string) => {
     setTimezone(tz);
     localStorage.setItem('timezone', tz);
-    showToast('Timezone updated successfully', 'success');
+    // No toast spam - timezone changes are not actionable notifications
   };
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 5000);
+    // Only show toasts for critical errors now
+    if (type === 'error') {
+      setToast({ message, type });
+      setTimeout(() => setToast(null), 5000);
+    }
   };
 
   const handleViewChange = (view: SidebarView) => {
     setActiveView(view);
-    showToast(`Switched to ${view} view`, 'info');
+    // Removed toast spam - view changes are not actionable notifications
   };
 
   const handleError = useCallback((error: string) => {
+    // Show critical errors as toast only (no actionable notifications)
     showToast(error, 'error');
+    // Add to notification history for tracking
+    notificationService.addSystemNotification(
+      'System Error Occurred',
+      error,
+      'high'
+    );
   }, []);
 
   const handleSuccess = useCallback((message: string) => {
-    showToast(message, 'success');
+    // Add success notifications to history for tracking
+    if (message.includes('conflict') || message.includes('schedule') || message.includes('error')) {
+      notificationService.addSuccessNotification(
+        'Action Completed',
+        message,
+        { category: 'user-action', tags: ['success'] }
+      );
+    }
+    // No toast spam for regular success messages
   }, []);
 
   const handleLoading = useCallback((loading: boolean) => {
     setIsLoading(loading);
+  }, []);
+
+  const handleGenerateSchedule = useCallback(() => {
+    // This will trigger the schedule generation form in ScheduleView
+    console.log('Generate schedule requested');
+    if ((window as any).triggerScheduleGeneration) {
+      (window as any).triggerScheduleGeneration();
+    }
   }, []);
 
   const renderView = () => {
@@ -127,7 +155,7 @@ function App() {
       case 'export':
         return <CalendarExport {...commonProps} />;
       case 'dashboard':
-        return <Dashboard onViewChange={() => {}} />;
+        return <Dashboard onViewChange={setActiveView} />;
       case 'schedule':
       default:
         return (
@@ -138,6 +166,7 @@ function App() {
             view={calendarView}
             setView={setCalendarView}
             timezone={timezone}
+            onGenerateSchedule={handleGenerateSchedule}
             {...commonProps}
           />
         );
@@ -145,41 +174,44 @@ function App() {
   };
 
   return (
-    <div className={`flex h-screen bg-background text-foreground transition-colors duration-200 ${theme}`}>
-      <CollapsibleSidebar 
-        isOpen={sidebarOpen} 
-        onViewChange={handleViewChange} 
-        activeView={activeView}
-      />
-      <div className="flex-1 flex flex-col">
-        <AppHeader 
-          sidebarOpen={sidebarOpen} 
-          setSidebarOpen={setSidebarOpen} 
-          date={calendarDate}
-          setDate={setCalendarDate}
-          view={calendarView}
-          setView={setCalendarView}
+    <ActionPromptProvider>
+      <div className={`flex h-screen bg-background text-foreground transition-colors duration-200 ${theme}`}>
+        <CollapsibleSidebar 
+          isOpen={sidebarOpen} 
+          onViewChange={handleViewChange} 
           activeView={activeView}
-          timezone={timezone}
-          onTimezoneChange={handleTimezoneChange}
         />
-        <main className="flex-1 overflow-auto relative">
-          {isLoading && (
-            <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          )}
-          {renderView()}
-        </main>
+        <div className="flex-1 flex flex-col">
+          <AppHeader 
+            sidebarOpen={sidebarOpen} 
+            setSidebarOpen={setSidebarOpen} 
+            date={calendarDate}
+            setDate={setCalendarDate}
+            view={calendarView}
+            setView={setCalendarView}
+            activeView={activeView}
+            timezone={timezone}
+            onTimezoneChange={handleTimezoneChange}
+            onGenerateSchedule={handleGenerateSchedule}
+          />
+          <main className="flex-1 overflow-auto relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            )}
+            {renderView()}
+          </main>
+        </div>
+        {toast && (
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={() => setToast(null)} 
+          />
+        )}
       </div>
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={() => setToast(null)} 
-        />
-      )}
-    </div>
+    </ActionPromptProvider>
   );
 }
 

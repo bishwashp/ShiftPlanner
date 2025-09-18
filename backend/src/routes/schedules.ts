@@ -339,66 +339,11 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
       end.setDate(end.getDate() + 30);
     }
 
-    const allDates = new Set<string>();
-    const currentDate = new Date(start);
-    while (currentDate <= end) {
-      allDates.add(currentDate.toISOString().split('T')[0]);
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
+    // Use the centralized conflict detection service
+    const { conflictDetectionService } = await import('../services/conflict');
+    const conflicts = await conflictDetectionService.detectConflicts(start, end);
 
-    const schedules = await prisma.schedule.findMany({
-      where: {
-        date: {
-          gte: start,
-          lte: end,
-        },
-      },
-    });
-
-    const scheduledDates = new Map<string, { morning: boolean, evening: boolean }>();
-
-    for (const schedule of schedules) {
-      const dateStr = schedule.date.toISOString().split('T')[0];
-      if (!scheduledDates.has(dateStr)) {
-        scheduledDates.set(dateStr, { morning: false, evening: false });
-      }
-      const shifts = scheduledDates.get(dateStr)!;
-      if (schedule.shiftType === 'MORNING') {
-        shifts.morning = true;
-      }
-      if (schedule.shiftType === 'EVENING') {
-        shifts.evening = true;
-      }
-    }
-
-    const conflicts: { date: string; message: string; type: string; missingShifts: string[]; severity: string }[] = [];
-    allDates.forEach(dateStr => {
-      const shifts = scheduledDates.get(dateStr);
-      let missingShifts: string[] = [];
-      if (!shifts || !shifts.morning) {
-        missingShifts.push('Morning');
-      }
-      if (!shifts || !shifts.evening) {
-        missingShifts.push('Evening');
-      }
-
-      if (missingShifts.length > 0) {
-        conflicts.push({
-          date: dateStr,
-          message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment(dateStr).format('MMM D')}`,
-          type: 'NO_ANALYST_ASSIGNED',
-          missingShifts,
-          severity: 'critical'
-        });
-      }
-    });
-
-    const responseData = {
-      critical: conflicts,
-      recommended: [],
-    };
-
-    res.json(responseData);
+    res.json(conflicts);
   } catch (error) {
     console.error('Error checking schedule health:', error);
     res.status(500).json({ error: 'Failed to check schedule health' });
@@ -449,9 +394,11 @@ router.post('/auto-fix-conflicts', async (req: Request, res: Response) => {
       }
     }
 
-    // Identify conflicts
+    // Identify conflicts (only for dates where schedules exist)
     const conflictList: Array<{ date: string; missingShifts: string[]; severity: string }> = [];
-    allDates.forEach(dateStr => {
+    const scheduledDateStrings = Array.from(scheduledDates.keys());
+    
+    scheduledDateStrings.forEach(dateStr => {
       const shifts = scheduledDates.get(dateStr);
       let missingShifts: string[] = [];
       if (!shifts || !shifts.morning) {
@@ -471,8 +418,14 @@ router.post('/auto-fix-conflicts', async (req: Request, res: Response) => {
     });
 
     // Use IntelligentScheduler to resolve conflicts
+    console.log(`🔍 Auto-fix: Found ${conflictList.length} conflicts to resolve`);
+    console.log('📋 Conflicts:', conflictList);
+    
     const scheduler = new IntelligentScheduler(prisma);
     const resolution = await scheduler.resolveConflicts(conflictList, startDate, endDate);
+
+    console.log(`✅ Auto-fix: Generated ${resolution.suggestedAssignments?.length || 0} proposals`);
+    console.log('📊 Resolution summary:', resolution.summary);
 
     res.json(resolution);
   } catch (error) {

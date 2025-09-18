@@ -407,9 +407,79 @@ export const apiService = {
   },
 
   // Analytics
-  getWorkDayTally: async (month: number, year: number): Promise<Array<{ analystId: string; analystName: string; workDays: number }>> => {
-    const response = await apiClient.get('/analytics/tally', { params: { month, year } });
-    return response.data as Array<{ analystId: string; analystName: string; workDays: number }>;
+  getWorkDayTally: async (month: number, year: number): Promise<Array<{ 
+    analystId: string; 
+    analystName: string; 
+    month: number;
+    year: number;
+    totalWorkDays: number;
+    regularShiftDays: number;
+    screenerDays: number;
+    weekendDays: number;
+    consecutiveWorkDayStreaks: number;
+    fairnessScore: number;
+  }>> => {
+    const response = await apiClient.get(`/analytics/monthly-tallies/${year}/${month}`);
+    return (response.data as any).data as Array<{ 
+      analystId: string; 
+      analystName: string; 
+      month: number;
+      year: number;
+      totalWorkDays: number;
+      regularShiftDays: number;
+      screenerDays: number;
+      weekendDays: number;
+      consecutiveWorkDayStreaks: number;
+      fairnessScore: number;
+    }>;
+  },
+
+  // Enhanced Analytics Endpoints
+  getFairnessReport: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.get('/analytics/fairness-report', { 
+      params: { startDate, endDate } 
+    });
+    return (response.data as any).data;
+  },
+
+  getAnalyticsHealth: async (): Promise<any> => {
+    const response = await apiClient.get('/analytics/health');
+    return (response.data as any).data;
+  },
+
+  // ML Services
+  getWorkloadPrediction: async (date: string): Promise<any> => {
+    const response = await apiClient.get(`/ml/workload-prediction/${date}`);
+    return (response.data as any).data;
+  },
+
+  getBurnoutRiskAssessment: async (): Promise<any> => {
+    const response = await apiClient.get('/ml/burnout-risk');
+    return (response.data as any).data;
+  },
+
+  getOptimalAssignment: async (date: string, shiftType: 'MORNING' | 'EVENING'): Promise<any> => {
+    const response = await apiClient.get('/ml/optimal-assignment', {
+      params: { date, shiftType }
+    });
+    return (response.data as any).data;
+  },
+
+  getDemandForecast: async (period: 'WEEK' | 'MONTH'): Promise<any> => {
+    const response = await apiClient.get(`/ml/demand-forecast/${period}`);
+    return (response.data as any).data;
+  },
+
+  getConflictPrediction: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await apiClient.get('/ml/conflict-prediction', {
+      params: { startDate, endDate }
+    });
+    return (response.data as any).data;
+  },
+
+  getMLHealth: async (): Promise<any> => {
+    const response = await apiClient.get('/ml/health');
+    return (response.data as any).data;
   },
 
   // Dashboard Stats (computed from other endpoints)
@@ -456,9 +526,17 @@ export const apiService = {
   },
 
   // Applies a list of assignments to resolve conflicts
-  applyAutoFix: async (data: { assignments: any[] }): Promise<{ message: string; created: number }> => {
+  applyAutoFix: async (data: { assignments: any[] }): Promise<{ 
+    message: string; 
+    createdSchedules: any[]; 
+    errors?: Array<{ assignment: any; error: string }> 
+  }> => {
     const response = await apiClient.post('/schedules/apply-auto-fix', data);
-    return response.data as { message: string; created: number };
+    return response.data as { 
+      message: string; 
+      createdSchedules: any[]; 
+      errors?: Array<{ assignment: any; error: string }> 
+    };
   },
 
   // Calendar Export & Integration

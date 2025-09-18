@@ -1,75 +1,143 @@
-/* Premium Calendar Styling matching inspiration */
+/* macOS-Style Calendar Styling */
 .rbc-calendar {
-  @apply bg-background-primary text-text-primary;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  border-radius: 1.5rem;
+  @apply bg-background text-foreground;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(12px);
+  border: 1px solid;
+  @apply border-border;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-/* Premium Calendar Header */
+/* Dark theme shadow enhancement */
+[data-theme="dark"] .rbc-calendar {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* macOS Calendar Header */
 .rbc-header {
-  @apply bg-background-secondary/80 text-text-primary border-border-subtle;
+  @apply bg-muted/50 text-muted-foreground border-border;
   padding: 12px 8px;
   font-weight: 600;
-  font-size: 0.875rem;
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid;
+  @apply border-border;
   position: relative;
+  text-align: center;
 }
 
-.rbc-header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+/* Enhanced header for dark theme */
+[data-theme="dark"] .rbc-header {
+  @apply bg-muted/30;
 }
 
-/* Premium Calendar Grid */
+/* macOS Calendar Grid */
 .rbc-month-view,
 .rbc-time-view {
-  @apply bg-background-secondary/60 border-border-subtle;
-  border-radius: 1.5rem;
-  overflow: hidden;
-  backdrop-filter: blur(16px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  @apply bg-background;
+  border-radius: 0;
+  overflow: visible;
 }
 
 .rbc-month-row {
-  @apply border-border-subtle;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  @apply border-border;
+  border-bottom: 1px solid;
 }
 
+/* macOS-style date cells */
 .rbc-date-cell {
-  @apply text-text-primary;
-  padding: 8px 12px;
+  @apply text-foreground;
+  padding: 12px;
   font-size: 0.875rem;
-  transition: all 0.2s ease;
+  font-weight: 500;
+  transition: all 0.15s ease;
   position: relative;
+  min-height: 120px;
+  border-right: 1px solid;
+  @apply border-border;
 }
 
 .rbc-date-cell:hover {
-  @apply bg-background-tertiary/30;
-  backdrop-filter: blur(8px);
+  @apply bg-muted/50;
 }
 
-/* Premium Today Highlight */
-.rbc-today {
-  background: linear-gradient(135deg, rgba(139, 90, 43, 0.2), rgba(139, 90, 43, 0.1));
-  border: 1px solid rgba(139, 90, 43, 0.3);
+/* Month separation styling */
+.rbc-date-cell.rbc-off-range {
+  @apply bg-muted/20 text-muted-foreground;
   position: relative;
+}
+
+.rbc-date-cell.rbc-off-range::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    rgba(var(--border), 0.1) 2px,
+    rgba(var(--border), 0.1) 4px
+  );
+  pointer-events: none;
+}
+
+/* macOS-style Today Highlight */
+.rbc-today {
+  @apply bg-primary/10;
+  border: 2px solid;
+  @apply border-primary/30;
+  position: relative;
+}
+
+.rbc-today .rbc-date-cell,
+.rbc-today > * {
+  position: relative;
+  z-index: 2;
 }
 
 .rbc-today::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent);
-  border-radius: inherit;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  background: linear-gradient(135deg,
+    rgba(var(--primary), 0.08),
+    rgba(var(--primary), 0.04)
+  );
+  border-radius: 8px;
+  border: 1px solid rgba(var(--primary), 0.2);
+  z-index: 1;
+}
+
+/* Today date number styling */
+.rbc-today .rbc-date-cell > a,
+.rbc-today .rbc-date-cell > span {
+  @apply text-primary font-bold;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(var(--primary), 0.15);
+  border: 1px solid rgba(var(--primary), 0.3);
+}
+
+/* Enhanced today indicator for dark theme */
+[data-theme="dark"] .rbc-today {
+  @apply bg-primary/15;
+}
+
+[data-theme="dark"] .rbc-today::before {
+  background: linear-gradient(135deg,
+    rgba(var(--primary), 0.12),
+    rgba(var(--primary), 0.06)
+  );
 }
 
 /* Premium Event Styling */
@@ -127,16 +195,19 @@
 
 /* Premium Time View Styling */
 .rbc-time-view {
-  background: linear-gradient(135deg, rgba(45, 45, 45, 0.8), rgba(26, 26, 26, 0.9));
+  @apply bg-background;
   border-radius: 1.5rem;
   overflow: hidden;
   backdrop-filter: blur(16px);
+  border: 1px solid;
+  @apply border-border;
 }
 
 .rbc-time-header {
-  background: rgba(45, 45, 45, 0.9);
+  @apply bg-muted/30;
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid;
+  @apply border-border;
 }
 
 .rbc-time-content {
@@ -146,37 +217,38 @@
 
 /* Premium Time Slots */
 .rbc-time-slot {
-  border-color: rgba(255, 255, 255, 0.05) !important;
+  @apply border-border;
   transition: all 0.2s ease;
 }
 
 .rbc-time-slot:hover {
-  background-color: rgba(255, 255, 255, 0.02);
+  @apply bg-muted/20;
   backdrop-filter: blur(4px);
 }
 
 .rbc-timeslot-group {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid;
+  @apply border-border;
 }
 
 /* Premium Time Headers */
 .rbc-time-header-content {
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  background: rgba(45, 45, 45, 0.6);
+  @apply border-border bg-muted/20;
   backdrop-filter: blur(8px);
 }
 
 .rbc-time-header-cell {
-  color: #cbd5e1;
+  @apply text-muted-foreground;
   font-weight: 500;
   padding: 8px;
 }
 
 /* Premium All Day Area */
 .rbc-allday-cell {
-  background: linear-gradient(135deg, rgba(64, 64, 64, 0.6), rgba(45, 45, 45, 0.8));
+  @apply bg-muted/20;
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid;
+  @apply border-border;
 }
 
 /* Premium Week View Events */
@@ -186,28 +258,51 @@
   backdrop-filter: blur(8px);
 }
 
-/* Premium Day Numbers */
+/* macOS Day Numbers */
 .rbc-date-cell > a,
-.rbc-date-cell span {
-  color: #f8fafc;
+.rbc-date-cell > span {
+  @apply text-foreground;
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  position: relative;
+  z-index: 3;
 }
 
 .rbc-date-cell:hover > a,
-.rbc-date-cell:hover span {
-  color: #ffffff;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+.rbc-date-cell:hover > span {
+  @apply text-primary;
 }
 
-/* Premium Off Range Dates */
+/* macOS Off Range Dates (Previous/Next Month) */
 .rbc-off-range {
-  color: #64748b !important;
-  opacity: 0.5;
+  @apply text-muted-foreground;
+  opacity: 0.4;
 }
 
 .rbc-off-range:hover {
-  opacity: 0.7;
+  opacity: 0.6;
+}
+
+/* Month boundaries - add visual separation */
+.rbc-date-cell.rbc-off-range + .rbc-date-cell:not(.rbc-off-range),
+.rbc-date-cell:not(.rbc-off-range):has(+ .rbc-date-cell.rbc-off-range) {
+  position: relative;
+}
+
+/* Visual month separator */
+.rbc-date-cell:not(.rbc-off-range):has(+ .rbc-date-cell.rbc-off-range)::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom,
+    transparent 10%,
+    rgba(var(--primary), 0.3) 50%,
+    transparent 90%
+  );
+  z-index: 10;
 }
 
 /* Current Time Indicator */
@@ -269,58 +364,224 @@
   z-index: 1000;
 }
 
-/* Responsive Design */
+/* Mobile Touch Optimization */
 @media (max-width: 768px) {
+  /* Enhanced touch targets - minimum 44px */
+  .rbc-date-cell {
+    min-height: 110px;
+    padding: 12px 8px;
+    font-size: 0.75rem;
+    touch-action: manipulation;
+    /* Ensure proper touch target sizing */
+    min-width: 44px;
+  }
+  
   .rbc-event {
-    font-size: 0.625rem;
-    padding: 1px 2px;
-  }
-  
-  .event-title {
-    font-size: 0.625rem;
-  }
-  
-  .event-badge {
-    font-size: 0.5rem;
-    padding: 0 2px;
-    min-width: 12px;
+    font-size: 0.75rem;
+    padding: 8px 10px;
+    margin: 4px 3px !important;
+    min-height: 44px; /* Increased to meet accessibility standards */
+    min-width: 44px; /* Added min-width for touch targets */
+    border-radius: 8px !important;
+    touch-action: manipulation;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
   }
   
   .rbc-header {
     font-size: 0.75rem;
-    padding: 4px 2px;
+    padding: 12px 6px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
-  .rbc-date-cell {
-    font-size: 0.75rem;
-    padding: 2px 4px;
+  /* Mobile action buttons spacing */
+  .mobile-action-group {
+    display: flex;
+    gap: 16px; /* Proper spacing between touch targets */
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+  }
+  
+  .mobile-action-button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px;
+    border-radius: 8px;
+    touch-action: manipulation;
+  }
+  
+  /* Enhanced calendar grid for touch */
+  .rbc-calendar {
+    border-radius: 8px;
+  }
+  
+  .rbc-month-view {
+    overflow-x: auto;
+  }
+  
+  /* Touch feedback */
+  .rbc-date-cell:active,
+  .rbc-event:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+  
+  /* Gesture support */
+  .rbc-calendar {
+    touch-action: pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Swipe indicators */
+  .rbc-calendar::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 8px;
+    width: 4px;
+    height: 30px;
+    background: linear-gradient(to bottom, transparent, rgba(156, 163, 175, 0.3), transparent);
+    border-radius: 2px;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 5;
+  }
+  
+  .rbc-calendar::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    width: 4px;
+    height: 30px;
+    background: linear-gradient(to bottom, transparent, rgba(156, 163, 175, 0.3), transparent);
+    border-radius: 2px;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 5;
+  }
+  
+  .rbc-calendar:hover::before,
+  .rbc-calendar:hover::after {
+    opacity: 1;
   }
 }
 
-/* Dark Mode Enhancements */
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .rbc-date-cell {
+    min-height: 110px;
+    padding: 10px;
+  }
+  
+  .rbc-event {
+    min-height: 36px;
+    padding: 4px 8px;
+    margin: 2px !important;
+  }
+  
+  .rbc-header {
+    padding: 10px 8px;
+    min-height: 48px;
+  }
+}
+
+/* Touch device specific styles */
+@media (pointer: coarse) {
+  /* Larger touch targets for all touch devices */
+  button, .clickable, .rbc-event, .rbc-date-cell,
+  .calendar-toolbar button, .timezone-selector,
+  .theme-switcher, .calendar-legend button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Enhanced spacing for clustered elements */
+  .toolbar-group {
+    gap: 12px;
+  }
+  
+  .action-cluster {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  
+  /* Enhanced hover states for touch */
+  .rbc-event:hover {
+    transform: scale(1.02);
+  }
+  
+  .rbc-date-cell:hover {
+    @apply bg-muted/70;
+  }
+  
+  /* Mobile-specific touch feedback */
+  .rbc-event:active, .mobile-action-button:active {
+    transform: scale(0.96);
+    transition: transform 0.1s ease;
+  }
+}
+
+/* Fine pointer (mouse) specific optimizations */
+@media (pointer: fine) {
+  .rbc-event {
+    min-height: 28px;
+  }
+  
+  .rbc-date-cell {
+    min-height: 120px;
+  }
+}
+
+/* Enhanced Dark Mode Support */
 [data-theme="dark"] .rbc-calendar {
   @apply bg-background;
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 [data-theme="dark"] .rbc-month-view,
 [data-theme="dark"] .rbc-time-view {
-  @apply bg-card border-border;
+  @apply bg-background;
 }
 
 [data-theme="dark"] .rbc-header {
-  @apply bg-card text-card-foreground border-border;
+  @apply bg-muted/20 text-muted-foreground;
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
-[data-theme="dark"] .rbc-today {
-  @apply bg-primary/20;
+[data-theme="dark"] .rbc-date-cell {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .rbc-date-cell:hover {
+  @apply bg-muted/30;
+}
+
+[data-theme="dark"] .rbc-month-row {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .rbc-off-range {
+  @apply bg-muted/10;
 }
 
 [data-theme="dark"] .rbc-event {
-  @apply shadow-md;
+  @apply shadow-lg;
 }
 
 [data-theme="dark"] .rbc-event:hover {
-  @apply shadow-lg;
+  @apply shadow-xl;
 }
 
 /* Animation Classes */
@@ -420,4 +681,62 @@
   .slide-in {
     animation: none;
   }
-} 
+}
+
+/* Shift Time Overlays - 9am to 6pm highlights */
+.shift-time-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.08),
+    rgba(139, 92, 246, 0.08)
+  );
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1;
+  backdrop-filter: blur(1px);
+}
+
+.shift-time-overlay::before {
+  content: 'Shift Hours (9 AM - 6 PM)';
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(59, 130, 246, 0.8);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* Dark mode overlay styling */
+[data-theme="dark"] .shift-time-overlay {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.12),
+    rgba(139, 92, 246, 0.12)
+  );
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .shift-time-overlay::before {
+  color: rgba(59, 130, 246, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Time slot highlighting for shift hours */
+.rbc-time-slot.shift-hour {
+  background: linear-gradient(90deg,
+    rgba(59, 130, 246, 0.05),
+    rgba(139, 92, 246, 0.05)
+  );
+  border-left: 3px solid rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .rbc-time-slot.shift-hour {
+  background: linear-gradient(90deg,
+    rgba(59, 130, 246, 0.08),
+    rgba(139, 92, 246, 0.08)
+  );
+  border-left-color: rgba(59, 130, 246, 0.5);
+}

@@ -1,0 +1,126 @@
+/* Calendar Filter Panel Animations */
+/* Phase 6B: Calendar Layering System Implementation */
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-out-right {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out forwards;
+}
+
+.animate-slide-out-right {
+  animation: slide-out-right 0.3s ease-in forwards;
+}
+
+/* Backdrop overlay for mobile */
+@media (max-width: 768px) {
+  .calendar-filter-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+    animation: fade-in 0.3s ease-out forwards;
+  }
+  
+  .calendar-filter-panel-mobile {
+    width: 100vw;
+    max-width: 400px;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Custom scrollbar for filter panel */
+.calendar-filter-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.calendar-filter-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.calendar-filter-panel::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.calendar-filter-panel::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Dark mode scrollbar */
+.dark .calendar-filter-panel::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark .calendar-filter-panel::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Focus states for accessibility */
+.calendar-filter-panel .filter-checkbox:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.calendar-filter-panel .filter-button:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .calendar-filter-panel {
+    border-color: #000;
+  }
+  
+  .calendar-filter-panel .filter-checkbox {
+    border-color: #000;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-right,
+  .animate-slide-out-right {
+    animation: none;
+  }
+  
+  .calendar-filter-backdrop {
+    animation: none;
+  }
+  
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

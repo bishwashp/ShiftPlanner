@@ -5,6 +5,7 @@ import compression from 'compression';
 import { createServer } from 'http';
 import { prisma, getDatabasePerformance } from './lib/prisma';
 import { cacheService } from './lib/cache';
+import logger, { stream, addRequestId } from './lib/logger';
 import routes from './routes';
 import { createApolloServer, startApolloServer, graphqlHealthCheck } from './graphql/server';
 import { securityService } from './services/SecurityService';
@@ -58,16 +59,36 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Rate limiting middleware for API routes
 app.use('/api', securityService.createRateLimitMiddleware(securityService.getConfig().rateLimits.api));
 
+// Add request ID to each request
+app.use(addRequestId);
+
 // Request logging middleware
 app.use(async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const startTime = Date.now();
   
+  // Create a logger instance with request context
+  const reqLogger = logger.child({ 
+    requestId: req.requestId, 
+    method: req.method, 
+    url: req.url, 
+    ip: req.ip 
+  });
+  
+  // Attach logger to request object
+  (req as any).logger = reqLogger;
+  
   // Log request start
+  reqLogger.info('Request started', {
+    userAgent: req.headers['user-agent'],
+  });
+  
+  // Also log to security audit log
   await securityService.logAuditEvent('REQUEST_START', 'api', undefined, {
     method: req.method,
     url: req.url,
     ip: req.ip,
     userAgent: req.headers['user-agent'],
+    requestId: req.requestId
   }, req);
 
   // Override res.end to log response
@@ -76,11 +97,18 @@ app.use(async (req: express.Request, res: express.Response, next: express.NextFu
     const duration = Date.now() - startTime;
     
     // Log request completion
+    reqLogger.info('Request completed', {
+      statusCode: res.statusCode,
+      duration,
+    });
+    
+    // Also log to security audit log
     securityService.logAuditEvent('REQUEST_END', 'api', undefined, {
       method: req.method,
       url: req.url,
       statusCode: res.statusCode,
       duration,
+      requestId: req.requestId
     }, req);
 
     return originalEnd.call(this, chunk, encoding);
@@ -309,10 +337,19 @@ app.use(async (err: any, req: express.Request, res: express.Response, next: expr
     method: req.method,
   }, req);
 
-  console.error('Express Error:', err);
+  // Log error with our centralized logger
+  logger.error('Express Error:', {
+    error: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    requestId: req.requestId
+  });
+  
   res.status(500).json({
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+    requestId: req.requestId
   });
 });
 

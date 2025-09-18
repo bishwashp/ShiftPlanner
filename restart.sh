@@ -1,16 +1,15 @@
 #!/bin/bash
-echo "Restarting the frontend development server..."
+echo "Restarting ShiftPlanner application..."
 
-# Find and kill the process running on port 3000
-PID=$(lsof -t -i:3000)
-if [ -n "$PID" ]; then
-  echo "Killing process $PID on port 3000"
-  kill -9 $PID
-else
-  echo "No process found on port 3000."
-fi
+# Stop the application
+echo "Stopping current services..."
+./stop.sh
 
-# Start the frontend server
-echo "Starting the frontend server..."
-cd frontend
-npm start 
+# Wait a moment to ensure everything is stopped
+sleep 3
+
+# Start the application
+echo "Starting services..."
+./start.sh
+
+echo "ShiftPlanner application restarted." 

@@ -4,6 +4,13 @@ echo "Starting ShiftPlanner application..."
 # Start backend server
 echo "Starting backend server..."
 cd backend
+
+# Clean any stale compiled files
+echo "Cleaning dist directory..."
+npm run clean
+
+# Start in development mode with proper TypeScript handling
+echo "Starting TypeScript server in dev mode..."
 nohup npm run dev > ../backend.log 2>&1 &
 echo $! > ../backend.pid
 cd ..

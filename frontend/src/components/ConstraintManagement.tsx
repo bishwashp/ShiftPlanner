@@ -123,6 +123,11 @@ const ConstraintManagement: React.FC = () => {
     return (
         <div className="bg-background text-foreground p-6">
             <div className="max-w-6xl mx-auto">
+                {error && (
+                    <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg">
+                        {error}
+                    </div>
+                )}
                 <div className="flex items-center justify-end mb-8">
                     <button onClick={() => setShowAddForm(true)} className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
                         Add New Constraint

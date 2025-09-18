@@ -3,14 +3,15 @@ import { View } from './layout/CollapsibleSidebar';
 import AnalystsIcon from './icons/AnalystsIcon';
 import CheckIcon from './icons/CheckIcon';
 import ScheduleIcon from './icons/ScheduleIcon';
-import HourglassIcon from './icons/HourglassIcon';
 import PlusIcon from './icons/PlusIcon';
 import AnalyticsIcon from './icons/AnalyticsIcon';
 import AlertIcon from './icons/AlertIcon';
 import { apiService, DashboardStats } from '../services/api';
 import { formatDateTime } from '../utils/formatDateTime';
-import { useTheme } from 'react18-themes';
 import moment from 'moment-timezone';
+import { useNotifications } from '../hooks/useNotifications';
+import { useActionPrompts } from '../contexts/ActionPromptContext';
+import BellIcon from './icons/BellIcon';
 
 interface StatCardProps {
     title: string;
@@ -18,12 +19,13 @@ interface StatCardProps {
     icon: React.ElementType;
     color: string;
     bgColor: string;
+    highlight?: string;
     loading?: boolean;
     onClick?: () => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bgColor, loading = false, onClick }) => (
-  <div className="bg-card text-card-foreground rounded-2xl p-5 shadow-sm border border-border flex items-center">
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bgColor, highlight = '', loading = false, onClick }) => (
+  <div className={`bg-card text-card-foreground rounded-2xl p-5 shadow-sm border border-border flex items-center ${highlight}`}>
     <div className="flex-1">
       <p className="text-sm font-medium text-muted-foreground">{title}</p>
       {loading ? (
@@ -57,7 +59,8 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({ text, icon: Icon,
 interface DashboardProps { onViewChange: (view: View) => void; }
 
 const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
-  const { theme } = useTheme();
+  const { addDemoNotifications } = useNotifications();
+  const { showCriticalPrompt, hasActivePrompts } = useActionPrompts();
   const [stats, setStats] = useState<DashboardStats>({
     totalAnalysts: 0,
     activeAnalysts: 0,
@@ -73,8 +76,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     setLoading(true);
     setError(null);
     try {
-      const startDate = new Date().toISOString().split('T')[0];
-      const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const startDate = '2025-10-08';
+      const endDate = '2025-11-08';
 
       const [stats, conflictsData] = await Promise.all([
         apiService.getDashboardStats(),
@@ -95,12 +98,56 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     fetchDashboardData();
   }, []);
 
+  // Show action prompt for critical conflicts (but not for schedule existence conflicts)
+  useEffect(() => {
+    const hasNoScheduleConflict = conflicts.critical.some(conflict => 
+      conflict.type === 'NO_SCHEDULE_EXISTS' || 
+      conflict.type === 'INCOMPLETE_SCHEDULES'
+    );
+    // Filter out NO_SCHEDULE_EXISTS and NO_ANALYST_ASSIGNED (which are essentially missing schedules)
+    const actualConflicts = conflicts.critical.filter(conflict => 
+      conflict.type !== 'NO_SCHEDULE_EXISTS' && 
+      conflict.type !== 'NO_ANALYST_ASSIGNED' &&
+      conflict.type !== 'INCOMPLETE_SCHEDULES'
+    );
+    
+    if (actualConflicts.length > 0 && !loading && !hasNoScheduleConflict) {
+      showCriticalPrompt(
+        'Critical Schedule Conflicts Detected',
+        `Found ${actualConflicts.length} critical conflict(s) that require immediate attention. These conflicts may affect operations and need to be resolved.`,
+        [
+          {
+            label: 'Review & Fix Conflicts',
+            variant: 'primary' as const,
+            onClick: () => onViewChange('conflicts')
+          },
+          {
+            label: 'Auto-Fix All Conflicts',
+            variant: 'secondary' as const,
+            onClick: () => {
+              // This would trigger the auto-fix functionality
+              console.log('Auto-fix all conflicts triggered');
+            }
+          }
+        ],
+        { relatedView: 'conflicts', conflictCount: actualConflicts.length }
+      );
+    }
+  }, [conflicts.critical.length, loading, showCriticalPrompt, onViewChange]);
+
+  // Check if there's a "no schedule exists" or "incomplete schedules" conflict (now in recommended section)
+  const hasNoScheduleConflict = conflicts.recommended.some(conflict => 
+    conflict.type === 'NO_SCHEDULE_EXISTS' || conflict.type === 'INCOMPLETE_SCHEDULES'
+  );
+  
   const conflictCard = {
     title: 'Schedule Conflicts',
     value: conflicts.critical.length + conflicts.recommended.length,
     icon: conflicts.critical.length > 0 ? AlertIcon : CheckIcon,
     color: conflicts.critical.length > 0 ? 'text-destructive' : 'text-green-600',
     bgColor: conflicts.critical.length > 0 ? 'bg-destructive/10' : 'bg-green-600/10',
+    // Add yellow highlight when no schedules exist
+    highlight: hasNoScheduleConflict ? 'ring-2 ring-yellow-500 ring-opacity-50' : '',
   };
 
   const handleNavigateToConflicts = () => {
@@ -136,10 +183,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     onViewChange('analytics');
   };
 
-  const handleNavigateToSchedule = (conflict: { date: string; shiftType?: string }) => {
-    // Use your router/navigation logic to go to Schedule tab, passing conflict context
-    window.location.hash = '#/schedule?date=' + conflict.date + (conflict.shiftType ? ('&shiftType=' + conflict.shiftType) : '');
+  const handleTestNotifications = () => {
+    addDemoNotifications();
   };
+
 
   return (
     <div className="bg-background text-foreground p-6">
@@ -150,7 +197,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
           </div>
         )}
 
-        {conflicts.critical.length > 0 && (
+        {conflicts.critical.length > 0 && !hasActivePrompts() && !hasNoScheduleConflict && (
           <div className="mb-6 p-4 bg-yellow-500/10 border-l-4 border-yellow-500 rounded flex items-center justify-between">
             <span className="text-yellow-700 dark:text-yellow-300 font-medium">Schedule issues have been detected for the next 30 days. Please review the Conflict Management for more details.</span>
             <button
@@ -197,21 +244,26 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
 
         <div className="mt-8 bg-card text-card-foreground rounded-2xl p-6 shadow-sm border border-border">
           <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
-          <div className="flex items-center space-x-4">
-            <QuickActionButton 
-              text="Add New Analyst" 
-              icon={PlusIcon} 
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <QuickActionButton
+              text="Add New Analyst"
+              icon={PlusIcon}
               onClick={handleAddAnalyst}
             />
-            <QuickActionButton 
-              text="Generate Schedule" 
-              icon={ScheduleIcon} 
+            <QuickActionButton
+              text="Generate Schedule"
+              icon={ScheduleIcon}
               onClick={handleGenerateSchedule}
             />
-            <QuickActionButton 
-              text="View Analytics" 
-              icon={AnalyticsIcon} 
+            <QuickActionButton
+              text="View Analytics"
+              icon={AnalyticsIcon}
               onClick={handleViewAnalytics}
+            />
+            <QuickActionButton
+              text="Test Notifications"
+              icon={BellIcon}
+              onClick={handleTestNotifications}
             />
           </div>
         </div>
