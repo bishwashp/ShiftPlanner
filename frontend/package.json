@@ -14,6 +14,7 @@
     "@types/axios": "^0.9.36",
     "@types/chart.js": "^2.9.41",
     "@types/d3": "^7.4.3",
+    "@types/d3-dispatch": "^3.0.6",
     "@types/jest": "^27.5.2",
     "@types/node": "^16.18.126",
     "@types/react": "^19.1.8",
