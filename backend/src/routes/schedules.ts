@@ -339,118 +339,11 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
       end.setDate(end.getDate() + 30);
     }
 
-    const allDates = new Set<string>();
-    const currentDate = new Date(start);
-    while (currentDate <= end) {
-      allDates.add(currentDate.toISOString().split('T')[0]);
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
+    // Use the centralized conflict detection service
+    const { conflictDetectionService } = await import('../services/conflict');
+    const conflicts = await conflictDetectionService.detectConflicts(start, end);
 
-    const schedules = await prisma.schedule.findMany({
-      where: {
-        date: {
-          gte: start,
-          lte: end,
-        },
-      },
-    });
-
-    const scheduledDates = new Map<string, { morning: boolean, evening: boolean }>();
-
-    for (const schedule of schedules) {
-      const dateStr = schedule.date.toISOString().split('T')[0];
-      if (!scheduledDates.has(dateStr)) {
-        scheduledDates.set(dateStr, { morning: false, evening: false });
-      }
-      const shifts = scheduledDates.get(dateStr)!;
-      if (schedule.shiftType === 'MORNING') {
-        shifts.morning = true;
-      }
-      if (schedule.shiftType === 'EVENING') {
-        shifts.evening = true;
-      }
-    }
-
-    const conflicts: { date: string; message: string; type: string; missingShifts: string[]; severity: string }[] = [];
-    
-    // Get screener assignments for each date
-    const screenerAssignments = new Map<string, { morning: number, evening: number }>();
-    schedules.forEach(schedule => {
-      const dateStr = schedule.date.toISOString().split('T')[0];
-      if (schedule.isScreener) {
-        if (!screenerAssignments.has(dateStr)) {
-          screenerAssignments.set(dateStr, { morning: 0, evening: 0 });
-        }
-        const assignments = screenerAssignments.get(dateStr)!;
-        if (schedule.shiftType === 'MORNING') {
-          assignments.morning++;
-        } else if (schedule.shiftType === 'EVENING') {
-          assignments.evening++;
-        }
-      }
-    });
-
-    allDates.forEach(dateStr => {
-      const shifts = scheduledDates.get(dateStr);
-      const screeners = screenerAssignments.get(dateStr) || { morning: 0, evening: 0 };
-      let missingShifts: string[] = [];
-      let screenerIssues: string[] = [];
-      
-      // Check for missing shifts
-      if (!shifts || !shifts.morning) {
-        missingShifts.push('Morning');
-      }
-      if (!shifts || !shifts.evening) {
-        missingShifts.push('Evening');
-      }
-
-      // Check for screener requirements
-      if (shifts && shifts.morning && screeners.morning === 0) {
-        screenerIssues.push('Morning screener missing');
-      }
-      if (shifts && shifts.evening && screeners.evening === 0) {
-        screenerIssues.push('Evening screener missing');
-      }
-      if (screeners.morning > 1) {
-        screenerIssues.push(`Multiple morning screeners (${screeners.morning})`);
-      }
-      if (screeners.evening > 1) {
-        screenerIssues.push(`Multiple evening screeners (${screeners.evening})`);
-      }
-
-      // Add missing shift conflicts
-      if (missingShifts.length > 0) {
-        conflicts.push({
-          date: dateStr,
-          message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment(dateStr).format('MMM D')}`,
-          type: 'NO_ANALYST_ASSIGNED',
-          missingShifts,
-          severity: 'critical'
-        });
-      }
-
-      // Add screener conflicts
-      if (screenerIssues.length > 0) {
-        conflicts.push({
-          date: dateStr,
-          message: `${screenerIssues.join(', ')} on ${moment(dateStr).format('MMM D')}`,
-          type: 'SCREENER_CONFLICT',
-          missingShifts: screenerIssues,
-          severity: screenerIssues.some(issue => issue.includes('missing')) ? 'critical' : 'recommended'
-        });
-      }
-    });
-
-    // Categorize conflicts by severity
-    const criticalConflicts = conflicts.filter(c => c.severity === 'critical');
-    const recommendedConflicts = conflicts.filter(c => c.severity === 'recommended');
-
-    const responseData = {
-      critical: criticalConflicts,
-      recommended: recommendedConflicts,
-    };
-
-    res.json(responseData);
+    res.json(conflicts);
   } catch (error) {
     console.error('Error checking schedule health:', error);
     res.status(500).json({ error: 'Failed to check schedule health' });
@@ -501,9 +394,11 @@ router.post('/auto-fix-conflicts', async (req: Request, res: Response) => {
       }
     }
 
-    // Identify conflicts
+    // Identify conflicts (only for dates where schedules exist)
     const conflictList: Array<{ date: string; missingShifts: string[]; severity: string }> = [];
-    allDates.forEach(dateStr => {
+    const scheduledDateStrings = Array.from(scheduledDates.keys());
+    
+    scheduledDateStrings.forEach(dateStr => {
       const shifts = scheduledDates.get(dateStr);
       let missingShifts: string[] = [];
       if (!shifts || !shifts.morning) {

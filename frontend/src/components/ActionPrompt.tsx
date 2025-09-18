@@ -91,14 +91,13 @@ const ActionPromptComponent: React.FC<ActionPromptProps> = ({ prompt, onDismiss,
               </p>
             </div>
           </div>
-          {prompt.type !== 'critical' && (
-            <button
-              onClick={() => onDismiss(prompt.id)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            onClick={() => onDismiss(prompt.id)}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title={prompt.type === 'critical' ? 'Dismiss (conflicts will still be visible in Conflict Management)' : 'Dismiss'}
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Message */}

@@ -19,12 +19,13 @@ interface StatCardProps {
     icon: React.ElementType;
     color: string;
     bgColor: string;
+    highlight?: string;
     loading?: boolean;
     onClick?: () => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bgColor, loading = false, onClick }) => (
-  <div className="bg-card text-card-foreground rounded-2xl p-5 shadow-sm border border-border flex items-center">
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bgColor, highlight = '', loading = false, onClick }) => (
+  <div className={`bg-card text-card-foreground rounded-2xl p-5 shadow-sm border border-border flex items-center ${highlight}`}>
     <div className="flex-1">
       <p className="text-sm font-medium text-muted-foreground">{title}</p>
       {loading ? (
@@ -59,7 +60,7 @@ interface DashboardProps { onViewChange: (view: View) => void; }
 
 const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
   const { addDemoNotifications } = useNotifications();
-  const { showCriticalPrompt } = useActionPrompts();
+  const { showCriticalPrompt, hasActivePrompts } = useActionPrompts();
   const [stats, setStats] = useState<DashboardStats>({
     totalAnalysts: 0,
     activeAnalysts: 0,
@@ -97,12 +98,23 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     fetchDashboardData();
   }, []);
 
-  // Show action prompt for critical conflicts
+  // Show action prompt for critical conflicts (but not for schedule existence conflicts)
   useEffect(() => {
-    if (conflicts.critical.length > 0 && !loading) {
+    const hasNoScheduleConflict = conflicts.critical.some(conflict => 
+      conflict.type === 'NO_SCHEDULE_EXISTS' || 
+      conflict.type === 'INCOMPLETE_SCHEDULES'
+    );
+    // Filter out NO_SCHEDULE_EXISTS and NO_ANALYST_ASSIGNED (which are essentially missing schedules)
+    const actualConflicts = conflicts.critical.filter(conflict => 
+      conflict.type !== 'NO_SCHEDULE_EXISTS' && 
+      conflict.type !== 'NO_ANALYST_ASSIGNED' &&
+      conflict.type !== 'INCOMPLETE_SCHEDULES'
+    );
+    
+    if (actualConflicts.length > 0 && !loading && !hasNoScheduleConflict) {
       showCriticalPrompt(
         'Critical Schedule Conflicts Detected',
-        `Found ${conflicts.critical.length} critical conflict(s) that require immediate attention. These conflicts may affect operations and need to be resolved.`,
+        `Found ${actualConflicts.length} critical conflict(s) that require immediate attention. These conflicts may affect operations and need to be resolved.`,
         [
           {
             label: 'Review & Fix Conflicts',
@@ -118,17 +130,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
             }
           }
         ],
-        { relatedView: 'conflicts', conflictCount: conflicts.critical.length }
+        { relatedView: 'conflicts', conflictCount: actualConflicts.length }
       );
     }
   }, [conflicts.critical.length, loading, showCriticalPrompt, onViewChange]);
 
+  // Check if there's a "no schedule exists" or "incomplete schedules" conflict (now in recommended section)
+  const hasNoScheduleConflict = conflicts.recommended.some(conflict => 
+    conflict.type === 'NO_SCHEDULE_EXISTS' || conflict.type === 'INCOMPLETE_SCHEDULES'
+  );
+  
   const conflictCard = {
     title: 'Schedule Conflicts',
     value: conflicts.critical.length + conflicts.recommended.length,
     icon: conflicts.critical.length > 0 ? AlertIcon : CheckIcon,
     color: conflicts.critical.length > 0 ? 'text-destructive' : 'text-green-600',
     bgColor: conflicts.critical.length > 0 ? 'bg-destructive/10' : 'bg-green-600/10',
+    // Add yellow highlight when no schedules exist
+    highlight: hasNoScheduleConflict ? 'ring-2 ring-yellow-500 ring-opacity-50' : '',
   };
 
   const handleNavigateToConflicts = () => {
@@ -178,7 +197,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
           </div>
         )}
 
-        {conflicts.critical.length > 0 && (
+        {conflicts.critical.length > 0 && !hasActivePrompts() && !hasNoScheduleConflict && (
           <div className="mb-6 p-4 bg-yellow-500/10 border-l-4 border-yellow-500 rounded flex items-center justify-between">
             <span className="text-yellow-700 dark:text-yellow-300 font-medium">Schedule issues have been detected for the next 30 days. Please review the Conflict Management for more details.</span>
             <button
