@@ -284,7 +284,7 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Enhanced data fetching with performance monitoring
+  // Enhanced data fetching with performance monitoring and rate limiting handling
   const fetchSchedulesAndAnalysts = useCallback(async () => {
     const fetchStart = performance.now();
     
@@ -292,16 +292,18 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
       setLoading(true);
       setError(null);
       
-      const [schedulesData, analystsData] = await Promise.all([
-        apiService.getSchedules(startDate, endDate),
-        apiService.getAnalysts()
-      ]);
+      // Fetch data sequentially to avoid rate limiting
+      const analystsData = await apiService.getAnalysts();
       
       // Filter active analysts (performance optimization)
       const activeAnalysts = analystsData.filter(a => a.isActive);
-      
-      setSchedules(schedulesData);
       setAnalysts(activeAnalysts);
+      
+      // Add a small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const schedulesData = await apiService.getSchedules(startDate, endDate);
+      setSchedules(schedulesData);
       
       // Track performance metrics
       const fetchTime = performance.now() - fetchStart;
@@ -313,12 +315,20 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
         memoryMB: `${((performance as any).memory?.usedJSHeapSize / 1024 / 1024 || 0).toFixed(2)}MB`
       });
       
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching data:', err);
-      const errorMessage = 'Failed to load schedule data. Please try again.';
-      setError(errorMessage);
-      // Call onError directly without including it in dependencies
-      onError?.(errorMessage);
+      
+      // Handle rate limiting specifically
+      if (err.response?.status === 429) {
+        const retryAfter = err.response.data?.retryAfter || 60;
+        const errorMessage = `Rate limit exceeded. Please wait ${retryAfter} seconds and try again.`;
+        setError(errorMessage);
+        onError?.(errorMessage);
+      } else {
+        const errorMessage = 'Failed to load schedule data. Please try again.';
+        setError(errorMessage);
+        onError?.(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

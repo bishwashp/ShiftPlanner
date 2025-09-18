@@ -79,16 +79,25 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
       const startDate = '2025-10-08';
       const endDate = '2025-11-08';
 
-      const [stats, conflictsData] = await Promise.all([
-        apiService.getDashboardStats(),
-        apiService.getAllConflicts(startDate, endDate)
-      ]);
-      
+      // Fetch data sequentially to avoid rate limiting
+      const stats = await apiService.getDashboardStats();
       setStats(stats);
+      
+      // Add a small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const conflictsData = await apiService.getAllConflicts(startDate, endDate);
       setConflicts(conflictsData);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data. Please try again.');
+      
+      // Handle rate limiting specifically
+      if (err.response?.status === 429) {
+        const retryAfter = err.response.data?.retryAfter || 60;
+        setError(`Rate limit exceeded. Please wait ${retryAfter} seconds and try again.`);
+      } else {
+        setError('Failed to load dashboard data. Please try again.');
+      }
     }
     setLastUpdated(new Date());
     setLoading(false);

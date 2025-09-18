@@ -1,8 +1,16 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 import moment from 'moment';
+import { cacheService } from './cacheService';
+import { debounce } from '../hooks/useDebounce';
 
 // API Configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
+
+// Request throttling configuration
+const THROTTLE_DELAY = 300; // 300ms between requests
+const CACHE_TTL = 30000; // 30 seconds cache TTL for GET requests
+const MAX_RETRIES = 3; // Maximum number of retries for failed requests
+const RETRY_DELAY = 1000; // 1 second delay between retries
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -12,6 +20,86 @@ const apiClient = axios.create({
   },
   timeout: 10000,
 });
+
+// Request queue to manage concurrent requests
+const requestQueue: {
+  config: AxiosRequestConfig;
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
+  retryCount: number;
+}[] = [];
+let isProcessingQueue = false;
+
+// Process the request queue with throttling
+const processQueue = async () => {
+  if (requestQueue.length === 0 || isProcessingQueue) {
+    return;
+  }
+
+  isProcessingQueue = true;
+  const { config, resolve, reject, retryCount } = requestQueue.shift()!;
+
+  try {
+    // Check cache for GET requests
+    if (config.method?.toLowerCase() === 'get' && config.url) {
+      const cacheKey = `${config.url}${config.params ? JSON.stringify(config.params) : ''}`;
+      const cachedData = cacheService.get(cacheKey);
+      
+      if (cachedData) {
+        console.log(`Cache hit for: ${config.url}`);
+        resolve(cachedData);
+        setTimeout(processQueue, 0);
+        isProcessingQueue = false;
+        return;
+      }
+    }
+
+    const response = await axios(config);
+    
+    // Cache successful GET responses
+    if (config.method?.toLowerCase() === 'get' && config.url) {
+      const cacheKey = `${config.url}${config.params ? JSON.stringify(config.params) : ''}`;
+      cacheService.set(cacheKey, response, CACHE_TTL);
+    }
+    
+    resolve(response);
+  } catch (error: any) {
+    // Retry on rate limit errors
+    if (error.response?.status === 429 && retryCount < MAX_RETRIES) {
+      const retryAfter = error.response.headers['retry-after'] 
+        ? parseInt(error.response.headers['retry-after']) * 1000 
+        : RETRY_DELAY;
+      
+      console.log(`Rate limited. Retrying after ${retryAfter}ms (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
+      
+      setTimeout(() => {
+        requestQueue.push({ config, resolve, reject, retryCount: retryCount + 1 });
+        processQueue();
+      }, retryAfter);
+    } else {
+      reject(error);
+    }
+  } finally {
+    setTimeout(() => {
+      isProcessingQueue = false;
+      processQueue();
+    }, THROTTLE_DELAY);
+  }
+};
+
+// Throttled request function
+const throttledRequest = (config: AxiosRequestConfig) => {
+  return new Promise((resolve, reject) => {
+    requestQueue.push({ config, resolve, reject, retryCount: 0 });
+    processQueue();
+  });
+};
+
+// Override axios methods with throttled versions
+const originalRequest = apiClient.request;
+apiClient.request = function(config) {
+  return throttledRequest(config) as ReturnType<typeof originalRequest>;
+};
 
 // Request interceptor for logging
 apiClient.interceptors.request.use(
@@ -33,6 +121,13 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     console.error('API Response Error:', error.response?.data || error.message);
+    
+    // Handle rate limiting errors
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.data?.retryAfter || 60;
+      console.warn(`Rate limit exceeded. Retry after ${retryAfter} seconds.`);
+    }
+    
     return Promise.reject(error);
   }
 );
