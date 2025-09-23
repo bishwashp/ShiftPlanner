@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { AlgorithmRegistry } from '../services/scheduling/AlgorithmRegistry';
 import { scheduleGenerationLogger } from '../services/ScheduleGenerationLogger';
+import { createLocalDate, isValidDateString } from '../utils/dateUtils';
 
 const router = Router();
 
@@ -51,8 +52,13 @@ router.get('/fairness-metrics', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Start date and end date are required' });
     }
     
-    const start = new Date(startDate as string);
-    const end = new Date(endDate as string);
+    // Validate date strings
+    if (!isValidDateString(startDate as string) || !isValidDateString(endDate as string)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD format.' });
+    }
+    
+    const start = createLocalDate(startDate as string);
+    const end = createLocalDate(endDate as string);
     
     // Get all schedules in the date range
     const schedules = await prisma.schedule.findMany({
@@ -260,8 +266,13 @@ router.post('/generate-preview', async (req: Request, res: Response) => {
         supportedFeatures: algorithm.supportedFeatures
     });
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Validate date strings
+    if (!isValidDateString(startDate) || !isValidDateString(endDate)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD format.' });
+    }
+    
+    const start = createLocalDate(startDate);
+    const end = createLocalDate(endDate);
     
     const analysts = await prisma.analyst.findMany({
       where: { isActive: true },
@@ -353,8 +364,13 @@ router.post('/apply-schedule', async (req: Request, res: Response) => {
         return res.status(400).json({ error: `Algorithm '${algorithmType}' not found.` });
     }
     
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Validate date strings
+    if (!isValidDateString(startDate) || !isValidDateString(endDate)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD format.' });
+    }
+    
+    const start = createLocalDate(startDate);
+    const end = createLocalDate(endDate);
 
     const analysts = await prisma.analyst.findMany({
         where: { isActive: true },
@@ -455,8 +471,8 @@ router.post('/apply-schedule', async (req: Request, res: Response) => {
     await scheduleGenerationLogger.logFailure({
       generatedBy,
       algorithmType,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate: createLocalDate(startDate),
+      endDate: createLocalDate(endDate),
       executionTime: Date.now() - startTime,
       errorMessage: error instanceof Error ? error.message : 'Unknown error',
       metadata: { error: error instanceof Error ? error.stack : String(error) }

@@ -4,9 +4,12 @@ import { fairnessEngine } from './FairnessEngine';
 import { constraintEngine } from './ConstraintEngine';
 import { optimizationEngine } from './OptimizationEngine';
 import { PatternContinuityService } from '../PatternContinuityService';
+import { rotationManager, RotationManager } from '../RotationManager';
+import { fairnessCalculator } from '../FairnessCalculator';
 import { prisma } from '../../../lib/prisma';
+import { createLocalDate, isWeekend } from '../../../utils/dateUtils';
 
-class WeekendRotationAlgorithm implements SchedulingAlgorithm {
+export class WeekendRotationAlgorithm implements SchedulingAlgorithm {
     name = 'WeekendRotationAlgorithm';
     description = 'Advanced weekend rotation algorithm with fairness optimization and constraint satisfaction';
     version = '2.0.0';
@@ -24,6 +27,8 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
     
     constructor() {
         this.patternContinuityService = new PatternContinuityService(prisma);
+        // Initialize rotation manager with pattern continuity service
+        (rotationManager as any) = new RotationManager(this.patternContinuityService);
     }
 
     async generateSchedules(context: SchedulingContext): Promise<SchedulingResult> {
@@ -153,49 +158,145 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           conflicts: [] as any[],
           overwrites: [] as any[]
         };
-      
-        const workPatterns = [
-          { name: 'SUN_THU', days: [0, 1, 2, 3, 4], nextPattern: 'TUE_SAT' },
-          { name: 'MON_FRI', days: [1, 2, 3, 4, 5], nextPattern: 'SUN_THU' },
-          { name: 'TUE_SAT', days: [2, 3, 4, 5, 6], nextPattern: 'MON_FRI' }
-        ];
-      
+        
+        console.log(`🔄 Planning rotation for date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+        
+        // Get morning and evening analysts
         const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
         const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
-      
-        // Load pattern continuity data
-        const continuityData = await this.patternContinuityService.loadContinuityData(this.name);
         
-        // Initialize patterns with continuity data if available
-        let morningPatterns = await this.assignAnalystsWithContinuity(morningAnalysts, workPatterns, continuityData, startDate);
-        let eveningPatterns = await this.assignAnalystsWithContinuity(eveningAnalysts, workPatterns, continuityData, startDate);
-      
-        const loopEndDate = new Date(endDate);
-        const currentDate = this.getWeekStart(new Date(startDate));
-      
-        while (currentDate <= loopEndDate) {
-          const weekStart = new Date(currentDate);
-          const weekEnd = new Date(weekStart);
-          weekEnd.setDate(weekEnd.getDate() + 6);
+        // Plan rotations for morning and evening shifts
+        const morningRotationPlans = await rotationManager.planRotation(
+          this.name,
+          'MORNING',
+          startDate,
+          endDate,
+          morningAnalysts,
+          existingSchedules
+        );
+        
+        const eveningRotationPlans = await rotationManager.planRotation(
+          this.name,
+          'EVENING',
+          startDate,
+          endDate,
+          eveningAnalysts,
+          existingSchedules
+        );
+        
+        console.log(`📊 Generated ${morningRotationPlans.length} morning rotation plans and ${eveningRotationPlans.length} evening rotation plans`);
+        
+        // Generate schedules day by day
+        const currentDate = new Date(startDate);
+        
+        while (currentDate <= endDate) {
+          const dateStr = currentDate.toISOString().split('T')[0];
+          const dayOfWeek = currentDate.getDay();
           
-          const effectiveWeekStart = new Date(Math.max(weekStart.getTime(), startDate.getTime()));
-          const effectiveWeekEnd = new Date(Math.min(weekEnd.getTime(), endDate.getTime()));
-      
-          if (effectiveWeekStart <= effectiveWeekEnd) {
-            const weekSchedules = this.generateWeekSchedules(effectiveWeekStart, effectiveWeekEnd, morningPatterns, eveningPatterns, existingSchedules, globalConstraints, result.overwrites);
-            result.proposedSchedules.push(...weekSchedules.proposedSchedules);
-            result.conflicts.push(...weekSchedules.conflicts);
+          // Check for blackout dates
+          const blackoutConstraint = globalConstraints.find(c => 
+            new Date((c as any).startDate) <= currentDate && 
+            new Date((c as any).endDate) >= currentDate && 
+            (c as any).constraintType === 'BLACKOUT_DATE'
+          );
+          
+          if (blackoutConstraint) {
+            result.conflicts.push({
+              date: dateStr,
+              type: 'BLACKOUT_DATE',
+              description: (blackoutConstraint as any).description || 'No scheduling allowed on this date',
+              severity: 'CRITICAL'
+            });
+            currentDate.setDate(currentDate.getDate() + 1);
+            continue;
           }
-      
-          morningPatterns = this.rotatePatterns(morningPatterns, workPatterns);
-          eveningPatterns = this.rotatePatterns(eveningPatterns, workPatterns);
           
-          currentDate.setDate(currentDate.getDate() + 7);
+          // Check for holidays
+          const holidayConstraint = globalConstraints.find(c => 
+            new Date((c as any).startDate) <= currentDate && 
+            new Date((c as any).endDate) >= currentDate && 
+            (c as any).constraintType === 'HOLIDAY'
+          );
+          
+          if (holidayConstraint) {
+            result.conflicts.push({
+              date: dateStr,
+              type: 'HOLIDAY',
+              description: (holidayConstraint as any).description || 'Holiday - no regular scheduling',
+              severity: 'INFO'
+            });
+            currentDate.setDate(currentDate.getDate() + 1);
+            continue;
+          }
+          
+          // Process morning analysts
+          for (const analyst of morningAnalysts) {
+            // Check if analyst should work based on rotation
+            const shouldWork = rotationManager.shouldAnalystWork(
+              analyst.id,
+              currentDate,
+              morningRotationPlans
+            );
+            
+            // Check for vacations
+            const onVacation = analyst.vacations?.some((v: any) => 
+              new Date(v.startDate) <= currentDate && 
+              new Date(v.endDate) >= currentDate
+            ) || false;
+            
+            if (shouldWork && !onVacation) {
+              // Create schedule entry
+              const schedule = this.createScheduleEntry(
+                analyst,
+                currentDate,
+                'MORNING',
+                false,
+                existingSchedules,
+                result.overwrites
+              );
+              
+              if (schedule) {
+                result.proposedSchedules.push(schedule);
+              }
+            }
+          }
+          
+          // Process evening analysts
+          for (const analyst of eveningAnalysts) {
+            // Check if analyst should work based on rotation
+            const shouldWork = rotationManager.shouldAnalystWork(
+              analyst.id,
+              currentDate,
+              eveningRotationPlans
+            );
+            
+            // Check for vacations
+            const onVacation = analyst.vacations?.some((v: any) => 
+              new Date(v.startDate) <= currentDate && 
+              new Date(v.endDate) >= currentDate
+            ) || false;
+            
+            if (shouldWork && !onVacation) {
+              // Create schedule entry
+              const schedule = this.createScheduleEntry(
+                analyst,
+                currentDate,
+                'EVENING',
+                false,
+                existingSchedules,
+                result.overwrites
+              );
+              
+              if (schedule) {
+                result.proposedSchedules.push(schedule);
+              }
+            }
+          }
+          
+          // Move to next day
+          currentDate.setDate(currentDate.getDate() + 1);
         }
-      
-        // Save pattern continuity data for next generation
-        await this.savePatternContinuity(morningPatterns, eveningPatterns, endDate);
-      
+        
         return result;
       }
 
@@ -359,10 +460,22 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
             }
           });
         } else {
-          // Standard assignment when we have enough analysts
-          analysts.forEach((analyst, index) => {
-            const patternName = patterns[index % patterns.length].name;
-            assignments[patternName].analysts.push(analyst);
+          // Standard assignment when we have enough analysts - distribute evenly across patterns
+          const analystsPerPattern = Math.floor(analysts.length / patterns.length);
+          const remainingAnalysts = analysts.length % patterns.length;
+          
+          let analystIndex = 0;
+          patterns.forEach((pattern, patternIndex) => {
+            // Calculate how many analysts this pattern should get
+            const analystsForThisPattern = analystsPerPattern + (patternIndex < remainingAnalysts ? 1 : 0);
+            
+            // Assign analysts to this pattern
+            for (let i = 0; i < analystsForThisPattern; i++) {
+              if (analystIndex < analysts.length) {
+                assignments[pattern.name].analysts.push(analysts[analystIndex]);
+                analystIndex++;
+              }
+            }
           });
         }
       
@@ -516,6 +629,27 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         globalConstraints: any[],
         regularSchedules: any[]
     ) {
+        // Get rotation plans for both shifts
+        const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
+        const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
+        
+        const morningRotationPlans = await rotationManager.planRotation(
+          this.name,
+          'MORNING',
+          startDate,
+          endDate,
+          morningAnalysts,
+          existingSchedules
+        );
+        
+        const eveningRotationPlans = await rotationManager.planRotation(
+          this.name,
+          'EVENING',
+          startDate,
+          endDate,
+          eveningAnalysts,
+          existingSchedules
+        );
         const result = {
           proposedSchedules: [] as any[],
           conflicts: [] as any[],
@@ -545,7 +679,7 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           const dayOfWeek = currentDate.getDay();
       
           // Check if it's weekend
-          if (dayOfWeek === 0 || dayOfWeek === 6) {
+          if (isWeekend(currentDate)) {
             currentDate.setDate(currentDate.getDate() + 1);
             continue;
           }
@@ -624,6 +758,34 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
                         d.toISOString().split('T')[0] === yesterday.toISOString().split('T')[0]
                       );
                       if (screenedYesterday) score -= 500;
+                      
+                      // Check if analyst is in weekend rotation
+                      const rotationPlans = shiftType === 'MORNING' ? 
+                        morningRotationPlans : eveningRotationPlans;
+                      
+                      const isInRotation = rotationPlans.some(plan => 
+                        plan.analystId === analyst.id && 
+                        plan.startDate && plan.endDate &&
+                        currentDate >= plan.startDate && currentDate <= plan.endDate
+                      );
+                      
+                      // Penalize analysts in weekend rotation
+                      if (isInRotation) {
+                        // Check how many screener days they already have this week
+                        const weekStartDate = new Date(currentDate);
+                        weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay());
+                        
+                        const weekScreenerDays = history.filter(d => {
+                          return d >= weekStartDate && d <= currentDate;
+                        }).length;
+                        
+                        // If they already have one screener day this week, heavily penalize
+                        if (weekScreenerDays >= 1) {
+                          score -= 2000; // Make them very unlikely to be chosen
+                        } else {
+                          score -= 200; // Small penalty for first screener day
+                        }
+                      }
                       
                       // Prefer skilled analysts
                       if (analyst.skills?.includes('screener-training')) score += 100;
