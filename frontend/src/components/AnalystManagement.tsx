@@ -5,6 +5,7 @@ interface AnalystFormData {
   name: string;
   email: string;
   shiftType: 'MORNING' | 'EVENING';
+  employeeType: 'EMPLOYEE' | 'CONTRACTOR';
   customAttributes: string; // Stored as a JSON string
   skills: string; // Stored as a comma-separated string
 }
@@ -19,6 +20,7 @@ const AnalystManagement: React.FC = () => {
     name: '',
     email: '',
     shiftType: 'MORNING',
+    employeeType: 'EMPLOYEE',
     customAttributes: '{}',
     skills: ''
   });
@@ -56,7 +58,7 @@ const AnalystManagement: React.FC = () => {
       setSubmitting(true);
       const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(Boolean);
       await apiService.createAnalyst({ ...formData, customAttributes: parsedAttributes, skills: skillsArray });
-      setFormData({ name: '', email: '', shiftType: 'MORNING', customAttributes: '{}', skills: '' });
+      setFormData({ name: '', email: '', shiftType: 'MORNING', employeeType: 'EMPLOYEE', customAttributes: '{}', skills: '' });
       setShowAddForm(false);
       fetchAnalysts(); // Refresh the list
     } catch (err: any) {
@@ -82,7 +84,7 @@ const AnalystManagement: React.FC = () => {
       setSubmitting(true);
       const skillsArray = formData.skills.split(',').map(s => s.trim()).filter(Boolean);
       await apiService.updateAnalyst(editingAnalyst.id, { ...formData, customAttributes: parsedAttributes, skills: skillsArray });
-      setFormData({ name: '', email: '', shiftType: 'MORNING', customAttributes: '{}', skills: '' });
+      setFormData({ name: '', email: '', shiftType: 'MORNING', employeeType: 'EMPLOYEE', customAttributes: '{}', skills: '' });
       setEditingAnalyst(null);
       fetchAnalysts(); // Refresh the list
     } catch (err: any) {
@@ -111,6 +113,7 @@ const AnalystManagement: React.FC = () => {
       name: analyst.name,
       email: analyst.email,
       shiftType: analyst.shiftType,
+      employeeType: analyst.employeeType,
       customAttributes: JSON.stringify(analyst.customAttributes || {}, null, 2),
       skills: analyst.skills?.join(', ') || ''
     });
@@ -118,7 +121,7 @@ const AnalystManagement: React.FC = () => {
 
   const handleCancelEdit = () => {
     setEditingAnalyst(null);
-    setFormData({ name: '', email: '', shiftType: 'MORNING', customAttributes: '{}', skills: '' });
+    setFormData({ name: '', email: '', shiftType: 'MORNING', employeeType: 'EMPLOYEE', customAttributes: '{}', skills: '' });
   };
 
   const handleToggleActive = async (analyst: Analyst) => {
@@ -202,6 +205,20 @@ const AnalystManagement: React.FC = () => {
                   </select>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
+                    Employee Type
+                  </label>
+                  <select
+                    value={formData.employeeType}
+                    onChange={(e) => setFormData({ ...formData, employeeType: e.target.value as 'EMPLOYEE' | 'CONTRACTOR' })}
+                    className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
+                    required
+                  >
+                    <option value="EMPLOYEE">Employee</option>
+                    <option value="CONTRACTOR">Contractor</option>
+                  </select>
+                </div>
+                <div>
                     <label className="block text-sm font-medium text-muted-foreground mb-2">
                         Skills (comma-separated)
                     </label>
@@ -265,6 +282,9 @@ const AnalystManagement: React.FC = () => {
                     Shift Type
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Employee Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -294,6 +314,15 @@ const AnalystManagement: React.FC = () => {
                         : 'bg-primary/10 text-primary'
                     }`}>
                         {analyst.shiftType === 'MORNING' ? 'Morning (AM)' : 'Evening (PM)'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        analyst.employeeType === 'CONTRACTOR' 
+                        ? 'bg-orange-600/10 text-orange-600' 
+                        : 'bg-blue-600/10 text-blue-600'
+                    }`}>
+                        {analyst.employeeType}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

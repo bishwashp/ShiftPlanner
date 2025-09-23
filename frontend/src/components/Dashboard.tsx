@@ -6,9 +6,10 @@ import ScheduleIcon from './icons/ScheduleIcon';
 import PlusIcon from './icons/PlusIcon';
 import AnalyticsIcon from './icons/AnalyticsIcon';
 import AlertIcon from './icons/AlertIcon';
-import { apiService, DashboardStats } from '../services/api';
+import { apiService, DashboardStats, ScheduleGenerationLog } from '../services/api';
 import { formatDateTime } from '../utils/formatDateTime';
 import moment from 'moment-timezone';
+import FairnessReportModal from './FairnessReport';
 import { useNotifications } from '../hooks/useNotifications';
 import { useActionPrompts } from '../contexts/ActionPromptContext';
 import BellIcon from './icons/BellIcon';
@@ -68,16 +69,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     pendingSchedules: 0,
   });
   const [conflicts, setConflicts] = useState<{ critical: any[]; recommended: any[] }>({ critical: [], recommended: [] });
+  const [recentActivity, setRecentActivity] = useState<ScheduleGenerationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [showFairnessReport, setShowFairnessReport] = useState(false);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const startDate = '2025-10-08';
-      const endDate = '2025-11-08';
+      // Use dynamic date range based on current date
+      const startDate = moment().format('YYYY-MM-DD');
+      const endDate = moment().add(30, 'days').format('YYYY-MM-DD');
 
       // Fetch data sequentially to avoid rate limiting
       const stats = await apiService.getDashboardStats();
@@ -88,6 +92,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
       
       const conflictsData = await apiService.getAllConflicts(startDate, endDate);
       setConflicts(conflictsData);
+      
+      // Add a small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const activityData = await apiService.getRecentActivity(5);
+      setRecentActivity(activityData);
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
       
@@ -170,11 +180,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     { ...conflictCard, onClick: handleNavigateToConflicts },
   ];
   
-  const recentActivity = [
-      { text: 'Dashboard data refreshed', time: 'Just now', color: 'bg-primary' },
-      { text: 'API connection established', time: '1 minute ago', color: 'bg-green-500' },
-      { text: 'Backend server running', time: '2 minutes ago', color: 'bg-purple-500' },
-  ];
+  const formatActivityText = (log: ScheduleGenerationLog): string => {
+    const dateRange = `${moment(log.startDate).format('MMM D')} - ${moment(log.endDate).format('MMM D')}`;
+    const algorithmName = log.algorithmType === 'WeekendRotationAlgorithm' ? 'Weekend Rotation' : log.algorithmType;
+    
+    if (log.status === 'SUCCESS') {
+      return `Generated ${log.schedulesGenerated} schedules for ${dateRange} using ${algorithmName} algorithm`;
+    } else if (log.status === 'FAILED') {
+      return `Failed to generate schedules for ${dateRange} using ${algorithmName} algorithm`;
+    } else {
+      return `Partially generated ${log.schedulesGenerated} schedules for ${dateRange} using ${algorithmName} algorithm`;
+    }
+  };
+
+  const getActivityColor = (log: ScheduleGenerationLog): string => {
+    switch (log.status) {
+      case 'SUCCESS': return 'bg-green-500';
+      case 'FAILED': return 'bg-red-500';
+      case 'PARTIAL': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
+  };
 
   const handleRefresh = () => {
     fetchDashboardData();
@@ -274,24 +300,66 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
               icon={BellIcon}
               onClick={handleTestNotifications}
             />
+            <QuickActionButton
+              text="Fairness Report"
+              icon={CheckIcon}
+              onClick={() => setShowFairnessReport(true)}
+            />
           </div>
         </div>
 
         <div className="mt-8 bg-card text-card-foreground rounded-2xl p-6 shadow-sm border border-border">
           <h2 className="text-lg font-semibold text-foreground mb-4">Recent Activity</h2>
           <div className="space-y-4">
-            {recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-center justify-between text-sm">
-                <div className="flex items-center">
-                    <span className={`w-2.5 h-2.5 rounded-full mr-3 ${activity.color}`}></span>
-                    <p className="text-muted-foreground">{activity.text}</p>
+            {loading ? (
+              // Loading skeleton
+              Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center">
+                    <div className="w-2.5 h-2.5 rounded-full mr-3 bg-muted animate-pulse"></div>
+                    <div className="h-4 bg-muted rounded animate-pulse w-64"></div>
+                  </div>
+                  <div className="h-4 bg-muted rounded animate-pulse w-16"></div>
                 </div>
-                <p className="text-muted-foreground/50">{activity.time}</p>
+              ))
+            ) : recentActivity.length > 0 ? (
+              recentActivity.map((log) => (
+                <div key={log.id} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center">
+                    <span className={`w-2.5 h-2.5 rounded-full mr-3 ${getActivityColor(log)}`}></span>
+                    <div>
+                      <p className="text-muted-foreground">{formatActivityText(log)}</p>
+                      {log.fairnessScore && (
+                        <p className="text-xs text-muted-foreground/70">
+                          Fairness Score: {(log.fairnessScore * 100).toFixed(1)}% | 
+                          Conflicts: {log.conflictsDetected} | 
+                          Time: {log.executionTime}ms
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground/50">{moment(log.createdAt).fromNow()}</p>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No recent schedule generation activity</p>
+                <p className="text-sm text-muted-foreground/70 mt-1">
+                  Generate your first schedule to see activity here
+                </p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
+
+      {showFairnessReport && (
+        <FairnessReportModal
+          startDate={moment().subtract(30, 'days').format('YYYY-MM-DD')}
+          endDate={moment().format('YYYY-MM-DD')}
+          onClose={() => setShowFairnessReport(false)}
+        />
+      )}
     </div>
   );
 };

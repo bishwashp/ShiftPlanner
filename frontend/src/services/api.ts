@@ -145,6 +145,7 @@ export interface Analyst {
   name: string;
   email: string;
   shiftType: 'MORNING' | 'EVENING';  // AM or PM shift assignment
+  employeeType: 'EMPLOYEE' | 'CONTRACTOR';  // Employee type classification
   isActive: boolean;
   customAttributes?: any;
   skills?: string[];
@@ -211,6 +212,60 @@ export interface AlgorithmConfig {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScheduleGenerationLog {
+  id: string;
+  generatedBy: string;
+  algorithmType: string;
+  startDate: string;
+  endDate: string;
+  schedulesGenerated: number;
+  conflictsDetected: number;
+  fairnessScore?: number;
+  executionTime?: number;
+  status: 'SUCCESS' | 'FAILED' | 'PARTIAL';
+  errorMessage?: string;
+  metadata?: any;
+  createdAt: string;
+}
+
+export interface GenerationStats {
+  totalGenerations: number;
+  successfulGenerations: number;
+  failedGenerations: number;
+  totalSchedulesGenerated: number;
+  averageExecutionTime: number;
+  mostUsedAlgorithm: string;
+}
+
+export interface FairnessMetrics {
+  analystId: string;
+  analystName: string;
+  totalDaysWorked: number;
+  weekendDaysWorked: number;
+  holidayDaysWorked: number;
+  screenerDaysAssigned: number;
+  consecutiveWorkDays: number[];
+  averageWorkload: number;
+}
+
+export interface FairnessReport {
+  dateRange: {
+    startDate: string;
+    endDate: string;
+  };
+  schedulesAnalyzed: number;
+  analystsCount: number;
+  overallScore: number;
+  components: {
+    workload: number;
+    weekend: number;
+    screener: number;
+    holiday: number;
+  };
+  analystMetrics: FairnessMetrics[];
+  recommendations: string[];
 }
 
 export interface SchedulePreview {
@@ -299,12 +354,12 @@ export const apiService = {
     return response.data as Analyst;
   },
 
-  createAnalyst: async (data: { name: string; email: string; shiftType: 'MORNING' | 'EVENING', customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
+  createAnalyst: async (data: { name: string; email: string; shiftType: 'MORNING' | 'EVENING'; employeeType: 'EMPLOYEE' | 'CONTRACTOR'; customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
     const response = await apiClient.post('/analysts', data);
     return response.data as Analyst;
   },
 
-  updateAnalyst: async (id: string, data: { name?: string; email?: string; shiftType?: 'MORNING' | 'EVENING'; isActive?: boolean, customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
+  updateAnalyst: async (id: string, data: { name?: string; email?: string; shiftType?: 'MORNING' | 'EVENING'; employeeType?: 'EMPLOYEE' | 'CONTRACTOR'; isActive?: boolean, customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
     const response = await apiClient.put(`/analysts/${id}`, data);
     return response.data as Analyst;
   },
@@ -683,6 +738,25 @@ export const apiService = {
   exportToAppleCalendar: async (schedules: Schedule[]): Promise<{ message: string; calendarUrl: string }> => {
     const response = await apiClient.post('/calendar/apple', { schedules });
     return response.data as { message: string; calendarUrl: string };
+  },
+
+  // Schedule Generation Logging
+  getRecentActivity: async (limit: number = 10): Promise<ScheduleGenerationLog[]> => {
+    const response = await apiClient.get(`/algorithms/recent-activity?limit=${limit}`);
+    return response.data as ScheduleGenerationLog[];
+  },
+
+  getGenerationStats: async (days: number = 30): Promise<GenerationStats> => {
+    const response = await apiClient.get(`/algorithms/generation-stats?days=${days}`);
+    return response.data as GenerationStats;
+  },
+
+  // Fairness Metrics
+  getFairnessMetrics: async (startDate: string, endDate: string): Promise<FairnessReport> => {
+    const response = await apiClient.get(`/algorithms/fairness-metrics`, {
+      params: { startDate, endDate }
+    });
+    return response.data as FairnessReport;
   },
 };
 
