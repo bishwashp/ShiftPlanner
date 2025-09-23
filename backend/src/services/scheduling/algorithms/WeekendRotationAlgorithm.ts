@@ -3,6 +3,8 @@ import { Analyst, Schedule, SchedulingConstraint } from '../../../../generated/p
 import { fairnessEngine } from './FairnessEngine';
 import { constraintEngine } from './ConstraintEngine';
 import { optimizationEngine } from './OptimizationEngine';
+import { PatternContinuityService } from '../PatternContinuityService';
+import { prisma } from '../../../lib/prisma';
 
 class WeekendRotationAlgorithm implements SchedulingAlgorithm {
     name = 'WeekendRotationAlgorithm';
@@ -14,8 +16,15 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         'Multiple Optimization Strategies',
         'Workload Balancing',
         'Screener Assignment Optimization',
-        'Weekend Rotation Fairness'
+        'Weekend Rotation Fairness',
+        'Pattern Continuity'
     ];
+    
+    private patternContinuityService: PatternContinuityService;
+    
+    constructor() {
+        this.patternContinuityService = new PatternContinuityService(prisma);
+    }
 
     async generateSchedules(context: SchedulingContext): Promise<SchedulingResult> {
         const startTime = Date.now();
@@ -154,8 +163,12 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
         const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
       
-        let morningPatterns = this.assignAnalystsToPatterns(morningAnalysts, workPatterns);
-        let eveningPatterns = this.assignAnalystsToPatterns(eveningAnalysts, workPatterns);
+        // Load pattern continuity data
+        const continuityData = await this.patternContinuityService.loadContinuityData(this.name);
+        
+        // Initialize patterns with continuity data if available
+        let morningPatterns = await this.assignAnalystsWithContinuity(morningAnalysts, workPatterns, continuityData, startDate);
+        let eveningPatterns = await this.assignAnalystsWithContinuity(eveningAnalysts, workPatterns, continuityData, startDate);
       
         const loopEndDate = new Date(endDate);
         const currentDate = this.getWeekStart(new Date(startDate));
@@ -180,7 +193,111 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           currentDate.setDate(currentDate.getDate() + 7);
         }
       
+        // Save pattern continuity data for next generation
+        await this.savePatternContinuity(morningPatterns, eveningPatterns, endDate);
+      
         return result;
+      }
+
+      private async assignAnalystsWithContinuity(
+        analysts: any[], 
+        patterns: any[], 
+        continuityData: Map<string, any>,
+        startDate: Date
+      ) {
+        const assignments: { [key: string]: { pattern: any; analysts: any[] } } = {};
+        patterns.forEach(p => {
+          assignments[p.name] = { pattern: p, analysts: [] };
+        });
+        
+        // First, assign analysts based on continuity data
+        const assignedAnalystIds = new Set<string>();
+        
+        analysts.forEach(analyst => {
+          const analystContinuity = continuityData.get(analyst.id);
+          if (analystContinuity) {
+            // Calculate which pattern this analyst should be on based on continuity
+            const weeksSinceLastWork = Math.floor(
+              (startDate.getTime() - analystContinuity.lastWorkDate.getTime()) / (1000 * 60 * 60 * 24 * 7)
+            );
+            
+            // Determine the pattern based on rotation
+            let currentPattern = analystContinuity.lastPattern;
+            for (let i = 0; i < weeksSinceLastWork; i++) {
+              const pattern = patterns.find(p => p.name === currentPattern);
+              if (pattern) {
+                currentPattern = pattern.nextPattern;
+              }
+            }
+            
+            if (assignments[currentPattern]) {
+              assignments[currentPattern].analysts.push(analyst);
+              assignedAnalystIds.add(analyst.id);
+            }
+          }
+        });
+        
+        // Then assign remaining analysts using the enhanced logic
+        const unassignedAnalysts = analysts.filter(a => !assignedAnalystIds.has(a.id));
+        if (unassignedAnalysts.length > 0) {
+          const tempAssignments = this.assignAnalystsToPatterns(unassignedAnalysts, patterns);
+          
+          // Merge the temporary assignments
+          for (const patternName in tempAssignments) {
+            assignments[patternName].analysts.push(...tempAssignments[patternName].analysts);
+          }
+        }
+        
+        return assignments;
+      }
+      
+      private async savePatternContinuity(
+        morningPatterns: any,
+        eveningPatterns: any,
+        endDate: Date
+      ) {
+        const continuityData: any[] = [];
+        const workPatterns = [
+          { name: 'SUN_THU', days: [0, 1, 2, 3, 4], nextPattern: 'TUE_SAT' },
+          { name: 'MON_FRI', days: [1, 2, 3, 4, 5], nextPattern: 'SUN_THU' },
+          { name: 'TUE_SAT', days: [2, 3, 4, 5, 6], nextPattern: 'MON_FRI' }
+        ];
+        
+        // Calculate week number based on a 3-week rotation cycle
+        const cycleStartDate = new Date('2025-01-01'); // Reference date for cycle calculation
+        const weekNumber = Math.floor((endDate.getTime() - cycleStartDate.getTime()) / (1000 * 60 * 60 * 24 * 7)) % 3 + 1;
+        
+        // Process morning patterns
+        for (const patternName in morningPatterns) {
+          const assignment = morningPatterns[patternName];
+          assignment.analysts.forEach((analyst: any) => {
+            continuityData.push({
+              analystId: analyst.id,
+              lastPattern: patternName,
+              lastWorkDate: endDate,
+              weekNumber: weekNumber,
+              metadata: { shiftType: 'MORNING' }
+            });
+          });
+        }
+        
+        // Process evening patterns
+        for (const patternName in eveningPatterns) {
+          const assignment = eveningPatterns[patternName];
+          assignment.analysts.forEach((analyst: any) => {
+            continuityData.push({
+              analystId: analyst.id,
+              lastPattern: patternName,
+              lastWorkDate: endDate,
+              weekNumber: weekNumber,
+              metadata: { shiftType: 'EVENING' }
+            });
+          });
+        }
+        
+        if (continuityData.length > 0) {
+          await this.patternContinuityService.saveContinuityData(this.name, continuityData);
+        }
       }
 
       private assignAnalystsToPatterns(analysts: any[], patterns: any[]) {
@@ -189,10 +306,65 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           assignments[p.name] = { pattern: p, analysts: [] };
         });
       
-        analysts.forEach((analyst, index) => {
-          const patternName = patterns[index % patterns.length].name;
-          assignments[patternName].analysts.push(analyst);
-        });
+        // Enhanced assignment logic to ensure coverage
+        if (analysts.length < patterns.length) {
+          // If we have fewer analysts than patterns, ensure every analyst works
+          // and some analysts work multiple patterns to ensure full coverage
+          analysts.forEach((analyst, index) => {
+            // Primary assignment
+            const primaryPattern = patterns[index % patterns.length];
+            assignments[primaryPattern.name].analysts.push(analyst);
+            
+            // Additional assignments to ensure coverage
+            // Calculate how many patterns need coverage
+            const patternsNeedingCoverage = patterns.filter(p => 
+              assignments[p.name].analysts.length === 0
+            );
+            
+            // Assign analysts to uncovered patterns
+            if (patternsNeedingCoverage.length > 0 && index < patternsNeedingCoverage.length) {
+              const additionalPattern = patternsNeedingCoverage[index];
+              if (additionalPattern && additionalPattern.name !== primaryPattern.name) {
+                assignments[additionalPattern.name].analysts.push(analyst);
+              }
+            }
+          });
+          
+          // Final check: ensure all patterns have at least one analyst
+          patterns.forEach(pattern => {
+            if (assignments[pattern.name].analysts.length === 0 && analysts.length > 0) {
+              // Assign the analyst with the least assignments
+              const analystWorkload = new Map<string, number>();
+              analysts.forEach(a => analystWorkload.set(a.id, 0));
+              
+              // Count current assignments
+              Object.values(assignments).forEach(assignment => {
+                assignment.analysts.forEach(a => {
+                  analystWorkload.set(a.id, (analystWorkload.get(a.id) || 0) + 1);
+                });
+              });
+              
+              // Find analyst with least assignments
+              let minWorkload = Infinity;
+              let selectedAnalyst = analysts[0];
+              analysts.forEach(a => {
+                const workload = analystWorkload.get(a.id) || 0;
+                if (workload < minWorkload) {
+                  minWorkload = workload;
+                  selectedAnalyst = a;
+                }
+              });
+              
+              assignments[pattern.name].analysts.push(selectedAnalyst);
+            }
+          });
+        } else {
+          // Standard assignment when we have enough analysts
+          analysts.forEach((analyst, index) => {
+            const patternName = patterns[index % patterns.length].name;
+            assignments[patternName].analysts.push(analyst);
+          });
+        }
       
         return assignments;
       }
@@ -252,6 +424,14 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
             currentDate.setDate(currentDate.getDate() + 1);
             continue;
           }
+          
+          // Check if it's a holiday (treated as weekend - no screeners needed)
+          const holidayConstraint = globalConstraints.find(c => 
+            new Date((c as any).startDate) <= currentDate && 
+            new Date((c as any).endDate) >= currentDate && 
+            (c as any).constraintType === 'HOLIDAY'
+          );
+          const isHoliday = !!holidayConstraint;
       
           const processShift = (analysts: any[], shiftType: 'MORNING' | 'EVENING') => {
             analysts.forEach(analyst => {
@@ -271,10 +451,18 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
 
       private getAnalystsForDay(patternAssignments: any, dayOfWeek: number) {
         const workingAnalysts: any[] = [];
+        const addedAnalystIds = new Set<string>();
+        
         for (const patternName in patternAssignments) {
           const assignment = patternAssignments[patternName];
           if (assignment.pattern.days.includes(dayOfWeek)) {
-            workingAnalysts.push(...assignment.analysts);
+            // Avoid duplicates when an analyst works multiple patterns
+            assignment.analysts.forEach((analyst: any) => {
+              if (!addedAnalystIds.has(analyst.id)) {
+                workingAnalysts.push(analyst);
+                addedAnalystIds.add(analyst.id);
+              }
+            });
           }
         }
         return workingAnalysts;
@@ -334,6 +522,21 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           overwrites: [] as any[]
         };
       
+        // Track screener assignments for spacing
+        const screenerAssignmentHistory = new Map<string, Date[]>();
+        analysts.forEach(a => screenerAssignmentHistory.set(a.id, []));
+        
+        // Load recent screener assignments from existing schedules
+        const lookbackDate = new Date(startDate);
+        lookbackDate.setDate(lookbackDate.getDate() - 7);
+        existingSchedules.forEach(schedule => {
+          if (schedule.isScreener && new Date(schedule.date) >= lookbackDate && new Date(schedule.date) < startDate) {
+            const history = screenerAssignmentHistory.get(schedule.analystId) || [];
+            history.push(new Date(schedule.date));
+            screenerAssignmentHistory.set(schedule.analystId, history);
+          }
+        });
+      
         const currentDate = new Date(startDate);
         let screenerIndex = 0;
       
@@ -341,7 +544,19 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           const dateStr = currentDate.toISOString().split('T')[0];
           const dayOfWeek = currentDate.getDay();
       
+          // Check if it's weekend
           if (dayOfWeek === 0 || dayOfWeek === 6) {
+            currentDate.setDate(currentDate.getDate() + 1);
+            continue;
+          }
+          
+          // Check if it's a holiday (treated as weekend)
+          const holidayConstraint = globalConstraints.find(c => 
+            new Date((c as any).startDate) <= currentDate && 
+            new Date((c as any).endDate) >= currentDate && 
+            (c as any).constraintType === 'HOLIDAY'
+          );
+          if (holidayConstraint) {
             currentDate.setDate(currentDate.getDate() + 1);
             continue;
           }
@@ -358,10 +573,27 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
             continue;
           }
       
-          const workingAnalysts = regularSchedules
+          // Find working analysts from both proposed and existing schedules
+          const proposedWorkingAnalysts = regularSchedules
             .filter(s => s.date === dateStr && !s.isScreener)
             .map(s => analysts.find(a => a.id === s.analystId))
             .filter(Boolean);
+            
+          const existingWorkingAnalysts = existingSchedules
+            .filter(s => new Date((s as any).date).toISOString().split('T')[0] === dateStr && !(s as any).isScreener)
+            .map(s => analysts.find(a => a.id === (s as any).analystId))
+            .filter(Boolean);
+            
+          // Combine both lists, avoiding duplicates
+          const workingAnalystIds = new Set<string>();
+          const workingAnalysts: any[] = [];
+          
+          [...proposedWorkingAnalysts, ...existingWorkingAnalysts].forEach(analyst => {
+            if (analyst && !workingAnalystIds.has(analyst.id)) {
+              workingAnalystIds.add(analyst.id);
+              workingAnalysts.push(analyst);
+            }
+          });
       
           const morningAnalysts = workingAnalysts.filter((a: any) => a.shiftType === 'MORNING');
           const eveningAnalysts = workingAnalysts.filter((a: any) => a.shiftType === 'EVENING');
@@ -371,18 +603,50 @@ class WeekendRotationAlgorithm implements SchedulingAlgorithm {
                 const eligibleAnalysts = shiftAnalysts.filter(a => !a.vacations?.some((v: any) => new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate));
                 if(eligibleAnalysts.length > 0) {
                     
-                    // Skill-based assignment for screeners
-                    const skilledAnalysts = eligibleAnalysts.filter(a => a.skills?.includes('screener-training'));
-
-                    let selectedScreener;
-                    if (skilledAnalysts.length > 0) {
-                        selectedScreener = skilledAnalysts[screenerIndex % skilledAnalysts.length];
-                    } else {
-                        selectedScreener = eligibleAnalysts[screenerIndex % eligibleAnalysts.length];
-                    }
+                    // Enhanced screener assignment with spacing logic
+                    const analystScores = eligibleAnalysts.map(analyst => {
+                      const history = screenerAssignmentHistory.get(analyst.id) || [];
+                      let score = 0;
+                      
+                      // Check consecutive screener days in the past week
+                      const recentScreenerDays = history.filter(d => {
+                        const daysDiff = Math.floor((currentDate.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+                        return daysDiff <= 7 && daysDiff >= 0;
+                      }).length;
+                      
+                      // Penalize if already screened 2 days this week
+                      if (recentScreenerDays >= 2) score -= 1000;
+                      
+                      // Check if screened yesterday (avoid consecutive days)
+                      const yesterday = new Date(currentDate);
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      const screenedYesterday = history.some(d => 
+                        d.toISOString().split('T')[0] === yesterday.toISOString().split('T')[0]
+                      );
+                      if (screenedYesterday) score -= 500;
+                      
+                      // Prefer skilled analysts
+                      if (analyst.skills?.includes('screener-training')) score += 100;
+                      
+                      // Add some rotation fairness
+                      score -= history.length * 10;
+                      
+                      return { analyst, score };
+                    });
+                    
+                    // Sort by score (highest first)
+                    analystScores.sort((a, b) => b.score - a.score);
+                    const selectedScreener = analystScores[0].analyst;
 
                     const screenerSchedule = this.createScreenerSchedule(selectedScreener, currentDate, shiftType, existingSchedules, result.overwrites);
-                    if (screenerSchedule) result.proposedSchedules.push(screenerSchedule);
+                    if (screenerSchedule) {
+                      result.proposedSchedules.push(screenerSchedule);
+                      
+                      // Update history
+                      const history = screenerAssignmentHistory.get(selectedScreener.id) || [];
+                      history.push(new Date(currentDate));
+                      screenerAssignmentHistory.set(selectedScreener.id, history);
+                    }
                 }
             }
           };

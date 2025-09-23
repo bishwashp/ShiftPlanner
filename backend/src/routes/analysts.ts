@@ -155,11 +155,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create new analyst with cache invalidation
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, email, shiftType, customAttributes, skills } = req.body;
+    const { name, email, shiftType, employeeType, customAttributes, skills } = req.body;
 
     // Validate required fields
-    if (!name || !email || !shiftType) {
-      return res.status(400).json({ error: 'Name, email, and shiftType are required' });
+    if (!name || !email || !shiftType || !employeeType) {
+      return res.status(400).json({ error: 'Name, email, shiftType, and employeeType are required' });
     }
 
     const analyst = await prisma.analyst.create({
@@ -167,6 +167,7 @@ router.post('/', async (req: Request, res: Response) => {
         name,
         email,
         shiftType,
+        employeeType,
         customAttributes: customAttributes ? JSON.stringify(customAttributes) : null,
         skills: skills ? skills.join(',') : null
       },
@@ -201,7 +202,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, email, shiftType, isActive, customAttributes, skills } = req.body;
+    const { name, email, shiftType, employeeType, isActive, customAttributes, skills } = req.body;
 
     const analyst = await prisma.analyst.update({
       where: { id },
@@ -209,6 +210,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         ...(name && { name }),
         ...(email && { email }),
         ...(shiftType && { shiftType }),
+        ...(employeeType && { employeeType }),
         ...(typeof isActive === 'boolean' && { isActive }),
         ...(customAttributes && { customAttributes: JSON.stringify(customAttributes) }),
         ...(skills && { skills: skills.join(',') })

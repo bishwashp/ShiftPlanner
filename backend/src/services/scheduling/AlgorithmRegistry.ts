@@ -3,6 +3,7 @@ import WeekendRotationAlgorithm from "./algorithms/WeekendRotationAlgorithm";
 
 const algorithms: { [name: string]: SchedulingAlgorithm } = {
     [WeekendRotationAlgorithm.name]: WeekendRotationAlgorithm,
+    'weekend-rotation': WeekendRotationAlgorithm, // Alias for backward compatibility
 };
 
 export const AlgorithmRegistry = {

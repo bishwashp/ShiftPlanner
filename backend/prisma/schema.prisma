@@ -19,6 +19,7 @@ model Analyst {
   name        String
   email       String   @unique
   shiftType   String   // AM or PM shift assignment (MORNING, EVENING, WEEKEND)
+  employeeType String  @default("employee") // EMPLOYEE, CONTRACTOR
   isActive    Boolean  @default(true)
   customAttributes String? // JSON as string for SQLite compatibility
   skills      String?  // Comma-separated skills for SQLite compatibility
@@ -30,9 +31,11 @@ model Analyst {
   schedules   Schedule[]
   vacations   Vacation[]
   constraints SchedulingConstraint[]
+  patternContinuity PatternContinuity[]
   
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
+  @@index([employeeType, isActive]) // For filtering by employee type
   @@index([email]) // Already unique, but explicit for performance
   @@index([createdAt]) // For sorting and date-based queries
   @@map("analysts")
@@ -136,8 +139,51 @@ model AlgorithmConfig {
   @@map("algorithm_configs")
 }
 
+model ScheduleGenerationLog {
+  id                String   @id @default(cuid())
+  generatedBy       String   @default("admin") // User who generated the schedule
+  algorithmType     String   // Algorithm used for generation
+  startDate         DateTime // Start date of the generated schedule range
+  endDate           DateTime // End date of the generated schedule range
+  schedulesGenerated Int     // Number of schedules generated
+  conflictsDetected Int     @default(0) // Number of conflicts detected
+  fairnessScore     Float?   // Overall fairness score from the generation
+  executionTime     Int?     // Execution time in milliseconds
+  status            String   @default("SUCCESS") // SUCCESS, FAILED, PARTIAL
+  errorMessage      String?  // Error message if generation failed
+  metadata          String?  // Additional JSON metadata for future extensibility
+  createdAt         DateTime @default(now())
+  
+  // Performance indexes for dashboard queries
+  @@index([createdAt]) // For recent activity queries (most important)
+  @@index([generatedBy, createdAt]) // For user-specific activity
+  @@index([algorithmType, createdAt]) // For algorithm-specific queries
+  @@index([status, createdAt]) // For filtering by success/failure
+  @@map("schedule_generation_logs")
+}
+
+model PatternContinuity {
+  id              String   @id @default(cuid())
+  algorithmType   String   // Algorithm type for which this continuity data is stored
+  analystId       String   // Analyst this continuity data belongs to
+  lastPattern     String   // Last work pattern assigned (e.g., "SUN_THU", "MON_FRI", etc.)
+  lastWorkDate    DateTime // Last date the analyst worked
+  weekNumber      Int      // Week number in the rotation cycle
+  metadata        String?  // Additional pattern-specific data as JSON
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  
+  analyst         Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  // Unique constraint to ensure one continuity record per analyst per algorithm
+  @@unique([algorithmType, analystId])
+  @@index([algorithmType, updatedAt]) // For finding latest continuity data
+  @@map("pattern_continuity")
+}
+
 // SQLite doesn't support enums, so we use string constants
 // ShiftType: "MORNING", "EVENING", "WEEKEND"
+// EmployeeType: "EMPLOYEE", "CONTRACTOR"
 // DayOfWeek: "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
 // PreferenceType: "PREFERRED", "AVAILABLE", "UNAVAILABLE"
 // ConstraintType: "BLACKOUT_DATE", "MAX_SCREENER_DAYS", "MIN_SCREENER_DAYS", "PREFERRED_SCREENER", "UNAVAILABLE_SCREENER"

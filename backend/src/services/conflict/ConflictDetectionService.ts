@@ -286,10 +286,19 @@ export class ConflictDetectionService {
     
     // Check each date with complete schedules for screener conflicts
     datesWithCompleteSchedules.forEach(dateStr => {
+      const date = new Date(dateStr);
+      const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+      
+      // Skip screener conflict checks for weekends (Saturday=6, Sunday=0)
+      // Weekends should have analysts but no screeners per business requirements
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return;
+      }
+      
       const screeners = screenerAssignments.get(dateStr) || { morning: 0, evening: 0 };
       let screenerIssues: string[] = [];
       
-      // Check for screener requirements
+      // Check for screener requirements (only on weekdays)
       if (screeners.morning === 0) {
         screenerIssues.push('Morning screener missing');
       }
