@@ -757,14 +757,32 @@ The application will:
 - **FR-8.2**: The schedule generator shall account for known employee absences.
 - **FR-8.3**: The system shall allow administrators to handle emergency absences and regenerate schedules as needed.
 
-### 8.2 Additional Features
+### 8.2 Shift Swap Management
+- **FR-8.2.1**: The system shall allow employees to request shift swaps with other qualified employees.
+- **FR-8.2.2**: The system shall validate swap requests against employee qualifications, availability, and scheduling constraints.
+- **FR-8.2.3**: The system shall provide an approval workflow for shift swaps with manager/supervisor oversight.
+- **FR-8.2.4**: The system shall automatically update schedules when approved swaps are processed.
+- **FR-8.2.5**: The system shall maintain an audit trail of all shift swap requests and approvals.
+- **FR-8.2.6**: The system shall support bulk swap operations for multiple shifts or employees.
+- **FR-8.2.7**: The system shall notify all affected parties (employees, managers) of swap status changes.
+
+### 8.3 Compensatory Time Off (CompOff) Tracking
+- **FR-8.3.1**: The system shall track compensatory time earned by employees for overtime work or holiday coverage.
+- **FR-8.3.2**: The system shall calculate CompOff balances based on overtime hours, holiday work, and time-off usage.
+- **FR-8.3.3**: The system shall allow employees to request CompOff usage with manager approval.
+- **FR-8.3.4**: The system shall enforce CompOff expiration policies and notify employees of upcoming expirations.
+- **FR-8.3.5**: The system shall integrate CompOff tracking with the scheduling system to prevent conflicts.
+- **FR-8.3.6**: The system shall provide reporting on CompOff balances, usage patterns, and policy compliance.
+- **FR-8.3.7**: The system shall support different CompOff accrual rates based on employee classification or work type.
+
+### 8.4 Additional Features
 - **FR-9.1**: Mobile application support
 - **FR-9.2**: Integration with HR systems
 - **FR-9.3**: Advanced reporting and analytics
 - **FR-9.4**: Automated notifications for schedule changes
 - **FR-9.5**: Employee preferences and requests management
 
-### 8.3 Advanced Algorithm Features
+### 8.5 Advanced Algorithm Features
 - **FR-10.1**: **Machine Learning Integration** for predicting optimal schedules based on historical data.
 - **FR-10.2**: **Multi-Objective Optimization** algorithms for balancing multiple conflicting requirements.
 - **FR-10.3**: **Real-time Schedule Adjustment** algorithms that respond to dynamic changes.
