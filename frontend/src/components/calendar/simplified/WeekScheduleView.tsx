@@ -69,22 +69,48 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
       const morningSchedules = daySchedules.filter(s => s.shiftType === 'MORNING');
       const eveningSchedules = daySchedules.filter(s => s.shiftType === 'EVENING');
       
-      // Simple conflict detection - multiple screeners or missing coverage
+      // Context-aware conflict detection following backend logic
       const conflicts: string[] = [];
       const morningScreeners = morningSchedules.filter(s => s.isScreener);
       const eveningScreeners = eveningSchedules.filter(s => s.isScreener);
+      const dayOfWeek = dayDate.day(); // 0 = Sunday, 6 = Saturday
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isPastDate = dayDate.isBefore(moment().startOf('day'));
       
-      if (morningScreeners.length > 1) {
-        conflicts.push('Multiple morning screeners');
-      }
-      if (eveningScreeners.length > 1) {
-        conflicts.push('Multiple evening screeners');
-      }
-      if (morningSchedules.length === 0) {
-        conflicts.push('No morning coverage');
-      }
-      if (eveningSchedules.length === 0) {
-        conflicts.push('No evening coverage');
+      // Don't show conflicts for past dates
+      if (isPastDate) {
+        // Past dates don't need conflict checking
+      } else {
+        // Check for multiple screeners (only on weekdays)
+        if (!isWeekend) {
+          if (morningScreeners.length > 1) {
+            conflicts.push('Multiple morning screeners');
+          }
+          if (eveningScreeners.length > 1) {
+            conflicts.push('Multiple evening screeners');
+          }
+        }
+        
+        // Only show coverage conflicts if there are existing schedules for this date
+        // This prevents showing conflicts when no schedules should exist
+        if (daySchedules.length > 0) {
+          if (morningSchedules.length === 0) {
+            conflicts.push('No morning coverage');
+          }
+          if (eveningSchedules.length === 0) {
+            conflicts.push('No evening coverage');
+          }
+          
+          // Check for missing screeners on weekdays (only if there are schedules)
+          if (!isWeekend && daySchedules.length > 0) {
+            if (morningSchedules.length > 0 && morningScreeners.length === 0) {
+              conflicts.push('Morning screener missing');
+            }
+            if (eveningSchedules.length > 0 && eveningScreeners.length === 0) {
+              conflicts.push('Evening screener missing');
+            }
+          }
+        }
       }
       
       days.push({
@@ -214,10 +240,10 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
             <div
               key={day.date.format('YYYY-MM-DD')}
               className={`
-                border border-border rounded-lg p-3 min-h-[200px]
+                border border-border rounded-lg p-3 min-h-[200px] bg-card text-card-foreground
                 ${isClickedDay(day.date) ? 'ring-2 ring-primary bg-primary/5' : ''}
-                ${dragOverDay === day.date.format('YYYY-MM-DD') ? 'ring-2 ring-blue-500 bg-blue-50' : ''}
-                ${day.conflicts.length > 0 ? 'border-red-300 bg-red-50' : ''}
+                ${dragOverDay === day.date.format('YYYY-MM-DD') ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/20' : ''}
+                ${day.conflicts.length > 0 ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/20' : ''}
               `}
               onDragOver={(e) => handleDragOver(e, day.date.format('YYYY-MM-DD'))}
               onDragLeave={handleDragLeave}
@@ -226,10 +252,10 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
               {/* Day Header */}
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="font-semibold text-sm">
+                  <div className="font-semibold text-sm text-muted-foreground">
                     {day.date.format('ddd')}
                   </div>
-                  <div className="text-lg font-bold">
+                  <div className="text-lg font-bold text-foreground">
                     {day.date.format('D')}
                   </div>
                 </div>
@@ -307,10 +333,10 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
 
               {/* Conflicts Display */}
               {day.conflicts.length > 0 && (
-                <div className="mt-3 p-2 bg-red-100 border border-red-300 rounded text-xs">
-                  <div className="font-medium text-red-800 mb-1">Conflicts:</div>
+                <div className="mt-3 p-2 bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-700 rounded text-xs">
+                  <div className="font-medium text-red-800 dark:text-red-200 mb-1">Conflicts:</div>
                   {day.conflicts.map((conflict, index) => (
-                    <div key={index} className="text-red-700">• {conflict}</div>
+                    <div key={index} className="text-red-700 dark:text-red-300">• {conflict}</div>
                   ))}
                 </div>
               )}

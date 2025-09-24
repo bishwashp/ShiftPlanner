@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { AlgorithmRegistry } from '../services/scheduling/AlgorithmRegistry';
 import { scheduleGenerationLogger } from '../services/ScheduleGenerationLogger';
+import { ActivityService } from '../services/ActivityService';
 import { createLocalDate, isValidDateString } from '../utils/dateUtils';
 
 const router = Router();
@@ -151,6 +152,16 @@ router.post('/', async (req: Request, res: Response) => {
     const algorithm = await prisma.algorithmConfig.create({
       data: { name, description, config: config as any }
     });
+
+    // Log activity
+    const activityData = ActivityService.ActivityTemplates.ALGORITHM_ADDED(
+      algorithm.name,
+      (req as any).user?.name || 'admin'
+    );
+    await ActivityService.logActivity({
+      ...activityData,
+      impact: activityData.impact as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+    });
     
     res.status(201).json(algorithm);
   } catch (error: any) {
@@ -212,6 +223,16 @@ router.post('/:id/activate', async (req: Request, res: Response) => {
       const algorithm = await tx.algorithmConfig.update({
         where: { id },
         data: { isActive: true }
+      });
+
+      // Log activity
+      const activityData = ActivityService.ActivityTemplates.ALGORITHM_ACTIVATED(
+        algorithm.name,
+        (req as any).user?.name || 'admin'
+      );
+      await ActivityService.logActivity({
+        ...activityData,
+        impact: activityData.impact as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
       });
       
       res.json(algorithm);

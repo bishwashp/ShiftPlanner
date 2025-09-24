@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, ChevronLeft, ChevronRight, CalendarPlus } from 'lucide-react';
+import { Menu, ChevronLeft, ChevronRight, Calendar, Users, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import { ThemeSwitcher } from '../ThemeSwitcher';
 import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } from 'date-fns';
 import { View as SidebarView } from './CollapsibleSidebar';
@@ -16,20 +16,30 @@ interface AppHeaderProps {
   activeView: SidebarView;
   timezone: string;
   onTimezoneChange: (tz: string) => void;
-  onGenerateSchedule?: () => void;
+  activeAvailabilityTab?: 'holidays' | 'absences';
+  onAvailabilityTabChange?: (tab: 'holidays' | 'absences') => void;
+  activeConflictTab?: 'critical' | 'recommended';
+  onConflictTabChange?: (tab: 'critical' | 'recommended') => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({ 
   sidebarOpen, 
   setSidebarOpen, 
   date, 
-  setDate, 
-  view, 
+  setDate,
+  view,
   setView,
   activeView,
   timezone,
   onTimezoneChange,
-  onGenerateSchedule
+  activeAvailabilityTab,
+  onAvailabilityTabChange,
+  activeConflictTab,
+  onConflictTabChange,
+  onRefresh,
+  isRefreshing
 }) => {
   const handlePrev = () => {
     if (view === 'month') setDate(subMonths(date, 1));
@@ -60,6 +70,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         return 'Dashboard';
       case 'analysts':
         return 'Analyst Management';
+      case 'availability':
+        return 'Availability Management';
       case 'conflicts':
         return 'Conflict Management';
       case 'analytics':
@@ -95,6 +107,86 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         <h1 className="text-base font-semibold truncate sm:hidden">
           {activeView === 'schedule' ? format(date, 'MMM yyyy') : getTitle()}
         </h1>
+        
+        {/* Refresh Button - positioned next to title, only for Dashboard */}
+        {activeView === 'dashboard' && onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="p-2 rounded-md hover:bg-muted min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Refresh dashboard data"
+          >
+            <RefreshCw 
+              size={18} 
+              className={`${isRefreshing ? 'animate-spin' : ''}`}
+            />
+          </button>
+        )}
+        
+        {/* Tab Navigation - positioned next to title */}
+        {(() => {
+          // Availability tabs
+          if (activeView === 'availability' && activeAvailabilityTab && onAvailabilityTabChange) {
+            return (
+              <div className="flex items-center space-x-1 ml-4">
+                <button
+                  onClick={() => onAvailabilityTabChange('holidays')}
+                  className={`flex items-center space-x-1 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                    activeAvailabilityTab === 'holidays'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Calendar size={14} className="sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Holidays</span>
+                </button>
+                <button
+                  onClick={() => onAvailabilityTabChange('absences')}
+                  className={`flex items-center space-x-1 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                    activeAvailabilityTab === 'absences'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Users size={14} className="sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Absences</span>
+                </button>
+              </div>
+            );
+          }
+          
+          // Conflict tabs
+          if (activeView === 'conflicts' && activeConflictTab && onConflictTabChange) {
+            return (
+              <div className="flex items-center space-x-1 ml-4">
+                <button
+                  onClick={() => onConflictTabChange('critical')}
+                  className={`flex items-center space-x-1 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                    activeConflictTab === 'critical'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <AlertTriangle size={14} className="sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Critical</span>
+                </button>
+                <button
+                  onClick={() => onConflictTabChange('recommended')}
+                  className={`flex items-center space-x-1 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                    activeConflictTab === 'recommended'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <CheckCircle size={14} className="sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Recommended</span>
+                </button>
+              </div>
+            );
+          }
+          
+          return null;
+        })()}
       </div>
 
       {/* Right Section */}
@@ -138,14 +230,6 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               <option value="month">Month</option>
             </select>
 
-            {/* Generate Schedule Button */}
-            <button
-              onClick={onGenerateSchedule}
-              className="px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors min-h-[44px] flex items-center space-x-2"
-            >
-              <CalendarPlus className="h-4 w-4" />
-              <span className="hidden sm:inline">Generate</span>
-            </button>
           </>
         )}
 

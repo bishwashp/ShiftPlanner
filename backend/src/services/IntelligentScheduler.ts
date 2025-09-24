@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import moment from 'moment-timezone';
+import HolidayService from './HolidayService';
+import AbsenceService from './AbsenceService';
 
 export interface AssignmentStrategy {
   id: string;
@@ -43,10 +45,14 @@ export interface ConflictResolution {
 
 export class IntelligentScheduler {
   private prisma: PrismaClient;
+  private holidayService: HolidayService;
+  private absenceService: AbsenceService;
   private shiftDefinitions: any;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
+    this.holidayService = new HolidayService(prisma);
+    this.absenceService = new AbsenceService(prisma);
     this.shiftDefinitions = {
       MORNING: { startHour: 9, endHour: 18, tz: 'America/Chicago' },
       EVENING: { startHour: 9, endHour: 18, tz: 'America/Los_Angeles' },
@@ -135,8 +141,8 @@ export class IntelligentScheduler {
     startDate: string,
     endDate: string
   ): Promise<ProposedAssignment | null> {
-    const strategy = this.getAssignmentStrategy(date, shiftType);
-    const availableAnalysts = this.getAvailableAnalysts(date, shiftType, analysts);
+    const strategy = await this.getAssignmentStrategy(date, shiftType);
+    const availableAnalysts = await this.getAvailableAnalysts(date, shiftType);
     
     console.log(`🔍 Assignment strategy for ${date} ${shiftType}:`, strategy.logic);
     console.log(`👥 Available analysts: ${availableAnalysts.length}/${analysts.length}`);
@@ -208,9 +214,9 @@ export class IntelligentScheduler {
   /**
    * Determine which assignment strategy to use
    */
-  private getAssignmentStrategy(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND'): AssignmentStrategy {
+  private async getAssignmentStrategy(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND'): Promise<AssignmentStrategy> {
     const dayOfWeek = moment(date).day();
-    const isHoliday = this.isHoliday(date);
+    const isHoliday = await this.isHoliday(date);
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
     if (isHoliday) {
@@ -308,29 +314,47 @@ export class IntelligentScheduler {
   /**
    * Check if a date is a holiday
    */
-  private isHoliday(date: string): boolean {
-    // TODO: Implement holiday calendar integration
-    // For now, check for common US holidays
-    const momentDate = moment(date);
-    const month = momentDate.month();
-    const day = momentDate.date();
-    const dayOfWeek = momentDate.day();
+  private async isHoliday(date: string, timezone: string = 'America/New_York'): Promise<boolean> {
+    return await this.holidayService.isHoliday(date, timezone);
+  }
 
-    // New Year's Day
-    if (month === 0 && day === 1) return true;
-    
-    // Independence Day
-    if (month === 6 && day === 4) return true;
-    
-    // Christmas
-    if (month === 11 && day === 25) return true;
+  /**
+   * Check if an analyst is absent on a specific date
+   */
+  private async isAnalystAbsent(analystId: string, date: string): Promise<boolean> {
+    return await this.absenceService.isAnalystAbsent(analystId, date);
+  }
 
-    // Memorial Day (last Monday in May)
-    if (month === 4 && dayOfWeek === 1 && day > 24) return true;
+  /**
+   * Get available analysts for a specific date (excluding absent ones)
+   */
+  private async getAvailableAnalysts(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND'): Promise<any[]> {
+    // Get all active analysts for the shift type
+    const allAnalysts = await this.prisma.analyst.findMany({
+      where: {
+        isActive: true,
+        shiftType: shiftType
+      }
+    });
 
-    // Labor Day (first Monday in September)
-    if (month === 8 && dayOfWeek === 1 && day <= 7) return true;
+    // Filter out absent analysts
+    const availableAnalysts = [];
+    for (const analyst of allAnalysts) {
+      const isAbsent = await this.isAnalystAbsent(analyst.id, date);
+      if (!isAbsent) {
+        availableAnalysts.push(analyst);
+      }
+    }
 
-    return false;
+    return availableAnalysts;
+  }
+
+  /**
+   * Legacy method for backward compatibility - filters analysts by availability
+   */
+  private filterAvailableAnalysts(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any[] {
+    // This method is kept for backward compatibility but should be replaced
+    // with the async getAvailableAnalysts method
+    return analysts.filter(analyst => analyst.isActive && analyst.shiftType === shiftType);
   }
 } 

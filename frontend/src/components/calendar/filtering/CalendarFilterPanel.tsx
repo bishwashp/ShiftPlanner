@@ -3,6 +3,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Filter, Search, Users, Layers, Clock, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import Checkbox from '../../ui/Checkbox';
 import { FilterTab } from '../../../types/CalendarFilters';
 import { UseCalendarFilters } from '../../../types/CalendarFilters';
 import './CalendarFilterPanel.css';
@@ -30,16 +31,14 @@ const LayersTab: React.FC<{ filterHook: UseCalendarFilters }> = ({ filterHook })
         Control which calendar layers are visible
       </div>
       {layerOptions.map((layer) => (
-        <label
+        <div
           key={layer.key}
           className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
         >
           <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={filters.layers[layer.key]}
               onChange={() => toggleLayer(layer.key)}
-              className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
             />
             <span className="text-lg" role="img" aria-label={layer.label}>
               {layer.icon}
@@ -51,7 +50,7 @@ const LayersTab: React.FC<{ filterHook: UseCalendarFilters }> = ({ filterHook })
           <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full">
             {layer.count}
           </span>
-        </label>
+        </div>
       ))}
     </div>
   );
@@ -98,13 +97,11 @@ const EmployeesTab: React.FC<{
       </div>
 
       {/* Select All */}
-      <label className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors">
+      <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors">
         <div className="flex items-center space-x-3">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={filters.employees.selectAll}
             onChange={toggleSelectAllEmployees}
-            className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
           />
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             Select All
@@ -113,22 +110,20 @@ const EmployeesTab: React.FC<{
         <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-1 rounded-full">
           {analysts.length}
         </span>
-      </label>
+      </div>
 
       {/* Employee List */}
       <div className="space-y-2 max-h-64 overflow-y-auto">
         {displayAnalysts.map((analyst) => (
-          <label
+          <div
             key={analyst.id}
             className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
           >
             <div className="flex items-center space-x-3">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={filters.employees.selectAll || filters.employees.selected.includes(analyst.id)}
                 onChange={() => toggleEmployee(analyst.id)}
                 disabled={filters.employees.selectAll}
-                className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 disabled:opacity-50"
               />
               <span className="text-sm text-gray-900 dark:text-white truncate">
                 {analyst.name}
@@ -137,7 +132,7 @@ const EmployeesTab: React.FC<{
             <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
               {filterCounts.employees[analyst.id] || 0}
             </span>
-          </label>
+          </div>
         ))}
       </div>
 
@@ -180,16 +175,14 @@ const ShiftsTab: React.FC<{ filterHook: UseCalendarFilters }> = ({ filterHook })
         Filter by shift time and type
       </div>
       {shiftOptions.map((shift) => (
-        <label
+        <div
           key={shift.key}
           className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
         >
           <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={filters.shiftTypes[shift.key]}
               onChange={() => toggleShiftType(shift.key)}
-              className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
             />
             <span className="text-lg" role="img" aria-label={shift.label}>
               {shift.icon}
@@ -203,7 +196,7 @@ const ShiftsTab: React.FC<{ filterHook: UseCalendarFilters }> = ({ filterHook })
               </div>
             </div>
           </div>
-        </label>
+        </div>
       ))}
     </div>
   );
@@ -226,16 +219,14 @@ const TypesTab: React.FC<{ filterHook: UseCalendarFilters }> = ({ filterHook }) 
         Filter by schedule and assignment type
       </div>
       {typeOptions.map((type) => (
-        <label
+        <div
           key={type.key}
           className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
         >
           <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={filters.scheduleTypes[type.key]}
               onChange={() => toggleScheduleType(type.key)}
-              className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
             />
             <span className="text-lg" role="img" aria-label={type.label}>
               {type.icon}
@@ -249,7 +240,7 @@ const TypesTab: React.FC<{ filterHook: UseCalendarFilters }> = ({ filterHook }) 
               </div>
             </div>
           </div>
-        </label>
+        </div>
       ))}
     </div>
   );

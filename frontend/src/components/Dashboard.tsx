@@ -6,13 +6,14 @@ import ScheduleIcon from './icons/ScheduleIcon';
 import PlusIcon from './icons/PlusIcon';
 import AnalyticsIcon from './icons/AnalyticsIcon';
 import AlertIcon from './icons/AlertIcon';
-import { apiService, DashboardStats, ScheduleGenerationLog } from '../services/api';
+import { apiService, DashboardStats, Activity } from '../services/api';
+import ScheduleSnapshot from './ScheduleSnapshot';
 import { formatDateTime } from '../utils/formatDateTime';
 import moment from 'moment-timezone';
 import FairnessReportModal from './FairnessReport';
-import { useNotifications } from '../hooks/useNotifications';
 import { useActionPrompts } from '../contexts/ActionPromptContext';
-import BellIcon from './icons/BellIcon';
+import ScheduleGenerationForm from './ScheduleGenerationForm';
+import ScheduleGenerationModal from './ScheduleGenerationModal';
 
 interface StatCardProps {
     title: string;
@@ -57,10 +58,16 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({ text, icon: Icon,
   </button>
 );
 
-interface DashboardProps { onViewChange: (view: View) => void; }
+interface DashboardProps { 
+  onViewChange: (view: View) => void;
+  onError?: (error: string) => void;
+  onSuccess?: (message: string) => void;
+  isLoading?: (loading: boolean) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+}
 
-const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
-  const { addDemoNotifications } = useNotifications();
+const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess, isLoading, onRefresh, isRefreshing }) => {
   const { showCriticalPrompt, hasActivePrompts } = useActionPrompts();
   const [stats, setStats] = useState<DashboardStats>({
     totalAnalysts: 0,
@@ -69,11 +76,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     pendingSchedules: 0,
   });
   const [conflicts, setConflicts] = useState<{ critical: any[]; recommended: any[] }>({ critical: [], recommended: [] });
-  const [recentActivity, setRecentActivity] = useState<ScheduleGenerationLog[]>([]);
+  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  const [allActivities, setAllActivities] = useState<Activity[]>([]);
+  const [activeActivityTab, setActiveActivityTab] = useState<'recent' | 'all'>('recent');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [showFairnessReport, setShowFairnessReport] = useState(false);
+  
+  // Schedule generation state
+  const [showGenerationForm, setShowGenerationForm] = useState(false);
+  const [showGenerationModal, setShowGenerationModal] = useState(false);
+  const [generatedSchedules, setGeneratedSchedules] = useState<any[]>([]);
+  const [generationSummary, setGenerationSummary] = useState<any>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -96,8 +112,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
       // Add a small delay between requests
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      const activityData = await apiService.getRecentActivity(5);
+      const activityData = await apiService.getRecentActivities(3);
       setRecentActivity(activityData);
+      
+      // Also fetch all activities for the "All Activities" tab
+      const allActivityData = await apiService.getActivities({ limit: 50 });
+      setAllActivities(allActivityData);
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
       
@@ -116,6 +136,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Handle refresh from header button
+  useEffect(() => {
+    if (isRefreshing && onRefresh) {
+      handleRefresh();
+    }
+  }, [isRefreshing, onRefresh]);
 
   // Show action prompt for critical conflicts (but not for schedule existence conflicts)
   useEffect(() => {
@@ -180,27 +207,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
     { ...conflictCard, onClick: handleNavigateToConflicts },
   ];
   
-  const formatActivityText = (log: ScheduleGenerationLog): string => {
-    const dateRange = `${moment(log.startDate).format('MMM D')} - ${moment(log.endDate).format('MMM D')}`;
-    const algorithmName = log.algorithmType === 'WeekendRotationAlgorithm' ? 'Weekend Rotation' : log.algorithmType;
-    
-    if (log.status === 'SUCCESS') {
-      return `Generated ${log.schedulesGenerated} schedules for ${dateRange} using ${algorithmName} algorithm`;
-    } else if (log.status === 'FAILED') {
-      return `Failed to generate schedules for ${dateRange} using ${algorithmName} algorithm`;
-    } else {
-      return `Partially generated ${log.schedulesGenerated} schedules for ${dateRange} using ${algorithmName} algorithm`;
-    }
-  };
-
-  const getActivityColor = (log: ScheduleGenerationLog): string => {
-    switch (log.status) {
-      case 'SUCCESS': return 'bg-green-500';
-      case 'FAILED': return 'bg-red-500';
-      case 'PARTIAL': return 'bg-yellow-500';
+  const getActivityColor = (activity: Activity): string => {
+    switch (activity.impact) {
+      case 'CRITICAL': return 'bg-red-500';
+      case 'HIGH': return 'bg-orange-500';
+      case 'MEDIUM': return 'bg-blue-500';
+      case 'LOW': return 'bg-green-500';
       default: return 'bg-gray-500';
     }
   };
+
+  const getActivityIcon = (category: string): string => {
+    switch (category) {
+      case 'SCHEDULE': return '📅';
+      case 'ANALYST': return '👤';
+      case 'ALGORITHM': return '⚙️';
+      case 'ABSENCE': return '🏖️';
+      case 'SYSTEM': return '🔧';
+      default: return '📝';
+    }
+  };
+
 
   const handleRefresh = () => {
     fetchDashboardData();
@@ -211,15 +238,81 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
   };
 
   const handleGenerateSchedule = () => {
-    onViewChange('schedule');
+    setShowGenerationForm(true);
   };
 
   const handleViewAnalytics = () => {
     onViewChange('analytics');
   };
 
-  const handleTestNotifications = () => {
-    addDemoNotifications();
+
+  // Schedule generation handlers
+  const handleGenerateSchedules = async (startDate: string, endDate: string, algorithm: string) => {
+    setIsGenerating(true);
+    isLoading?.(true);
+    try {
+      const result = await apiService.generateSchedulePreview({
+        startDate,
+        endDate,
+        algorithmType: algorithm
+      });
+      
+      setGeneratedSchedules(result.proposedSchedules);
+      setGenerationSummary({
+        totalConflicts: result.conflicts.length,
+        criticalConflicts: result.conflicts.filter(c => c.type === 'CRITICAL').length,
+        assignmentsNeeded: result.proposedSchedules.length,
+        estimatedTime: 'Generated'
+      });
+      setShowGenerationForm(false);
+      setShowGenerationModal(true);
+      
+      onSuccess?.(`Generated ${result.proposedSchedules.length} schedule assignments`);
+    } catch (err) {
+      console.error('Error generating schedules:', err);
+      onError?.('Failed to generate schedules. Please try again.');
+    } finally {
+      setIsGenerating(false);
+      isLoading?.(false);
+    }
+  };
+
+  const handleApplySchedules = async (schedulesToApply: any[]) => {
+    try {
+      console.log('Applying schedules:', schedulesToApply);
+      
+      // Transform the schedules to the format expected by the API
+      const assignments = schedulesToApply.map(schedule => ({
+        date: schedule.date,
+        analystId: schedule.analystId,
+        shiftType: schedule.shiftType,
+        isScreener: schedule.isScreener
+      }));
+      
+      // Call the API to apply the schedules
+      const result = await apiService.applyAutoFix({ assignments });
+      
+      console.log('Schedules applied successfully:', result);
+      
+      // Refresh the dashboard data to show updated stats
+      await fetchDashboardData();
+      
+      setShowGenerationModal(false);
+      
+      // Handle success message with details
+      const successCount = result.createdSchedules?.length || 0;
+      const errorCount = result.errors?.length || 0;
+      
+      if (errorCount > 0) {
+        onSuccess?.(`Applied ${successCount} schedules successfully, ${errorCount} failed. Check console for details.`);
+        console.warn('Some schedules failed to apply:', result.errors);
+      } else {
+        onSuccess?.(`Successfully applied ${successCount} schedules to the calendar`);
+      }
+    } catch (err) {
+      console.error('Error applying schedules:', err);
+      onError?.('Failed to apply schedules. Please try again.');
+    }
   };
 
 
@@ -245,14 +338,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
         )}
         
         <div className="flex items-center justify-end mb-4">
-          <button
-            onClick={handleRefresh}
-            disabled={loading}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
-          <div className="text-sm text-muted-foreground ml-4">
+          <div className="text-sm text-muted-foreground">
             Last updated: {formatDateTime(lastUpdated, moment.tz.guess())}
           </div>
         </div>
@@ -296,11 +382,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
               onClick={handleViewAnalytics}
             />
             <QuickActionButton
-              text="Test Notifications"
-              icon={BellIcon}
-              onClick={handleTestNotifications}
-            />
-            <QuickActionButton
               text="Fairness Report"
               icon={CheckIcon}
               onClick={() => setShowFairnessReport(true)}
@@ -308,9 +389,38 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
           </div>
         </div>
 
+        {/* Schedule Snapshot */}
+        <div className="mt-8">
+          <ScheduleSnapshot />
+        </div>
+
         <div className="mt-8 bg-card text-card-foreground rounded-2xl p-6 shadow-sm border border-border">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Recent Activity</h2>
-          <div className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
+            <div className="flex space-x-1 bg-muted rounded-lg p-1">
+              <button
+                onClick={() => setActiveActivityTab('recent')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  activeActivityTab === 'recent' 
+                    ? 'bg-background text-foreground shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Recent
+              </button>
+              <button
+                onClick={() => setActiveActivityTab('all')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  activeActivityTab === 'all' 
+                    ? 'bg-background text-foreground shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                All Activities
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
             {loading ? (
               // Loading skeleton
               Array.from({ length: 3 }).map((_, index) => (
@@ -322,33 +432,67 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
                   <div className="h-4 bg-muted rounded animate-pulse w-16"></div>
                 </div>
               ))
-            ) : recentActivity.length > 0 ? (
-              recentActivity.map((log) => (
-                <div key={log.id} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center">
-                    <span className={`w-2.5 h-2.5 rounded-full mr-3 ${getActivityColor(log)}`}></span>
-                    <div>
-                      <p className="text-muted-foreground">{formatActivityText(log)}</p>
-                      {log.fairnessScore && (
+            ) : (() => {
+              const currentActivities = activeActivityTab === 'recent' ? recentActivity : allActivities;
+              const isEmpty = currentActivities.length === 0;
+              
+              if (isEmpty) {
+                return (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">
+                      {activeActivityTab === 'recent' ? 'No recent activity' : 'No activities found'}
+                    </p>
+                    <p className="text-sm text-muted-foreground/70 mt-1">
+                      {activeActivityTab === 'recent' 
+                        ? 'Activities will appear here as you use the system'
+                        : 'Try adjusting your filters or check back later'
+                      }
+                    </p>
+                  </div>
+                );
+              }
+
+              return currentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start justify-between text-sm p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="flex items-start flex-1">
+                    <div className="flex items-center mr-3">
+                      <span className="text-base mr-2">{getActivityIcon(activity.category)}</span>
+                      <span className={`w-2 h-2 rounded-full ${getActivityColor(activity)}`}></span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 className="font-medium text-foreground text-sm">{activity.title}</h3>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                          activity.impact === 'CRITICAL' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                          activity.impact === 'HIGH' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                          activity.impact === 'MEDIUM' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                          'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        }`}>
+                          {activity.impact}
+                        </span>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                          {activity.category}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground text-xs mb-1 leading-relaxed">{activity.description}</p>
+                      {activity.performedBy && (
                         <p className="text-xs text-muted-foreground/70">
-                          Fairness Score: {(log.fairnessScore * 100).toFixed(1)}% | 
-                          Conflicts: {log.conflictsDetected} | 
-                          Time: {log.executionTime}ms
+                          by {activity.performedBy}
                         </p>
                       )}
                     </div>
                   </div>
-                  <p className="text-muted-foreground/50">{moment(log.createdAt).fromNow()}</p>
+                  <div className="text-right ml-3 flex-shrink-0">
+                    <p className="text-muted-foreground/50 text-xs">
+                      {activeActivityTab === 'recent' 
+                        ? moment(activity.createdAt).fromNow()
+                        : moment(activity.createdAt).format('MMM D, h:mm A')
+                      }
+                    </p>
+                  </div>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No recent schedule generation activity</p>
-                <p className="text-sm text-muted-foreground/70 mt-1">
-                  Generate your first schedule to see activity here
-                </p>
-              </div>
-            )}
+              ));
+            })()}
           </div>
         </div>
       </div>
@@ -360,6 +504,43 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange }) => {
           onClose={() => setShowFairnessReport(false)}
         />
       )}
+
+      {/* Schedule Generation Form */}
+      {showGenerationForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background border border-border rounded-lg shadow-xl max-w-2xl w-full">
+            <div className="p-6">
+              <ScheduleGenerationForm
+                onGenerate={handleGenerateSchedules}
+                isLoading={isGenerating}
+              />
+            </div>
+            <div className="flex justify-end p-6 border-t border-border">
+              <button
+                onClick={() => setShowGenerationForm(false)}
+                className="px-4 py-2 border border-border rounded-md hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Generation Modal */}
+      <ScheduleGenerationModal
+        isOpen={showGenerationModal}
+        onClose={() => setShowGenerationModal(false)}
+        onApply={handleApplySchedules}
+        generatedSchedules={generatedSchedules}
+        summary={generationSummary || {
+          totalConflicts: 0,
+          criticalConflicts: 0,
+          assignmentsNeeded: 0,
+          estimatedTime: '0ms'
+        }}
+        isLoading={isGenerating}
+      />
     </div>
   );
 };

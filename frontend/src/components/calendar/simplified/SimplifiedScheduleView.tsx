@@ -3,10 +3,8 @@ import moment from 'moment-timezone';
 import { apiService, Schedule, Analyst } from '../../../services/api';
 import { View as AppView } from '../../layout/CollapsibleSidebar';
 import { useTheme } from 'react18-themes';
-import { notificationService } from '../../../services/notificationService';
+import { useActionPrompts } from '../../../contexts/ActionPromptContext';
 import { Filter } from 'lucide-react';
-import ScheduleGenerationForm from '../../ScheduleGenerationForm';
-import ScheduleGenerationModal from '../../ScheduleGenerationModal';
 
 // Simplified calendar imports
 import { CalendarGrid } from './CalendarGrid';
@@ -63,7 +61,6 @@ interface SimplifiedScheduleViewProps {
   onError?: (error: string) => void;
   onSuccess?: (message: string) => void;
   isLoading?: (loading: boolean) => void;
-  onGenerateSchedule?: () => void;
 }
 
 interface CalendarEvent {
@@ -126,22 +123,16 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
   timezone,
   onError,
   onSuccess,
-  isLoading,
-  onGenerateSchedule
+  isLoading
 }) => {
   const { theme } = useTheme();
+  const { showImportantPrompt } = useActionPrompts();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [analysts, setAnalysts] = useState<Analyst[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   
-  // Schedule generation state
-  const [showGenerationForm, setShowGenerationForm] = useState(false);
-  const [showGenerationModal, setShowGenerationModal] = useState(false);
-  const [generatedSchedules, setGeneratedSchedules] = useState<any[]>([]);
-  const [generationSummary, setGenerationSummary] = useState<any>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
 
   // Week view state
   const [showWeekView, setShowWeekView] = useState(false);
@@ -232,57 +223,34 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
     
     console.log('Date selected:', date);
     
-    // Add actionable notification for schedule creation opportunity
+    // Show action prompt for schedule creation opportunity instead of notification
     const dateString = moment(date).format('MMMM D, YYYY');
-    notificationService.addRecommendationNotification(
-      'Schedule Slot Available',
-      `Selected ${dateString} - Create new schedule?`,
-      { category: 'scheduling', tags: ['creation-opportunity'] }
+    
+    showImportantPrompt(
+      'Create Schedule',
+      `Would you like to create a new schedule for ${dateString}?`,
+      [
+        {
+          label: 'Create Schedule',
+          variant: 'primary',
+          onClick: () => {
+            // Handle schedule creation
+            console.log('Creating schedule for:', date);
+            // Add your schedule creation logic here
+          }
+        },
+        {
+          label: 'Cancel',
+          variant: 'secondary',
+          onClick: () => {
+            console.log('Schedule creation cancelled');
+          }
+        }
+      ],
+      { relatedView: 'schedule', scheduleId: date.toISOString() }
     );
-  }, [isMobile]);
+  }, [isMobile, showImportantPrompt]);
 
-  // Schedule generation handlers - will be triggered by onGenerateSchedule prop
-  const triggerGenerateSchedule = useCallback(() => {
-    setShowGenerationForm(true);
-  }, []);
-
-  // Expose the trigger function to parent via ref or callback
-  useEffect(() => {
-    if (onGenerateSchedule) {
-      // Store the trigger function so parent can call it
-      (window as any).triggerScheduleGeneration = triggerGenerateSchedule;
-    }
-  }, [onGenerateSchedule, triggerGenerateSchedule]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleGenerateSchedules = useCallback(async (startDate: string, endDate: string, algorithm: string) => {
-    setIsGenerating(true);
-    try {
-      const result = await apiService.generateSchedulePreview({
-        startDate,
-        endDate,
-        algorithmType: algorithm
-      });
-      
-      setGeneratedSchedules(result.proposedSchedules);
-      setGenerationSummary({
-        totalConflicts: result.conflicts.length,
-        criticalConflicts: result.conflicts.filter(c => c.type === 'CRITICAL').length,
-        assignmentsNeeded: result.proposedSchedules.length,
-        estimatedTime: 'Generated'
-      });
-      setShowGenerationForm(false);
-      setShowGenerationModal(true);
-      
-      onSuccess?.(`Generated ${result.proposedSchedules.length} schedule assignments`);
-    } catch (err) {
-      console.error('Error generating schedules:', err);
-      onError?.('Failed to generate schedules. Please try again.');
-    } finally {
-      setIsGenerating(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Enhanced data fetching with performance monitoring and rate limiting handling
   const fetchSchedulesAndAnalysts = useCallback(async () => {
@@ -334,45 +302,6 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
     }
   }, [startDate, endDate, onError]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const handleApplySchedules = useCallback(async (schedulesToApply: any[]) => {
-    try {
-      console.log('Applying schedules:', schedulesToApply);
-      
-      // Transform the schedules to the format expected by the API
-      const assignments = schedulesToApply.map(schedule => ({
-        date: schedule.date,
-        analystId: schedule.analystId,
-        shiftType: schedule.shiftType,
-        isScreener: schedule.isScreener
-      }));
-      
-      // Call the API to apply the schedules
-      const result = await apiService.applyAutoFix({ assignments });
-      
-      console.log('Schedules applied successfully:', result);
-      
-      // Refresh the data to show the new schedules
-      await fetchSchedulesAndAnalysts();
-      
-      setShowGenerationModal(false);
-      
-      // Handle success message with details
-      const successCount = result.createdSchedules?.length || 0;
-      const errorCount = result.errors?.length || 0;
-      
-      if (errorCount > 0) {
-        onSuccess?.(`Applied ${successCount} schedules successfully, ${errorCount} failed. Check console for details.`);
-        console.warn('Some schedules failed to apply:', result.errors);
-      } else {
-        onSuccess?.(`Successfully applied ${successCount} schedules to the calendar`);
-      }
-    } catch (err) {
-      console.error('Error applying schedules:', err);
-      onError?.('Failed to apply schedules. Please try again.');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     fetchSchedulesAndAnalysts();
@@ -588,42 +517,6 @@ const SimplifiedScheduleView: React.FC<SimplifiedScheduleViewProps> = memo(({
         />
       )}
 
-      {/* Schedule Generation Form */}
-      {showGenerationForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background border border-border rounded-lg shadow-xl max-w-2xl w-full">
-            <div className="p-6">
-              <ScheduleGenerationForm
-                onGenerate={handleGenerateSchedules}
-                isLoading={isGenerating}
-              />
-            </div>
-            <div className="flex justify-end p-6 border-t border-border">
-              <button
-                onClick={() => setShowGenerationForm(false)}
-                className="px-4 py-2 border border-border rounded-md hover:bg-muted transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Schedule Generation Modal */}
-      <ScheduleGenerationModal
-        isOpen={showGenerationModal}
-        onClose={() => setShowGenerationModal(false)}
-        onApply={handleApplySchedules}
-        generatedSchedules={generatedSchedules}
-        summary={generationSummary || {
-          totalConflicts: 0,
-          criticalConflicts: 0,
-          assignmentsNeeded: 0,
-          estimatedTime: '0ms'
-        }}
-        isLoading={isGenerating}
-      />
 
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { X, Calendar, CheckCircle } from 'lucide-react';
 import moment from 'moment';
+import Checkbox from './ui/Checkbox';
 
 interface GeneratedSchedule {
   date: string;
@@ -142,22 +143,18 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
                   return (
                     <div
                       key={scheduleKey}
-                      className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                      className={`p-4 border rounded-lg transition-all ${
                         isSelected 
                           ? 'border-primary bg-primary/5' 
                           : 'border-border hover:border-primary/50'
                       }`}
-                      onClick={() => handleSelectSchedule(scheduleKey)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                            isSelected 
-                              ? 'border-primary bg-primary' 
-                              : 'border-muted-foreground'
-                          }`}>
-                            {isSelected && <CheckCircle className="h-3 w-3 text-white" />}
-                          </div>
+                          <Checkbox
+                            checked={isSelected}
+                            onChange={() => handleSelectSchedule(scheduleKey)}
+                          />
                           
                           <div>
                             <div className="font-medium">{schedule.analystName}</div>

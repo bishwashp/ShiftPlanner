@@ -3,6 +3,7 @@ import {
   CalendarDays,
   LayoutDashboard,
   Users,
+  Clock,
   AlertTriangle,
   BarChart2,
   ListTodo,
@@ -13,7 +14,7 @@ import BellIcon from '../icons/BellIcon';
 import NotificationCenter from '../NotificationCenter';
 import { notificationService } from '../../services/notificationService';
 
-export type View = 'schedule' | 'dashboard' | 'analysts' | 'conflicts' | 'analytics' | 'constraints' | 'algorithms' | 'export';
+export type View = 'schedule' | 'dashboard' | 'analysts' | 'availability' | 'conflicts' | 'analytics' | 'constraints' | 'algorithms' | 'export';
 
 interface CollapsibleSidebarProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
     { view: 'schedule', label: 'Schedule', icon: CalendarDays },
     { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { view: 'analysts', label: 'Analysts', icon: Users },
+    { view: 'availability', label: 'Availability', icon: Clock },
     { view: 'conflicts', label: 'Conflicts', icon: AlertTriangle },
     { view: 'analytics', label: 'Analytics', icon: BarChart2 },
     { view: 'constraints', label: 'Constraints', icon: ListTodo },

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiService, SchedulingConstraint, Analyst } from '../services/api';
 import moment from 'moment-timezone';
 import { formatDateTime } from '../utils/formatDateTime';
+import Checkbox from './ui/Checkbox';
 
 interface ConstraintFormData {
     analystId?: string;
@@ -171,8 +172,11 @@ const ConstraintManagement: React.FC = () => {
                                     <textarea value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full input bg-input border-border text-foreground" rows={3}></textarea>
                                 </div>
                                 <div className="flex items-center">
-                                    <input type="checkbox" id="isActive" checked={formData.isActive} onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })} className="h-4 w-4 rounded border-border text-primary focus:ring-ring" />
-                                    <label htmlFor="isActive" className="ml-2 block text-sm text-muted-foreground">Active</label>
+                                    <Checkbox
+                                        checked={formData.isActive}
+                                        onChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                                    />
+                                    <span className="ml-2 block text-sm text-muted-foreground">Active</span>
                                 </div>
                             </div>
                             <div className="flex items-center space-x-4 mt-6">

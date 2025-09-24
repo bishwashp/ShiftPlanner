@@ -32,6 +32,7 @@ model Analyst {
   vacations   Vacation[]
   constraints SchedulingConstraint[]
   patternContinuity PatternContinuity[]
+  absences    Absence[]
   
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
@@ -181,9 +182,74 @@ model PatternContinuity {
   @@map("pattern_continuity")
 }
 
+model Holiday {
+  id          String   @id @default(cuid())
+  name        String   // Holiday name (e.g., "New Year's Day", "Christmas")
+  date        DateTime // Holiday date (stored in UTC, converted to local timezone)
+  timezone    String   @default("America/New_York") // Local timezone for the holiday
+  isRecurring Boolean  @default(false) // Whether this holiday repeats annually
+  year        Int?     // Specific year (null for recurring holidays)
+  description String?  // Optional description
+  isActive    Boolean  @default(true) // Whether this holiday affects scheduling
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Performance indexes for date and timezone queries
+  @@index([date, timezone, isActive]) // For holiday lookups by date and timezone
+  @@index([year, isActive]) // For year-based holiday queries
+  @@index([isRecurring, isActive]) // For recurring holiday queries
+  @@map("holidays")
+}
+
+model Absence {
+  id          String   @id @default(cuid())
+  analystId   String   // Analyst who is absent
+  startDate   DateTime // Start date of absence
+  endDate     DateTime // End date of absence
+  type        String   // VACATION, SICK_LEAVE, PERSONAL, EMERGENCY, etc.
+  reason      String?  // Optional reason for absence
+  isApproved  Boolean  @default(true) // Whether the absence is approved
+  isPlanned   Boolean  @default(true) // Whether this is a planned absence
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  // Performance indexes for absence queries
+  @@index([analystId, startDate, endDate]) // For analyst absence lookups
+  @@index([startDate, endDate, isApproved]) // For date range queries with approval status
+  @@index([type, isApproved]) // For absence type filtering
+  @@index([isPlanned, isApproved]) // For planned vs unplanned absence queries
+  @@map("absences")
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  type        String   // Activity type (SCHEDULE_GENERATED, ANALYST_ADDED, etc.)
+  category    String   // Category (SCHEDULE, ANALYST, ALGORITHM, ABSENCE, SYSTEM)
+  title       String   // User-friendly title for the activity
+  description String   // Detailed description of what happened
+  performedBy String?  // User who performed the action (null for system actions)
+  resourceType String? // Type of resource affected (analyst, schedule, algorithm, etc.)
+  resourceId  String?  // ID of the affected resource
+  metadata    String?  // Additional JSON metadata for context
+  impact      String   @default("LOW") // Impact level: LOW, MEDIUM, HIGH, CRITICAL
+  createdAt   DateTime @default(now())
+  
+  // Performance indexes for activity queries
+  @@index([createdAt]) // For recent activity queries (most important)
+  @@index([category, createdAt]) // For category-based filtering
+  @@index([type, createdAt]) // For type-based filtering
+  @@index([performedBy, createdAt]) // For user-specific activities
+  @@index([impact, createdAt]) // For impact-based filtering
+  @@map("activities")
+}
+
 // SQLite doesn't support enums, so we use string constants
 // ShiftType: "MORNING", "EVENING", "WEEKEND"
 // EmployeeType: "EMPLOYEE", "CONTRACTOR"
 // DayOfWeek: "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
 // PreferenceType: "PREFERRED", "AVAILABLE", "UNAVAILABLE"
 // ConstraintType: "BLACKOUT_DATE", "MAX_SCREENER_DAYS", "MIN_SCREENER_DAYS", "PREFERRED_SCREENER", "UNAVAILABLE_SCREENER"
+// AbsenceType: "VACATION", "SICK_LEAVE", "PERSONAL", "EMERGENCY", "TRAINING", "CONFERENCE"

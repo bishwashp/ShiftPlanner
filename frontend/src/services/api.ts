@@ -230,6 +230,20 @@ export interface ScheduleGenerationLog {
   createdAt: string;
 }
 
+export interface Activity {
+  id: string;
+  type: string;
+  category: string;
+  title: string;
+  description: string;
+  performedBy?: string;
+  resourceType?: string;
+  resourceId?: string;
+  impact: string;
+  createdAt: string;
+  metadata?: any;
+}
+
 export interface GenerationStats {
   totalGenerations: number;
   successfulGenerations: number;
@@ -746,6 +760,51 @@ export const apiService = {
     return response.data as ScheduleGenerationLog[];
   },
 
+  // Activity Management
+  getRecentActivities: async (limit: number = 10): Promise<Activity[]> => {
+    const response = await apiClient.get(`/activities/recent?limit=${limit}`);
+    return response.data as Activity[];
+  },
+
+  getActivities: async (filters?: {
+    category?: string;
+    type?: string;
+    performedBy?: string;
+    impact?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<Activity[]> => {
+    const params = new URLSearchParams();
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.type) params.append('type', filters.type);
+    if (filters?.performedBy) params.append('performedBy', filters.performedBy);
+    if (filters?.impact) params.append('impact', filters.impact);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const response = await apiClient.get(`/activities?${params.toString()}`);
+    return response.data as Activity[];
+  },
+
+  getActivityStats: async (days: number = 30): Promise<{
+    totalActivities: number;
+    activitiesByCategory: Record<string, number>;
+    activitiesByImpact: Record<string, number>;
+    mostActiveUser: string | null;
+    recentActivityTrend: Array<{ date: string; count: number }>;
+  }> => {
+    const response = await apiClient.get(`/activities/stats?days=${days}`);
+    return response.data as {
+      totalActivities: number;
+      activitiesByCategory: Record<string, number>;
+      activitiesByImpact: Record<string, number>;
+      mostActiveUser: string | null;
+      recentActivityTrend: Array<{ date: string; count: number }>;
+    };
+  },
+
   getGenerationStats: async (days: number = 30): Promise<GenerationStats> => {
     const response = await apiClient.get(`/algorithms/generation-stats?days=${days}`);
     return response.data as GenerationStats;
@@ -757,6 +816,149 @@ export const apiService = {
       params: { startDate, endDate }
     });
     return response.data as FairnessReport;
+  },
+
+  // Holidays
+  getHolidays: async (year?: number, timezone?: string, isActive?: boolean): Promise<any[]> => {
+    const params: any = {};
+    if (year) params.year = year;
+    if (timezone) params.timezone = timezone;
+    if (isActive !== undefined) params.isActive = isActive;
+    
+    const response = await apiClient.get('/holidays', { params });
+    return response.data as any[];
+  },
+
+  getHoliday: async (id: string): Promise<any> => {
+    const response = await apiClient.get(`/holidays/${id}`);
+    return response.data as any;
+  },
+
+  createHoliday: async (data: { name: string; date: string; timezone?: string; isRecurring?: boolean; year?: number; description?: string; isActive?: boolean }): Promise<any> => {
+    const response = await apiClient.post('/holidays', data);
+    return response.data as any;
+  },
+
+  updateHoliday: async (id: string, data: { name?: string; date?: string; timezone?: string; isRecurring?: boolean; year?: number; description?: string; isActive?: boolean }): Promise<any> => {
+    const response = await apiClient.put(`/holidays/${id}`, data);
+    return response.data as any;
+  },
+
+  deleteHoliday: async (id: string): Promise<void> => {
+    await apiClient.delete(`/holidays/${id}`);
+  },
+
+  getHolidaysForYear: async (year: number, timezone?: string): Promise<any[]> => {
+    const params = timezone ? { timezone } : {};
+    const response = await apiClient.get(`/holidays/year/${year}`, { params });
+    return response.data as any[];
+  },
+
+  initializeDefaultHolidays: async (year: number, timezone?: string): Promise<any> => {
+    const response = await apiClient.post('/holidays/initialize-defaults', { 
+      year, 
+      timezone: timezone || 'America/New_York' 
+    });
+    return response.data as any;
+  },
+
+  // Absences
+  getAbsences: async (analystId?: string, type?: string, isApproved?: boolean, isPlanned?: boolean, startDate?: string, endDate?: string): Promise<any[]> => {
+    const params: any = {};
+    if (analystId) params.analystId = analystId;
+    if (type) params.type = type;
+    if (isApproved !== undefined) params.isApproved = isApproved;
+    if (isPlanned !== undefined) params.isPlanned = isPlanned;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    
+    const response = await apiClient.get('/absences', { params });
+    return response.data as any[];
+  },
+
+  getAbsence: async (id: string): Promise<any> => {
+    const response = await apiClient.get(`/absences/${id}`);
+    return response.data as any;
+  },
+
+  createAbsence: async (data: { analystId: string; startDate: string; endDate: string; type: string; reason?: string; isApproved?: boolean; isPlanned?: boolean }): Promise<any> => {
+    const response = await apiClient.post('/absences', data);
+    return response.data as any;
+  },
+
+  updateAbsence: async (id: string, data: { startDate?: string; endDate?: string; type?: string; reason?: string; isApproved?: boolean; isPlanned?: boolean }): Promise<any> => {
+    const response = await apiClient.put(`/absences/${id}`, data);
+    return response.data as any;
+  },
+
+  deleteAbsence: async (id: string): Promise<void> => {
+    await apiClient.delete(`/absences/${id}`);
+  },
+
+  getAnalystAbsences: async (analystId: string, startDate?: string, endDate?: string): Promise<any[]> => {
+    const params: any = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    
+    const response = await apiClient.get(`/absences/analyst/${analystId}`, { params });
+    return response.data as any[];
+  },
+
+  approveAbsence: async (id: string, isApproved: boolean): Promise<any> => {
+    const response = await apiClient.patch(`/absences/${id}/approve`, { isApproved });
+    return response.data as any;
+  },
+
+  // Schedule Snapshot
+  getScheduleSnapshot: async (): Promise<{
+    todaysScreeners: {
+      MORNING: string[];
+      EVENING: string[];
+      WEEKEND: string[];
+    };
+    upcomingHoliday: {
+      name: string;
+      date: string;
+      daysUntil: number;
+    } | null;
+    todaysCoverage: {
+      counts: {
+        MORNING: number;
+        EVENING: number;
+        WEEKEND: number;
+      };
+      status: {
+        MORNING: 'LOW' | 'MEDIUM' | 'HIGH';
+        EVENING: 'LOW' | 'MEDIUM' | 'HIGH';
+        WEEKEND: 'LOW' | 'MEDIUM' | 'HIGH';
+      };
+    };
+  }> => {
+    const response = await apiClient.get('/schedule-snapshot');
+    return response.data as {
+      todaysScreeners: {
+        MORNING: string[];
+        EVENING: string[];
+        WEEKEND: string[];
+      };
+      upcomingHoliday: {
+        name: string;
+        date: string;
+        daysUntil: number;
+      } | null;
+      todaysCoverage: {
+        counts: {
+          MORNING: number;
+          EVENING: number;
+          WEEKEND: number;
+        };
+        status: {
+          MORNING: 'LOW' | 'MEDIUM' | 'HIGH';
+          EVENING: 'LOW' | 'MEDIUM' | 'HIGH';
+          WEEKEND: 'LOW' | 'MEDIUM' | 'HIGH';
+        };
+      };
+    };
   },
 };
 

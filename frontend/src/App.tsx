@@ -5,12 +5,14 @@ import AppHeader from './components/layout/AppHeader';
 import CollapsibleSidebar from './components/layout/CollapsibleSidebar';
 import { View as SidebarView } from './components/layout/CollapsibleSidebar';
 import AnalystManagement from './components/AnalystManagement';
+import Availability from './components/Availability';
 import Analytics from './components/Analytics';
 import ConflictManagement from './components/ConflictManagement';
 import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
 import CalendarExport from './components/CalendarExport';
+// import ActivitiesView from './components/ActivitiesView'; // Now integrated into Dashboard
 import ActionPromptProvider from './contexts/ActionPromptContext';
 import moment from 'moment-timezone';
 import { useTheme } from 'react18-themes';
@@ -36,6 +38,8 @@ function App() {
   const { theme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState<SidebarView>('schedule');
+  const [activeAvailabilityTab, setActiveAvailabilityTab] = useState<'holidays' | 'absences'>('holidays');
+  const [activeConflictTab, setActiveConflictTab] = useState<'critical' | 'recommended'>('critical');
   const [calendarDate, setCalendarDate] = useState(() => {
     // Start with current month
     const now = new Date();
@@ -47,6 +51,7 @@ function App() {
   });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Auto-save user preferences
   useEffect(() => {
@@ -66,7 +71,7 @@ function App() {
     if (savedSidebarOpen !== null) {
       setSidebarOpen(savedSidebarOpen === 'true');
     }
-    if (savedActiveView && ['schedule', 'dashboard', 'analysts', 'conflicts', 'analytics', 'constraints', 'algorithms', 'export'].includes(savedActiveView)) {
+    if (savedActiveView && ['schedule', 'dashboard', 'analysts', 'availability', 'conflicts', 'analytics', 'constraints', 'algorithms', 'export'].includes(savedActiveView)) {
       setActiveView(savedActiveView);
     }
     if (savedCalendarView && (['month', 'week', 'day'] as const).includes(savedCalendarView)) {
@@ -126,13 +131,17 @@ function App() {
     setIsLoading(loading);
   }, []);
 
-  const handleGenerateSchedule = useCallback(() => {
-    // This will trigger the schedule generation form in ScheduleView
-    console.log('Generate schedule requested');
-    if ((window as any).triggerScheduleGeneration) {
-      (window as any).triggerScheduleGeneration();
+  const handleRefresh = useCallback(() => {
+    if (activeView === 'dashboard') {
+      setIsRefreshing(true);
+      // The Dashboard component will handle the actual data refresh
+      // Reset the refreshing state after a short delay
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 1000);
     }
-  }, []);
+  }, [activeView]);
+
 
   const renderView = () => {
     const commonProps = {
@@ -144,8 +153,10 @@ function App() {
     switch (activeView) {
       case 'analysts':
         return <AnalystManagement />;
+      case 'availability':
+        return <Availability timezone={timezone} activeTab={activeAvailabilityTab} onTabChange={setActiveAvailabilityTab} />;
       case 'conflicts':
-        return <ConflictManagement />;
+        return <ConflictManagement activeTab={activeConflictTab} onTabChange={setActiveConflictTab} />;
       case 'analytics':
         return <Analytics />;
       case 'constraints':
@@ -155,7 +166,7 @@ function App() {
       case 'export':
         return <CalendarExport {...commonProps} />;
       case 'dashboard':
-        return <Dashboard onViewChange={setActiveView} />;
+        return <Dashboard onViewChange={setActiveView} onError={handleError} onSuccess={handleSuccess} isLoading={handleLoading} onRefresh={handleRefresh} isRefreshing={isRefreshing} />;
       case 'schedule':
       default:
         return (
@@ -166,7 +177,6 @@ function App() {
             view={calendarView}
             setView={setCalendarView}
             timezone={timezone}
-            onGenerateSchedule={handleGenerateSchedule}
             {...commonProps}
           />
         );
@@ -192,7 +202,12 @@ function App() {
             activeView={activeView}
             timezone={timezone}
             onTimezoneChange={handleTimezoneChange}
-            onGenerateSchedule={handleGenerateSchedule}
+            activeAvailabilityTab={activeAvailabilityTab}
+            onAvailabilityTabChange={setActiveAvailabilityTab}
+            activeConflictTab={activeConflictTab}
+            onConflictTabChange={setActiveConflictTab}
+            onRefresh={handleRefresh}
+            isRefreshing={isRefreshing}
           />
           <main className="flex-1 overflow-auto relative">
             {isLoading && (

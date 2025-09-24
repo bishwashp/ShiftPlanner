@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { cacheService } from '../lib/cache';
+import { ActivityService } from '../services/ActivityService';
 
 const router = Router();
 
@@ -187,6 +188,17 @@ router.post('/', async (req: Request, res: Response) => {
     await cacheService.invalidateAnalystCache();
     await cacheService.invalidatePattern('analysts:*');
 
+    // Log activity
+    const activityData = ActivityService.ActivityTemplates.ANALYST_ADDED(
+      analyst.name,
+      analyst.shiftType,
+      (req as any).user?.name || 'admin'
+    );
+    await ActivityService.logActivity({
+      ...activityData,
+      impact: activityData.impact as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+    });
+
     res.status(201).json(formattedAnalyst);
   } catch (error: any) {
     console.error('Error creating analyst:', error);
@@ -230,6 +242,28 @@ router.put('/:id', async (req: Request, res: Response) => {
     // Invalidate specific analyst cache and general caches
     await cacheService.invalidateAnalystCache(id);
     await cacheService.invalidatePattern('analysts:*');
+
+    // Log activity
+    const changes = [];
+    if (name) changes.push(`name to ${name}`);
+    if (email) changes.push(`email to ${email}`);
+    if (shiftType) changes.push(`shift type to ${shiftType}`);
+    if (employeeType) changes.push(`employee type to ${employeeType}`);
+    if (typeof isActive === 'boolean') changes.push(`status to ${isActive ? 'active' : 'inactive'}`);
+    if (customAttributes) changes.push('custom attributes');
+    if (skills) changes.push('skills');
+
+    const changeDescription = changes.length > 0 ? changes.join(', ') : 'details';
+    
+    const activityData = ActivityService.ActivityTemplates.ANALYST_UPDATED(
+      analyst.name,
+      changeDescription,
+      (req as any).user?.name || 'admin'
+    );
+    await ActivityService.logActivity({
+      ...activityData,
+      impact: activityData.impact as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+    });
 
     res.json(formattedAnalyst);
   } catch (error: any) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Edit, Trash2, UserCheck, UserX, Users } from 'lucide-react';
 import { apiService, Analyst } from '../services/api';
 
 interface AnalystFormData {
@@ -310,8 +311,8 @@ const AnalystManagement: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         analyst.shiftType === 'EVENING' 
-                        ? 'bg-purple-600/10 text-purple-600' 
-                        : 'bg-primary/10 text-primary'
+                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' 
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                     }`}>
                         {analyst.shiftType === 'MORNING' ? 'Morning (AM)' : 'Evening (PM)'}
                     </span>
@@ -319,8 +320,8 @@ const AnalystManagement: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         analyst.employeeType === 'CONTRACTOR' 
-                        ? 'bg-orange-600/10 text-orange-600' 
-                        : 'bg-blue-600/10 text-blue-600'
+                        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' 
+                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                     }`}>
                         {analyst.employeeType}
                     </span>
@@ -328,8 +329,8 @@ const AnalystManagement: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                       analyst.isActive 
-                        ? 'bg-green-600/10 text-green-600' 
-                        : 'bg-destructive/10 text-destructive'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                     }`}>
                       {analyst.isActive ? 'Active' : 'Inactive'}
                     </span>
@@ -346,25 +347,28 @@ const AnalystManagement: React.FC = () => {
                       <div className="flex items-center space-x-2">
                     <button
                           onClick={() => handleEditClick(analyst)}
-                          className="text-primary hover:text-primary/80"
+                          className="text-primary hover:text-primary/80 transition-colors"
+                          title="Edit analyst"
                     >
-                      Edit
+                      <Edit className="h-4 w-4" />
                     </button>
                     <button
                           onClick={() => handleToggleActive(analyst)}
-                          className={`${
+                          className={`transition-colors ${
                             analyst.isActive 
-                              ? 'text-destructive hover:text-destructive/80' 
-                              : 'text-green-600 hover:text-green-600/80'
+                              ? 'text-orange-600 hover:text-orange-800' 
+                              : 'text-green-600 hover:text-green-800'
                           }`}
+                          title={analyst.isActive ? 'Deactivate analyst' : 'Activate analyst'}
                         >
-                          {analyst.isActive ? 'Deactivate' : 'Activate'}
+                          {analyst.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                         </button>
                         <button
                           onClick={() => handleDeleteAnalyst(analyst.id)}
-                      className="text-destructive hover:text-destructive/80"
+                      className="text-destructive hover:text-destructive/80 transition-colors"
+                      title="Delete analyst"
                     >
-                      Delete
+                      <Trash2 className="h-4 w-4" />
                     </button>
                       </div>
                   </td>
@@ -373,8 +377,10 @@ const AnalystManagement: React.FC = () => {
             </tbody>
           </table>
             {analysts.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No analysts found. Add your first analyst to get started.
+              <div className="px-6 py-12 text-center text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No analysts found</p>
+                <p className="text-sm">Click "Add New Analyst" to create your first analyst record</p>
               </div>
             )}
           </div>

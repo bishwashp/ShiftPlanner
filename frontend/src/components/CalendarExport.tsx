@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiService, Schedule, Analyst } from '../services/api';
 import moment from 'moment-timezone';
+import Checkbox from './ui/Checkbox';
 
 interface CalendarExportProps {
   onError?: (error: string) => void;
@@ -273,21 +274,19 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {analysts.map(analyst => (
-            <label key={analyst.id} className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="checkbox"
+            <div key={analyst.id} className="flex items-center space-x-2 cursor-pointer">
+              <Checkbox
                 checked={selectedAnalysts.includes(analyst.id)}
-                onChange={(e) => {
-                  if (e.target.checked) {
+                onChange={(checked) => {
+                  if (checked) {
                     setSelectedAnalysts(prev => [...prev, analyst.id]);
                   } else {
                     setSelectedAnalysts(prev => prev.filter(id => id !== analyst.id));
                   }
                 }}
-                className="rounded border-border text-primary focus:ring-primary"
               />
-              <span className="text-sm">{analyst.name}</span>
-            </label>
+              <span className="text-sm text-foreground">{analyst.name}</span>
+            </div>
           ))}
         </div>
       </div>
@@ -301,8 +300,8 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
               key={format.id}
               className={`relative cursor-pointer border-2 rounded-lg p-4 transition-all ${
                 exportFormat === format.id
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border hover:border-primary/50'
+                  ? 'border-primary bg-primary/10 dark:bg-primary/20'
+                  : 'border-border hover:border-primary/50 hover:bg-muted/50'
               }`}
             >
               <input
@@ -332,7 +331,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
         >
           {isExporting ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
               <span>Exporting...</span>
             </>
           ) : (
@@ -352,7 +351,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
             <button
               key={calendar.id}
               onClick={() => handleExternalCalendarExport(calendar)}
-              className="flex items-center space-x-3 p-4 border border-border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-all"
+              className="flex items-center space-x-3 p-4 border border-border rounded-lg hover:border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 transition-all"
             >
               <span className="text-2xl">{calendar.icon}</span>
               <div className="text-left">
@@ -379,16 +378,13 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
             />
           </div>
           <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="webhookEnabled"
+            <Checkbox
               checked={webhookEnabled}
-              onChange={(e) => setWebhookEnabled(e.target.checked)}
-              className="rounded border-border text-primary focus:ring-primary"
+              onChange={(checked) => setWebhookEnabled(checked)}
             />
-            <label htmlFor="webhookEnabled" className="text-sm">
+            <span className="text-sm text-foreground">
               Enable webhook notifications for schedule changes
-            </label>
+            </span>
           </div>
           <button
             onClick={handleWebhookSetup}

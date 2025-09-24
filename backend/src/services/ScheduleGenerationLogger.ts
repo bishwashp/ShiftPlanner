@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { ActivityService } from './ActivityService';
 
 export interface ScheduleGenerationLogData {
   generatedBy?: string;
@@ -33,6 +34,24 @@ export class ScheduleGenerationLogger {
           status: 'SUCCESS',
           metadata: data.metadata ? JSON.stringify(data.metadata) : null,
         },
+      });
+
+      // Also log as a user-friendly activity
+      const startDateStr = data.startDate.toLocaleDateString();
+      const endDateStr = data.endDate.toLocaleDateString();
+      const dateRange = startDateStr === endDateStr ? startDateStr : `${startDateStr} - ${endDateStr}`;
+      
+      const algorithmName = data.algorithmType === 'WeekendRotationAlgorithm' ? 'Weekend Rotation' : data.algorithmType;
+      
+      const activityData = ActivityService.ActivityTemplates.SCHEDULE_GENERATED(
+        data.schedulesGenerated,
+        dateRange,
+        algorithmName,
+        data.generatedBy || 'admin'
+      );
+      await ActivityService.logActivity({
+        ...activityData,
+        impact: activityData.impact as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
       });
     } catch (error) {
       console.error('Failed to log schedule generation success:', error);
@@ -119,7 +138,7 @@ export class ScheduleGenerationLogger {
         },
       });
 
-      return logs.map(log => ({
+      return logs.map((log: any) => ({
         ...log,
         metadata: log.metadata ? JSON.parse(log.metadata) : null,
       }));
@@ -154,7 +173,7 @@ export class ScheduleGenerationLogger {
         },
       });
 
-      return logs.map(log => ({
+      return logs.map((log: any) => ({
         ...log,
         metadata: log.metadata ? JSON.parse(log.metadata) : null,
       }));

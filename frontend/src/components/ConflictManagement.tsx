@@ -4,14 +4,13 @@ import AutoFixPreview, { AssignmentProposal } from './AutoFixPreview';
 import { formatDateTime } from '../utils/formatDateTime';
 import moment from 'moment-timezone';
 
-const tabs = [
-  { key: 'critical', label: 'Critical' },
-  { key: 'recommended', label: 'Recommended' },
-];
+interface ConflictManagementProps {
+  activeTab: 'critical' | 'recommended';
+  onTabChange: (tab: 'critical' | 'recommended') => void;
+}
 
-const ConflictManagement: React.FC = () => {
+const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTabChange }) => {
   const [conflicts, setConflicts] = useState<{ critical: any[]; recommended: any[] }>({ critical: [], recommended: [] });
-  const [selectedTab, setSelectedTab] = useState<'critical' | 'recommended'>('critical');
   const [loading, setLoading] = useState(true);
   const [autoFixing, setAutoFixing] = useState(false);
   const [autoFixMsg, setAutoFixMsg] = useState<string | null>(null);
@@ -54,7 +53,7 @@ const ConflictManagement: React.FC = () => {
     fetchAnalysts();
   }, []);
 
-  const currentConflicts = conflicts[selectedTab] || [];
+  const currentConflicts = conflicts[activeTab] || [];
   
   // Check if there's a "no schedule exists" or "incomplete schedules" conflict (now in recommended section)
   const hasNoScheduleConflict = conflicts.recommended.some(conflict => 
@@ -148,22 +147,11 @@ const ConflictManagement: React.FC = () => {
 
   return (
     <div className="bg-background text-foreground max-w-4xl mx-auto p-6">
-      <div className="flex space-x-2 mb-6">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setSelectedTab(tab.key as 'critical' | 'recommended')}
-            className={`px-4 py-2 rounded-full font-semibold transition-all ${selectedTab === tab.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
       {loading ? (
         <div className="text-center text-muted-foreground">Loading conflicts...</div>
-      ) : hasNoScheduleConflict && selectedTab === 'recommended' ? (
+      ) : hasNoScheduleConflict && activeTab === 'recommended' ? (
         <div className="text-center">
-          <div className="p-6 bg-yellow-500/10 border border-yellow-500 rounded-lg">
+          <div className="p-6 bg-yellow-500/10 dark:bg-yellow-500/20 border border-yellow-500 dark:border-yellow-400 rounded-lg">
             <div className="text-yellow-700 dark:text-yellow-300 font-semibold text-lg mb-2">
               {conflicts.recommended.find(c => c.type === 'NO_SCHEDULE_EXISTS') ? 'Schedule Not Generated' : 'Incomplete Schedules Detected'}
             </div>
@@ -176,7 +164,7 @@ const ConflictManagement: React.FC = () => {
           </div>
         </div>
       ) : currentConflicts.length === 0 ? (
-        <div className="text-center text-muted-foreground">No {selectedTab} conflicts detected in the next 30 days.</div>
+        <div className="text-center text-muted-foreground">No {activeTab} conflicts detected in the next 30 days.</div>
       ) : (
         <>
           <div className="mb-4 flex justify-end">
@@ -196,13 +184,13 @@ const ConflictManagement: React.FC = () => {
               <div key={idx}>
                 <div className="p-4 bg-card text-card-foreground rounded-lg shadow border border-border flex items-center justify-between">
                   <div>
-                    <div className="font-semibold text-foreground dark:text-white">
-                      <span className="text-primary dark:text-primary-foreground font-bold">
+                    <div className="font-semibold text-foreground">
+                      <span className="text-primary font-bold">
                         {formatDateTime(conflict.date, moment.tz.guess(), 'MMM D, YYYY')}
                       </span>
                       {conflict.shiftType && <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-1 rounded">{conflict.shiftType}</span>}
                     </div>
-                    <div className="text-muted-foreground dark:text-gray-300 mt-1">{conflict.message}</div>
+                    <div className="text-muted-foreground mt-1">{conflict.message}</div>
                   </div>
                   {/* Auto-fix/recommendation actions */}
                   <div className="flex gap-2">
@@ -225,8 +213,8 @@ const ConflictManagement: React.FC = () => {
                 {/* Manual Assignment Interface */}
                 {showManualAssignment === conflict.date && (
                   <div className="mt-2 p-4 bg-muted/20 rounded-lg border border-border">
-                    <h4 className="text-sm font-semibold text-foreground dark:text-white mb-3">
-                      Manual Assignment for <span className="text-primary dark:text-primary-foreground font-bold">{formatDateTime(conflict.date, moment.tz.guess(), 'MMM D, YYYY')}</span>
+                    <h4 className="text-sm font-semibold text-foreground mb-3">
+                      Manual Assignment for <span className="text-primary font-bold">{formatDateTime(conflict.date, moment.tz.guess(), 'MMM D, YYYY')}</span>
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {['Morning', 'Evening'].map((shiftType) => (
