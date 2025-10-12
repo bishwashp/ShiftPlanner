@@ -604,6 +604,100 @@ export const typeDefs = gql`
     isScreener: Boolean
   }
 
+  # Compensatory Time Off System
+  type CompOffTransaction {
+    id: ID!
+    analystId: ID!
+    analyst: Analyst!
+    type: CompOffTransactionType!
+    earnedDate: DateTime
+    compOffDate: DateTime
+    reason: CompOffReason!
+    days: Int!
+    isAutoAssigned: Boolean!
+    isBanked: Boolean!
+    description: String!
+    createdAt: DateTime!
+  }
+
+  type CompOffBalance {
+    analystId: ID!
+    availableBalance: Int!
+    totalEarned: Int!
+    totalUsed: Int!
+    recentTransactions: [CompOffTransaction!]!
+  }
+
+  type WeeklyWorkload {
+    id: ID!
+    analystId: ID!
+    analyst: Analyst!
+    weekStart: DateTime!
+    weekEnd: DateTime!
+    scheduledWorkDays: Int!
+    weekendWorkDays: Int!
+    holidayWorkDays: Int!
+    overtimeDays: Int!
+    autoCompOffDays: Int!
+    bankedCompOffDays: Int!
+    totalWorkDays: Int!
+    isBalanced: Boolean!
+    violations: [WorkloadViolation!]!
+  }
+
+  type WorkloadViolation {
+    id: ID!
+    workloadId: ID!
+    workload: WeeklyWorkload!
+    type: WorkloadViolationType!
+    description: String!
+    severity: ViolationSeverity!
+    suggestedFix: String!
+    affectedDate: DateTime
+  }
+
+  type RotationState {
+    id: ID!
+    algorithmType: String!
+    shiftType: ShiftType!
+    currentSunThuAnalyst: ID
+    currentTueSatAnalyst: ID
+    sunThuAnalyst: Analyst
+    tueSatAnalyst: Analyst
+    completedAnalysts: [ID!]!
+    inProgressAnalysts: [ID!]!
+    completedAnalystsList: [Analyst!]!
+    inProgressAnalystsList: [Analyst!]!
+    lastUpdated: DateTime!
+  }
+
+  enum CompOffTransactionType {
+    EARNED
+    USED
+    AUTO_ASSIGNED
+  }
+
+  enum CompOffReason {
+    WEEKEND_WORK
+    HOLIDAY_WORK
+    OVERTIME
+    MANUAL_REQUEST
+  }
+
+  enum WorkloadViolationType {
+    OVERTIME
+    MISSING_COMP_OFF
+    UNBALANCED_WEEK
+    EXCESSIVE_CONSECUTIVE_DAYS
+  }
+
+  enum ViolationSeverity {
+    LOW
+    MEDIUM
+    HIGH
+    CRITICAL
+  }
+
   # Queries
   type Query {
     # Health and system
@@ -631,6 +725,12 @@ export const typeDefs = gql`
     
     # Schedule generation
     generateSchedulePreview(input: ScheduleGenerationInput!): SchedulePreview!
+    
+    # Compensatory Time Off System
+    compOffBalance(analystId: ID!): CompOffBalance!
+    compOffTransactions(analystId: ID!, startDate: DateTime, endDate: DateTime): [CompOffTransaction!]!
+    weeklyWorkloads(analystId: ID, startDate: DateTime, endDate: DateTime): [WeeklyWorkload!]!
+    rotationStates(algorithmType: String, shiftType: ShiftType): [RotationState!]!
     
     # Analytics
     analyticsData(analystId: ID, startDate: DateTime, endDate: DateTime): [AnalyticsData!]!

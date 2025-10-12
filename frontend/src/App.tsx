@@ -36,9 +36,15 @@ const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 
 
 function App() {
   const { theme } = useTheme();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // Default: collapsed on small viewports, open on larger
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 640; // sm breakpoint
+    }
+    return true;
+  });
   const [activeView, setActiveView] = useState<SidebarView>('schedule');
-  const [activeAvailabilityTab, setActiveAvailabilityTab] = useState<'holidays' | 'absences'>('holidays');
+  const [activeAvailabilityTab, setActiveAvailabilityTab] = useState<'holidays' | 'absences' | 'compoff'>('holidays');
   const [activeConflictTab, setActiveConflictTab] = useState<'critical' | 'recommended'>('critical');
   const [calendarDate, setCalendarDate] = useState(() => {
     // Start with current month
@@ -70,6 +76,9 @@ function App() {
     
     if (savedSidebarOpen !== null) {
       setSidebarOpen(savedSidebarOpen === 'true');
+    } else if (typeof window !== 'undefined') {
+      // If no saved preference, ensure responsive default applied on mount
+      setSidebarOpen(window.innerWidth >= 640);
     }
     if (savedActiveView && ['schedule', 'dashboard', 'analysts', 'availability', 'conflicts', 'analytics', 'constraints', 'algorithms', 'export'].includes(savedActiveView)) {
       setActiveView(savedActiveView);

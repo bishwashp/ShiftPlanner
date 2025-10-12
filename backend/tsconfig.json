@@ -110,9 +110,13 @@
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
   },
-  "exclude": [
-    "scripts/**/*",
-    "dist/**/*",
-    "node_modules/**/*"
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  },
+  "include": ["src/**/*.ts", "prisma/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"],
+  "typeRoots": [
+    "./src/types",
+    "./node_modules/@types"
   ]
 }

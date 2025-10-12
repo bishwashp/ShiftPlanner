@@ -1,11 +1,12 @@
 import React from 'react';
 import HolidayManagement from './HolidayManagement';
 import AbsenceManagement from './AbsenceManagement';
+import CompOffManagement from './CompOffManagement';
 
 interface AvailabilityProps {
   timezone?: string;
-  activeTab: 'holidays' | 'absences';
-  onTabChange: (tab: 'holidays' | 'absences') => void;
+  activeTab: 'holidays' | 'absences' | 'compoff';
+  onTabChange: (tab: 'holidays' | 'absences' | 'compoff') => void;
 }
 
 const Availability: React.FC<AvailabilityProps> = ({ timezone = 'America/New_York', activeTab, onTabChange }) => {
@@ -16,6 +17,8 @@ const Availability: React.FC<AvailabilityProps> = ({ timezone = 'America/New_Yor
         return <HolidayManagement timezone={timezone} />;
       case 'absences':
         return <AbsenceManagement />;
+      case 'compoff':
+        return <CompOffManagement />;
       default:
         return <HolidayManagement timezone={timezone} />;
     }

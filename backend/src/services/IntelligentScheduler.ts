@@ -248,25 +248,6 @@ export class IntelligentScheduler {
     };
   }
 
-  /**
-   * Get analysts available for a specific date and shift
-   */
-  private getAvailableAnalysts(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any[] {
-    return analysts.filter(analyst => {
-      // Check if analyst is assigned to this shift type
-      if (analyst.shiftType !== shiftType) {
-        return false;
-      }
-
-      // Check if analyst is already scheduled for this date
-      const hasSchedule = analyst.schedules.some((schedule: any) => {
-        const scheduleDate = schedule.date.toISOString().split('T')[0];
-        return scheduleDate === date;
-      });
-
-      return !hasSchedule;
-    });
-  }
 
   /**
    * Round-robin assignment strategy

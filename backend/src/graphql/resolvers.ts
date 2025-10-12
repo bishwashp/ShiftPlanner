@@ -4,6 +4,11 @@ import { cacheService } from '../lib/cache';
 import { AlgorithmRegistry } from '../services/scheduling/AlgorithmRegistry';
 import { fairnessEngine } from '../services/scheduling/algorithms/FairnessEngine';
 import { getDatabasePerformance } from '../lib/prisma';
+import { compOffBankService } from '../services/scheduling/CompOffBankService';
+import { workloadBalancingSystem } from '../services/scheduling/WorkloadBalancingSystem';
+import { autoCompAssignmentEngine } from '../services/scheduling/AutoCompAssignmentEngine';
+import { rotationStateManager } from '../services/scheduling/RotationStateManager';
+import { IntelligentScheduler } from '../services/IntelligentScheduler';
 import { 
   createAnalystLoader, 
   createScheduleLoader, 
@@ -258,6 +263,187 @@ const Query = {
       globalConstraints,
       algorithmConfig: input.algorithmConfig
     });
+
+    // Pre-resolve gaps iteratively: detect/resolve missing weekday shifts until no conflicts
+    try {
+      const scheduler = new IntelligentScheduler(prisma as any);
+      const setKeys = () => new Set(result.proposedSchedules.map((s: any)=>`${s.analystId}|${s.date}|${s.shiftType}`));
+      let iterations = 0;
+      while (iterations < 3) {
+        iterations++;
+        // Build day map
+        const byDate: Record<string, { MORNING: number; EVENING: number }> = {} as any;
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const iso = new Date(d).toISOString().split('T')[0];
+          byDate[iso] = { MORNING: 0, EVENING: 0 };
+        }
+        for (const s of result.proposedSchedules) {
+          if (!byDate[s.date]) byDate[s.date] = { MORNING: 0, EVENING: 0 };
+          if (s.shiftType === 'MORNING' || s.shiftType === 'EVENING') {
+            // @ts-ignore
+            byDate[s.date][s.shiftType] = (byDate[s.date][s.shiftType] || 0) + 1;
+          }
+        }
+        const missingConflicts: Array<{ date: string; missingShifts: string[]; severity: string }> = [];
+        for (const iso of Object.keys(byDate)) {
+          const day = new Date(iso + 'T00:00:00.000Z').getDay();
+          if (day >= 1 && day <= 5) {
+            const missing: string[] = [];
+            if ((byDate[iso].MORNING || 0) === 0) missing.push('MORNING');
+            if ((byDate[iso].EVENING || 0) === 0) missing.push('EVENING');
+            if (missing.length > 0) missingConflicts.push({ date: iso, missingShifts: missing, severity: 'critical' });
+          }
+        }
+        if (missingConflicts.length === 0) break;
+        const res = await scheduler.resolveConflicts(missingConflicts as any, start.toISOString(), end.toISOString());
+        const proposals = res.suggestedAssignments || [];
+        const keys = setKeys();
+        let added = 0;
+        for (const p of proposals) {
+          const iso = new Date(p.date).toISOString().split('T')[0];
+          const key = `${p.analystId}|${iso}|${p.shiftType}`;
+          if (keys.has(key)) continue;
+          const day = new Date(iso + 'T00:00:00.000Z').getDay();
+          // Guard checks
+          if (day === 5) {
+            const weekSunday = new Date(iso + 'T00:00:00.000Z');
+            weekSunday.setDate(weekSunday.getDate() - weekSunday.getDay());
+            const sundayStr = weekSunday.toISOString().split('T')[0];
+            const workedSunday = result.proposedSchedules.some((ps: any)=> ps.analystId === p.analystId && ps.date === sundayStr);
+            if (workedSunday) continue;
+          }
+          if (day === 1) {
+            const weekSunday = new Date(iso + 'T00:00:00.000Z');
+            weekSunday.setDate(weekSunday.getDate() - weekSunday.getDay());
+            const saturday = new Date(weekSunday);
+            saturday.setDate(weekSunday.getDate() + 6);
+            const saturdayStr = saturday.toISOString().split('T')[0];
+            const worksSaturday = result.proposedSchedules.some((ps: any)=> ps.analystId === p.analystId && ps.date === saturdayStr);
+            if (worksSaturday) continue;
+          }
+          result.proposedSchedules.push({ date: iso, analystId: p.analystId, shiftType: p.shiftType, isScreener: false, type: 'NEW_SCHEDULE' } as any);
+          keys.add(key);
+          added++;
+        }
+        // Fallback: If still missing after proposals (due to guard filters), greedily assign first allowed candidate
+        // Recompute missing
+        const postByDate: Record<string, { MORNING: number; EVENING: number }> = {} as any;
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const iso2 = new Date(d).toISOString().split('T')[0];
+          postByDate[iso2] = { MORNING: 0, EVENING: 0 };
+        }
+        for (const s of result.proposedSchedules) {
+          if (!postByDate[s.date]) postByDate[s.date] = { MORNING: 0, EVENING: 0 };
+          if (s.shiftType === 'MORNING' || s.shiftType === 'EVENING') {
+            // @ts-ignore
+            postByDate[s.date][s.shiftType] = (postByDate[s.date][s.shiftType] || 0) + 1;
+          }
+        }
+        const stillMissing: Array<{ date: string; need: ('MORNING'|'EVENING')[] }> = [];
+        for (const iso2 of Object.keys(postByDate)) {
+          const dow = new Date(iso2 + 'T00:00:00.000Z').getDay();
+          if (dow >= 1 && dow <= 5) {
+            const need: any[] = [];
+            if ((postByDate[iso2].MORNING || 0) === 0) need.push('MORNING');
+            if ((postByDate[iso2].EVENING || 0) === 0) need.push('EVENING');
+            if (need.length) stillMissing.push({ date: iso2, need });
+          }
+        }
+        if (stillMissing.length) {
+          for (const m of stillMissing) {
+            for (const shift of m.need) {
+              const dow = new Date(m.date + 'T00:00:00.000Z').getDay();
+              // Candidate list by shift type
+              const candidates = analysts.filter(a => a.shiftType === shift && a.isActive);
+              for (const cand of candidates) {
+                const candKey = `${cand.id}|${m.date}|${shift}`;
+                if (keys.has(candKey)) continue;
+                // Not already assigned same date
+                const already = result.proposedSchedules.some(ps => ps.analystId === cand.id && ps.date === m.date);
+                if (already) continue;
+                // Guard rules
+                if (dow === 5) {
+                  const weekSunday = new Date(m.date + 'T00:00:00.000Z');
+                  weekSunday.setDate(weekSunday.getDate() - weekSunday.getDay());
+                  const sundayStr = weekSunday.toISOString().split('T')[0];
+                  const workedSunday = result.proposedSchedules.some(ps => ps.analystId === cand.id && ps.date === sundayStr);
+                  if (workedSunday) continue;
+                }
+                if (dow === 1) {
+                  const weekSunday = new Date(m.date + 'T00:00:00.000Z');
+                  weekSunday.setDate(weekSunday.getDate() - weekSunday.getDay());
+                  const saturday = new Date(weekSunday);
+                  saturday.setDate(weekSunday.getDate() + 6);
+                  const saturdayStr = saturday.toISOString().split('T')[0];
+                  const worksSaturday = result.proposedSchedules.some(ps => ps.analystId === cand.id && ps.date === saturdayStr);
+                  if (worksSaturday) continue;
+                }
+                // Accept
+                result.proposedSchedules.push({ date: m.date, analystId: cand.id, shiftType: shift, isScreener: false, type: 'NEW_SCHEDULE' } as any);
+                keys.add(candKey);
+                added++;
+                break;
+              }
+            }
+          }
+        }
+        if (added === 0) break;
+      }
+
+      // Ensure weekday screeners: for each weekday, if screener missing for a shift, assign one from working analysts
+      const byDateShiftWorking: Record<string, { MORNING: string[]; EVENING: string[] }> = {} as any;
+      const hasScreener: Record<string, { MORNING: boolean; EVENING: boolean }> = {} as any;
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const iso = new Date(d).toISOString().split('T')[0];
+        byDateShiftWorking[iso] = { MORNING: [], EVENING: [] };
+        hasScreener[iso] = { MORNING: false, EVENING: false };
+      }
+      for (const s of result.proposedSchedules) {
+        const iso = s.date;
+        if (!byDateShiftWorking[iso]) {
+          byDateShiftWorking[iso] = { MORNING: [], EVENING: [] } as any;
+          hasScreener[iso] = { MORNING: false, EVENING: false } as any;
+        }
+        if (s.shiftType === 'MORNING' || s.shiftType === 'EVENING') {
+          if (s.isScreener) {
+            // @ts-ignore
+            hasScreener[iso][s.shiftType] = true;
+          } else {
+            // @ts-ignore
+            byDateShiftWorking[iso][s.shiftType].push(s.analystId);
+          }
+        }
+      }
+      const keysForScreeners = new Set(result.proposedSchedules.map((s: any)=>`${s.analystId}|${s.date}|${s.shiftType}|S`));
+      for (const iso of Object.keys(byDateShiftWorking)) {
+        const dow = new Date(iso + 'T00:00:00.000Z').getDay();
+        if (dow >= 1 && dow <= 5) {
+          for (const shift of ['MORNING','EVENING'] as const) {
+            // @ts-ignore
+            if (!hasScreener[iso][shift]) {
+              // @ts-ignore
+              const workers = byDateShiftWorking[iso][shift];
+              if (workers.length > 0) {
+                const cand = workers[0];
+                const k = `${cand}|${iso}|${shift}|S`;
+                if (!keysForScreeners.has(k)) {
+                  // Mark existing working assignment as screener instead of creating a new row
+                  const existingIdx = result.proposedSchedules.findIndex((ps: any) => ps.analystId === cand && ps.date === iso && ps.shiftType === shift);
+                  if (existingIdx >= 0) {
+                    result.proposedSchedules[existingIdx].isScreener = true;
+                    // keep existing type; screener is a flag, not a separate schedule type
+                  } else {
+                    // Fallback: if not present (unlikely), create once
+                    result.proposedSchedules.push({ date: iso, analystId: cand, shiftType: shift, isScreener: true, type: 'NEW_SCHEDULE' } as any);
+                  }
+                  keysForScreeners.add(k);
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {}
 
     const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
@@ -575,6 +761,108 @@ const Query = {
     } catch (error) {
       throw new GraphQLError(`Failed to generate team calendar export: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  },
+
+  // Compensatory Time Off System Resolvers
+  compOffBalance: async (_: any, { analystId }: { analystId: string }) => {
+    try {
+      return await compOffBankService.getCompOffBalance(analystId);
+    } catch (error: any) {
+      throw new GraphQLError(`Failed to get comp-off balance: ${error.message}`);
+    }
+  },
+
+  compOffTransactions: async (_: any, { analystId, startDate, endDate }: { 
+    analystId: string; 
+    startDate?: Date; 
+    endDate?: Date; 
+  }) => {
+    try {
+      const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+      const end = endDate || new Date();
+      
+      return await compOffBankService.getCompOffTransactions(analystId, start, end);
+    } catch (error: any) {
+      throw new GraphQLError(`Failed to get comp-off transactions: ${error.message}`);
+    }
+  },
+
+  weeklyWorkloads: async (_: any, { analystId, startDate, endDate }: { 
+    analystId?: string; 
+    startDate?: Date; 
+    endDate?: Date; 
+  }) => {
+    try {
+      const start = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 1 week ago
+      const end = endDate || new Date();
+      
+      if (analystId) {
+        // Get workload for specific analyst
+        const workloads = [];
+        const currentDate = new Date(start);
+        
+        while (currentDate <= end) {
+          const weekStart = new Date(currentDate);
+          weekStart.setDate(currentDate.getDate() - currentDate.getDay()); // Start of week
+          
+          const workload = await workloadBalancingSystem.analyzeWeeklyWorkload(analystId, weekStart);
+          workloads.push(workload);
+          
+          currentDate.setDate(currentDate.getDate() + 7); // Next week
+        }
+        
+        return workloads;
+      } else {
+        // Get workloads for all analysts
+        const analysts = await prisma.analyst.findMany({ where: { isActive: true } });
+        const analystIds = analysts.map(a => a.id);
+        
+        const result = await workloadBalancingSystem.analyzeWorkloadBalance(analystIds, start, end);
+        return result.workloads;
+      }
+    } catch (error: any) {
+      throw new GraphQLError(`Failed to get weekly workloads: ${error.message}`);
+    }
+  },
+
+  rotationStates: async (_: any, { algorithmType, shiftType }: { 
+    algorithmType?: string; 
+    shiftType?: string; 
+  }) => {
+    try {
+      const states = [];
+      
+      if (algorithmType && shiftType) {
+        // Get specific rotation state
+        const state = await rotationStateManager.getCurrentRotationState(algorithmType, shiftType as 'MORNING' | 'EVENING');
+        if (state) {
+          states.push(state);
+        }
+      } else {
+        // Get all rotation states
+        const allStates = await prisma.rotationState.findMany({
+          orderBy: { lastUpdated: 'desc' }
+        });
+        
+        for (const state of allStates) {
+          const mappedState = {
+            id: state.id,
+            algorithmType: state.algorithmType,
+            shiftType: state.shiftType,
+            currentSunThuAnalyst: state.currentSunThuAnalyst,
+            currentTueSatAnalyst: state.currentTueSatAnalyst,
+            completedAnalysts: JSON.parse(state.completedAnalysts || '[]'),
+            inProgressAnalysts: JSON.parse(state.inProgressAnalysts || '[]'),
+            lastUpdated: state.lastUpdated
+          };
+          states.push(mappedState);
+        }
+      }
+      
+      return states;
+    } catch (error: any) {
+      throw new GraphQLError(`Failed to get rotation states: ${error.message}`);
+    }
   }
 };
 
@@ -721,7 +1009,18 @@ const Mutation = {
       },
       include: { analyst: true }
     });
-    
+
+    // After creation, enforce override banking if week > 5 worked days (Sun–Sat)
+    try {
+      const weekStart = new Date(date);
+      weekStart.setHours(0,0,0,0);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const workload = await workloadBalancingSystem.analyzeWeeklyWorkload(analystId, weekStart);
+      if (workload.overtimeDays > 0) {
+        await autoCompAssignmentEngine.processOvertimeWork(analystId, weekStart, workload.overtimeDays);
+      }
+    } catch {}
+
     return schedule;
   },
 
@@ -735,7 +1034,20 @@ const Mutation = {
       data: updateData,
       include: { analyst: true }
     });
-    
+
+    // After update, enforce override banking
+    try {
+      const analystId = schedule.analystId;
+      const date = schedule.date;
+      const weekStart = new Date(date);
+      weekStart.setHours(0,0,0,0);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const workload = await workloadBalancingSystem.analyzeWeeklyWorkload(analystId, weekStart);
+      if (workload.overtimeDays > 0) {
+        await autoCompAssignmentEngine.processOvertimeWork(analystId, weekStart, workload.overtimeDays);
+      }
+    } catch {}
+
     return schedule;
   },
 
@@ -854,9 +1166,65 @@ const Mutation = {
       algorithmConfig: input.algorithmConfig
     });
 
+    // If overwriting, perform sync: delete any schedules in range not present in proposals
+    if (overwriteExisting) {
+      const proposedKeys = new Set<string>();
+      for (const s of result.proposedSchedules) {
+        const key = `${s.analystId}|${s.date}|${s.shiftType}|${s.isScreener ? '1' : '0'}`;
+        proposedKeys.add(key);
+      }
+      const existingInRange = await prisma.schedule.findMany({ where: { date: { gte: start, lte: end } } });
+      for (const ex of existingInRange) {
+        const d = ex.date.toISOString().split('T')[0];
+        const key = `${ex.analystId}|${d}|${ex.shiftType}|${ex.isScreener ? '1' : '0'}`;
+        if (!proposedKeys.has(key)) {
+          await prisma.schedule.delete({ where: { id: ex.id } });
+        }
+      }
+    }
+
+    // Conflict coalescing structures and duplicate guard
+    const appliedKeys = new Set<string>(); // analystId|date
+    const fridayConflicts = new Map<string, Set<string>>(); // weekSundayISO -> analystIds
+    const mondayConflicts = new Map<string, Set<string>>(); // weekSundayISO -> analystIds
+
     // Apply schedules to database
     for (const schedule of result.proposedSchedules) {
       try {
+        // Pre-apply guard: block Friday if analyst worked Sunday of the same week
+        const applyDate = new Date(schedule.date);
+        const day = applyDate.getDay();
+        if (day === 5) {
+          const weekSunday = new Date(applyDate);
+          weekSunday.setHours(0,0,0,0);
+          weekSunday.setDate(weekSunday.getDate() - weekSunday.getDay());
+          const sundayStr = weekSunday.toISOString().split('T')[0];
+          const workedSunday = result.proposedSchedules.some(ps => ps.analystId === schedule.analystId && ps.date === sundayStr);
+          if (workedSunday) {
+            const weekKey = new Date(sundayStr + 'T00:00:00.000Z').toISOString().slice(0,10);
+            const set = fridayConflicts.get(weekKey) || new Set<string>();
+            set.add(schedule.analystId);
+            fridayConflicts.set(weekKey, set);
+            continue;
+          }
+        }
+        // Pre-apply guard: block Monday if analyst works Saturday of the same week
+        if (day === 1) {
+          const weekSunday = new Date(applyDate);
+          weekSunday.setHours(0,0,0,0);
+          weekSunday.setDate(weekSunday.getDate() - weekSunday.getDay());
+          const weekSaturday = new Date(weekSunday);
+          weekSaturday.setDate(weekSunday.getDate() + 6);
+          const saturdayStr = weekSaturday.toISOString().split('T')[0];
+          const worksSaturday = result.proposedSchedules.some(ps => ps.analystId === schedule.analystId && ps.date === saturdayStr);
+          if (worksSaturday) {
+            const weekKey = weekSunday.toISOString().slice(0,10);
+            const set = mondayConflicts.get(weekKey) || new Set<string>();
+            set.add(schedule.analystId);
+            mondayConflicts.set(weekKey, set);
+            continue;
+          }
+        }
         const existing = existingSchedules.find(s => 
           s.analystId === schedule.analystId && 
           new Date(s.date).toISOString().split('T')[0] === schedule.date
@@ -873,15 +1241,46 @@ const Mutation = {
             });
           }
         } else {
-          await prisma.schedule.create({
-            data: {
-              analystId: schedule.analystId,
-              date: new Date(schedule.date),
-              shiftType: schedule.shiftType,
-              isScreener: schedule.isScreener
+          // Skip identical duplicates within this apply run
+          const key = `${schedule.analystId}|${schedule.date}`;
+          if (appliedKeys.has(key)) {
+            // already applied in this batch
+          } else {
+            // Double-check DB for existing identical record to avoid unique constraint
+            const existingSameDay = await prisma.schedule.findFirst({
+              where: { analystId: schedule.analystId, date: new Date(schedule.date) }
+            });
+            if (existingSameDay) {
+              if (overwriteExisting && (existingSameDay.shiftType !== schedule.shiftType || existingSameDay.isScreener !== schedule.isScreener)) {
+                await prisma.schedule.update({
+                  where: { id: existingSameDay.id },
+                  data: { shiftType: schedule.shiftType, isScreener: schedule.isScreener }
+                });
+              }
+            } else {
+              await prisma.schedule.create({
+                data: {
+                  analystId: schedule.analystId,
+                  date: new Date(schedule.date),
+                  shiftType: schedule.shiftType,
+                  isScreener: schedule.isScreener
+                }
+              });
             }
-          });
+            appliedKeys.add(key);
+          }
         }
+
+        // After each apply, enforce override banking for the affected week
+        try {
+          const weekStart = new Date(schedule.date);
+          weekStart.setHours(0,0,0,0);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+          const workload = await workloadBalancingSystem.analyzeWeeklyWorkload(schedule.analystId, weekStart);
+          if (workload.overtimeDays > 0) {
+            await autoCompAssignmentEngine.processOvertimeWork(schedule.analystId, weekStart, workload.overtimeDays);
+          }
+        } catch {}
       } catch (error) {
         result.conflicts.push({
           date: schedule.date,
@@ -890,6 +1289,49 @@ const Mutation = {
           severity: 'HIGH'
         });
       }
+    }
+
+    // Advance rotation state after successful apply to ensure weekend rotation progresses
+    try {
+      // Get current rotation assignments and update state for both shifts
+      const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING' && a.isActive);
+      const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING' && a.isActive);
+      
+      if (morningAnalysts.length > 0) {
+        const morningAssignment = await rotationStateManager.getRotationAssignments('enhanced-weekend-rotation', 'MORNING', start, morningAnalysts);
+        if (morningAssignment) {
+          await rotationStateManager.updateRotationState('enhanced-weekend-rotation', 'MORNING', morningAssignment, morningAnalysts);
+        }
+      }
+      
+      if (eveningAnalysts.length > 0) {
+        const eveningAssignment = await rotationStateManager.getRotationAssignments('enhanced-weekend-rotation', 'EVENING', start, eveningAnalysts);
+        if (eveningAssignment) {
+          await rotationStateManager.updateRotationState('enhanced-weekend-rotation', 'EVENING', eveningAssignment, eveningAnalysts);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to advance rotation state:', error);
+    }
+
+    // Coalesce guard conflicts into one per week and rule
+    for (const [weekKey, set] of fridayConflicts.entries()) {
+      result.conflicts.push({
+        date: weekKey,
+        type: 'CONSTRAINT_VIOLATION',
+        description: `Friday-after-Sunday rule: blocked ${set.size} assignment(s) this week`,
+        severity: 'CRITICAL',
+        affectedAnalysts: Array.from(set)
+      } as any);
+    }
+    for (const [weekKey, set] of mondayConflicts.entries()) {
+      result.conflicts.push({
+        date: weekKey,
+        type: 'CONSTRAINT_VIOLATION',
+        description: `Monday-when-Saturday rule: blocked ${set.size} assignment(s) this week`,
+        severity: 'CRITICAL',
+        affectedAnalysts: Array.from(set)
+      } as any);
     }
 
     return result;
@@ -1007,10 +1449,68 @@ const Analyst = {
   }
 };
 
+// CompOffTransaction resolver
+const CompOffTransaction = {
+  analyst: async (parent: any) => {
+    return await prisma.analyst.findUnique({ where: { id: parent.analystId } });
+  }
+};
+
+// WeeklyWorkload resolver
+const WeeklyWorkload = {
+  analyst: async (parent: any) => {
+    return await prisma.analyst.findUnique({ where: { id: parent.analystId } });
+  },
+  
+  violations: async (parent: any) => {
+    return await prisma.workloadViolation.findMany({
+      where: { workloadId: parent.id }
+    });
+  }
+};
+
+// WorkloadViolation resolver
+const WorkloadViolation = {
+  workload: async (parent: any) => {
+    return await prisma.weeklyWorkload.findUnique({ where: { id: parent.workloadId } });
+  }
+};
+
+// RotationState resolver
+const RotationState = {
+  sunThuAnalyst: async (parent: any) => {
+    if (!parent.currentSunThuAnalyst) return null;
+    return await prisma.analyst.findUnique({ where: { id: parent.currentSunThuAnalyst } });
+  },
+  
+  tueSatAnalyst: async (parent: any) => {
+    if (!parent.currentTueSatAnalyst) return null;
+    return await prisma.analyst.findUnique({ where: { id: parent.currentTueSatAnalyst } });
+  },
+  
+  completedAnalystsList: async (parent: any) => {
+    if (!parent.completedAnalysts || parent.completedAnalysts.length === 0) return [];
+    return await prisma.analyst.findMany({
+      where: { id: { in: parent.completedAnalysts } }
+    });
+  },
+  
+  inProgressAnalystsList: async (parent: any) => {
+    if (!parent.inProgressAnalysts || parent.inProgressAnalysts.length === 0) return [];
+    return await prisma.analyst.findMany({
+      where: { id: { in: parent.inProgressAnalysts } }
+    });
+  }
+};
+
 export const resolvers = {
   ...dateTimeScalar,
   ...jsonScalar,
   Query,
   Mutation,
-  Analyst
+  Analyst,
+  CompOffTransaction,
+  WeeklyWorkload,
+  WorkloadViolation,
+  RotationState
 }; 

@@ -59,7 +59,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
       <aside
         className={`
           ${isOpen ? 'w-64' : 'w-16'}
-          bg-card text-card-foreground border-r border-border flex flex-col h-full
+          bg-card text-card-foreground border-r border-border flex flex-col h-full flex-shrink-0
           transition-all duration-300 ease-in-out transform
           ${isOpen ? 'translate-x-0' : 'translate-x-0'}
           overflow-hidden shadow-lg

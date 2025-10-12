@@ -232,11 +232,27 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           // Process morning analysts
           for (const analyst of morningAnalysts) {
             // Check if analyst should work based on rotation
-            const shouldWork = rotationManager.shouldAnalystWork(
+            let shouldWork = rotationManager.shouldAnalystWork(
               analyst.id,
               currentDate,
               morningRotationPlans
             );
+            
+            // If not working based on rotation, check if weekend coverage is needed
+            if (!shouldWork && isWeekend(currentDate)) {
+              shouldWork = rotationManager.needsWeekendCoverage(
+                analyst.id,
+                currentDate,
+                'MORNING',
+                morningRotationPlans,
+                morningAnalysts
+              );
+              
+              // Debug logging for weekend coverage
+              if (shouldWork) {
+                console.log(`🔧 Weekend coverage: Assigned ${analyst.name} (${analyst.id}) for MORNING on ${dateStr}`);
+              }
+            }
             
             // Check for vacations
             const onVacation = analyst.vacations?.some((v: any) => 
@@ -264,11 +280,27 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm {
           // Process evening analysts
           for (const analyst of eveningAnalysts) {
             // Check if analyst should work based on rotation
-            const shouldWork = rotationManager.shouldAnalystWork(
+            let shouldWork = rotationManager.shouldAnalystWork(
               analyst.id,
               currentDate,
               eveningRotationPlans
             );
+            
+            // If not working based on rotation, check if weekend coverage is needed
+            if (!shouldWork && isWeekend(currentDate)) {
+              shouldWork = rotationManager.needsWeekendCoverage(
+                analyst.id,
+                currentDate,
+                'EVENING',
+                eveningRotationPlans,
+                eveningAnalysts
+              );
+              
+              // Debug logging for weekend coverage
+              if (shouldWork) {
+                console.log(`🔧 Weekend coverage: Assigned ${analyst.name} (${analyst.id}) for EVENING on ${dateStr}`);
+              }
+            }
             
             // Check for vacations
             const onVacation = analyst.vacations?.some((v: any) => 
@@ -863,12 +895,12 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm {
         const conflicts: any[] = [];
         
         // Check for insufficient staff
-        const dailyCoverage = new Map<string, { morning: number; evening: number }>();
+        const dailyCoverage = new Map<string, { morning: number; evening: number; weekend: number }>();
         
         for (const schedule of schedules) {
             const date = schedule.date;
             if (!dailyCoverage.has(date)) {
-                dailyCoverage.set(date, { morning: 0, evening: 0 });
+                dailyCoverage.set(date, { morning: 0, evening: 0, weekend: 0 });
             }
             
             const coverage = dailyCoverage.get(date)!;
@@ -877,10 +909,20 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm {
             } else if (schedule.shiftType === 'EVENING') {
                 coverage.evening++;
             }
+            
+            // Check if this is a weekend day
+            const scheduleDate = new Date(date);
+            if (scheduleDate.getDay() === 0 || scheduleDate.getDay() === 6) {
+                coverage.weekend++;
+            }
         }
         
         // Check for coverage issues
         for (const [date, coverage] of dailyCoverage) {
+            const scheduleDate = new Date(date);
+            const isWeekend = scheduleDate.getDay() === 0 || scheduleDate.getDay() === 6;
+            
+            // Check basic coverage
             if (coverage.morning === 0) {
                 conflicts.push({
                     date,
@@ -900,6 +942,93 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm {
                     suggestedResolution: 'Assign additional evening analyst'
                 });
             }
+            
+            // Check weekend rotation requirements (FR-2.4) - CRITICAL VALIDATION
+            if (isWeekend) {
+                if (coverage.morning === 0) {
+                    conflicts.push({
+                        date,
+                        type: 'MISSING_WEEKEND_COVERAGE',
+                        description: `CRITICAL: No morning analyst assigned for weekend ${date} (FR-2.4 violation)`,
+                        severity: 'CRITICAL',
+                        suggestedResolution: 'Assign exactly one morning analyst for weekend coverage'
+                    });
+                } else if (coverage.morning > 1) {
+                    conflicts.push({
+                        date,
+                        type: 'INVALID_WEEKEND_ROTATION',
+                        description: `HIGH: Multiple morning analysts assigned for weekend ${date} (${coverage.morning} analysts) - should be exactly one (FR-2.4 violation)`,
+                        severity: 'HIGH',
+                        suggestedResolution: 'Ensure only one morning analyst works weekends'
+                    });
+                }
+                
+                if (coverage.evening === 0) {
+                    conflicts.push({
+                        date,
+                        type: 'MISSING_WEEKEND_COVERAGE',
+                        description: `CRITICAL: No evening analyst assigned for weekend ${date} (FR-2.4 violation)`,
+                        severity: 'CRITICAL',
+                        suggestedResolution: 'Assign exactly one evening analyst for weekend coverage'
+                    });
+                } else if (coverage.evening > 1) {
+                    conflicts.push({
+                        date,
+                        type: 'INVALID_WEEKEND_ROTATION',
+                        description: `HIGH: Multiple evening analysts assigned for weekend ${date} (${coverage.evening} analysts) - should be exactly one (FR-2.4 violation)`,
+                        severity: 'HIGH',
+                        suggestedResolution: 'Ensure only one evening analyst works weekends'
+                    });
+                }
+                
+                // Additional validation: ensure weekend coverage is exactly 1 per shift type
+                if (coverage.morning === 1 && coverage.evening === 1) {
+                    // This is perfect - log for debugging
+                    console.log(`✅ Weekend ${date}: Perfect coverage (1 morning, 1 evening)`);
+                }
+            }
+        }
+        
+        // Check weekend rotation fairness
+        const weekendFairnessConflicts = this.checkWeekendRotationFairness(schedules, context.analysts);
+        conflicts.push(...weekendFairnessConflicts);
+        
+        return conflicts;
+    }
+
+    /**
+     * Check weekend rotation fairness to ensure all analysts get fair weekend assignments
+     */
+    private checkWeekendRotationFairness(schedules: any[], analysts: any[]): any[] {
+        const conflicts: any[] = [];
+        
+        // Count weekend assignments per analyst
+        const weekendAssignments = new Map<string, number>();
+        analysts.forEach(analyst => {
+            const weekendCount = schedules.filter(s => {
+                const scheduleDate = new Date(s.date);
+                const isWeekend = scheduleDate.getDay() === 0 || scheduleDate.getDay() === 6;
+                return s.analystId === analyst.id && isWeekend;
+            }).length;
+            weekendAssignments.set(analyst.id, weekendCount);
+        });
+        
+        const weekendCounts = Array.from(weekendAssignments.values());
+        if (weekendCounts.length === 0) return conflicts;
+        
+        const maxWeekends = Math.max(...weekendCounts);
+        const minWeekends = Math.min(...weekendCounts);
+        const averageWeekends = weekendCounts.reduce((a, b) => a + b, 0) / weekendCounts.length;
+        
+        // Check for unfair distribution (more than 2 weekends difference)
+        if (maxWeekends - minWeekends > 2) {
+            conflicts.push({
+                date: 'MULTIPLE_DATES',
+                type: 'UNFAIR_WEEKEND_DISTRIBUTION',
+                description: `Unfair weekend distribution: some analysts have ${maxWeekends} weekends while others have ${minWeekends} (difference: ${maxWeekends - minWeekends})`,
+                severity: 'MEDIUM',
+                suggestedResolution: 'Adjust weekend rotation to ensure fair distribution among all analysts'
+            });
         }
         
         return conflicts;

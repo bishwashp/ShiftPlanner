@@ -81,7 +81,7 @@ export async function startApolloServer(server: ApolloServer<GraphQLContext>, ap
   
   // Apply Apollo middleware to Express app
   app.use(
-    '/graphql',
+    '/api/graphql',
     expressMiddleware(server, {
       context: async ({ req, res }: { req: any; res: any }): Promise<GraphQLContext> => {
         return {
@@ -105,8 +105,8 @@ export async function startApolloServer(server: ApolloServer<GraphQLContext>, ap
     })
   );
   
-  console.log('🚀 GraphQL server ready at /graphql');
-  console.log('📚 GraphQL Playground available at /graphql');
+  console.log('🚀 GraphQL server ready at /api/graphql');
+  console.log('📚 GraphQL Playground available at /api/graphql');
   
   return server;
 }

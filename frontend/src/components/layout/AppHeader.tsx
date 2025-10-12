@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, ChevronLeft, ChevronRight, Calendar, Users, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Menu, ChevronLeft, ChevronRight, Calendar, Users, AlertTriangle, CheckCircle, RefreshCw, Clock } from 'lucide-react';
 import { ThemeSwitcher } from '../ThemeSwitcher';
 import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } from 'date-fns';
 import { View as SidebarView } from './CollapsibleSidebar';
@@ -16,8 +16,8 @@ interface AppHeaderProps {
   activeView: SidebarView;
   timezone: string;
   onTimezoneChange: (tz: string) => void;
-  activeAvailabilityTab?: 'holidays' | 'absences';
-  onAvailabilityTabChange?: (tab: 'holidays' | 'absences') => void;
+  activeAvailabilityTab?: 'holidays' | 'absences' | 'compoff';
+  onAvailabilityTabChange?: (tab: 'holidays' | 'absences' | 'compoff') => void;
   activeConflictTab?: 'critical' | 'recommended';
   onConflictTabChange?: (tab: 'critical' | 'recommended') => void;
   onRefresh?: () => void;
@@ -150,6 +150,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 >
                   <Users size={14} className="sm:w-4 sm:h-4" />
                   <span className="hidden sm:inline">Absences</span>
+                </button>
+                <button
+                  onClick={() => onAvailabilityTabChange('compoff')}
+                  className={`flex items-center space-x-1 px-2 sm:px-3 py-1 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                    activeAvailabilityTab === 'compoff'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Clock size={14} className="sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Comp-Off</span>
                 </button>
               </div>
             );

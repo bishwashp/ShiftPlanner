@@ -1,5 +1,19 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import moment from 'moment-timezone';
+
+// Local type definition for Holiday to avoid import errors
+interface Holiday {
+  id: string;
+  name: string;
+  date: Date;
+  timezone: string;
+  isRecurring: boolean;
+  year: number | null;
+  description: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface HolidayData {
   name: string;
@@ -52,7 +66,7 @@ export class HolidayService {
     });
 
     // Convert dates back to the requested timezone for response
-    return holidays.map(holiday => ({
+    return holidays.map((holiday: Holiday) => ({
       ...holiday,
       date: moment(holiday.date).tz(timezone).format('YYYY-MM-DD'),
       localDate: moment(holiday.date).tz(timezone).toDate()
@@ -276,7 +290,7 @@ export class HolidayService {
         date: momentDate.format('YYYY-MM-DD'),
         description: `Holiday conflicts with ${existingSchedules.length} existing schedule(s)`,
         severity: 'HIGH',
-        affectedAnalysts: existingSchedules.map(s => s.analyst.name),
+        affectedAnalysts: existingSchedules.map((s: any) => s.analyst.name),
         suggestedResolution: 'Consider rescheduling affected analysts or marking holiday as inactive'
       });
     }

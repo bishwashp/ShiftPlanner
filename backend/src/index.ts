@@ -1,4 +1,4 @@
-import { app, httpServer } from './app';
+import { app, httpServer, registerGraphQLEndpointInfo, registerNotFoundHandler } from './app';
 import { createApolloServer, startApolloServer } from './graphql/server';
 import { prisma } from './lib/prisma';
 
@@ -12,14 +12,17 @@ async function startServer() {
     console.log('📊 Initializing GraphQL server...');
     const apolloServer = await createApolloServer();
     await startApolloServer(apolloServer, app, httpServer);
+    // Register routes that must come AFTER GraphQL middleware
+    registerGraphQLEndpointInfo();
+    registerNotFoundHandler();
     
     // Start HTTP server
     httpServer.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Health check available at http://localhost:${PORT}/health`);
       console.log(`🔗 API endpoints available at http://localhost:${PORT}/api`);
-      console.log(`📚 GraphQL Playground available at http://localhost:${PORT}/graphql`);
-      console.log(`🔗 GraphQL endpoint available at http://localhost:${PORT}/graphql`);
+      console.log(`📚 GraphQL Playground available at http://localhost:${PORT}/api/graphql`);
+      console.log(`🔗 GraphQL endpoint available at http://localhost:${PORT}/api/graphql`);
     });
     
     // Graceful shutdown

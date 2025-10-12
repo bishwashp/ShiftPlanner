@@ -74,7 +74,8 @@ router.get('/', (req, res) => {
       ml: '/ml',
       holidays: '/holidays',
       absences: '/absences',
-      activities: '/activities'
+      activities: '/activities',
+      graphql: '/graphql'
     }
     });
 });

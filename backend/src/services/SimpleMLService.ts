@@ -122,8 +122,8 @@ export class SimpleMLService {
   }
 
   // 2. Burnout Risk Scoring
-  async assessBurnoutRisk(analysts: any[]): Promise<BurnoutAssessment[]> {
-    const assessments: BurnoutAssessment[] = [];
+  async assessBurnoutRisk(analysts: any[]): Promise<BurnoutRiskAssessment[]> {
+    const assessments: BurnoutRiskAssessment[] = [];
 
     for (const analyst of analysts) {
       // Get recent schedule data (last 30 days)
@@ -140,8 +140,8 @@ export class SimpleMLService {
       // Calculate risk factors
       const totalWorkDays = recentSchedules.length;
       const consecutiveStreaks = this.calculateConsecutiveStreaks(recentSchedules);
-      const weekendDays = recentSchedules.filter(s => s.shiftType === 'WEEKEND').length;
-      const screenerDays = recentSchedules.filter(s => s.isScreener).length;
+      const weekendDays = recentSchedules.filter((s: any) => s.shiftType === 'WEEKEND').length;
+      const screenerDays = recentSchedules.filter((s: any) => s.isScreener).length;
       
       // Simple ML scoring algorithm
       let riskScore = 0;
@@ -234,7 +234,7 @@ export class SimpleMLService {
       const reasons: string[] = [];
 
       // Check workload balance
-      const analystSchedules = recentSchedules.filter(s => s.analystId === analyst.id);
+      const analystSchedules = recentSchedules.filter((s: any) => s.analystId === analyst.id);
       const workload = analystSchedules.length;
       const avgWorkload = recentSchedules.length / analysts.length;
 
@@ -260,8 +260,8 @@ export class SimpleMLService {
       }
 
       // Check screener balance
-      const screenerDays = analystSchedules.filter(s => s.isScreener).length;
-      const avgScreeners = analystSchedules.filter(s => s.isScreener).length / analysts.length;
+      const screenerDays = analystSchedules.filter((s: any) => s.isScreener).length;
+      const avgScreeners = analystSchedules.filter((s: any) => s.isScreener).length / analysts.length;
       
       if (screenerDays < avgScreeners * 0.5) {
         score += 10; // Bonus for fewer screener duties
@@ -269,7 +269,7 @@ export class SimpleMLService {
       }
 
       // Check weekend work balance
-      const weekendDays = analystSchedules.filter(s => s.shiftType === 'WEEKEND').length;
+      const weekendDays = analystSchedules.filter((s: any) => s.shiftType === 'WEEKEND').length;
       if (weekendDays < 2) {
         score += 5; // Small bonus for weekend availability
         reasons.push('Available for weekend work');
@@ -286,7 +286,7 @@ export class SimpleMLService {
     assignments.sort((a, b) => b.score - a.score);
 
     const recommended = assignments[0];
-    const alternatives = assignments.slice(1, 4).map(a => ({
+    const alternatives = assignments.slice(1, 4).map((a: any) => ({
       id: a.analyst.id,
       name: a.analyst.name,
       score: a.score,
@@ -394,7 +394,7 @@ export class SimpleMLService {
       const currentDate = new Date(d);
       
       // Check staffing shortage
-      const daySchedules = existingSchedules.filter(s => 
+      const daySchedules = existingSchedules.filter((s: any) => 
         s.date.toDateString() === currentDate.toDateString()
       );
       
@@ -416,7 +416,7 @@ export class SimpleMLService {
       // Check constraint violations
       for (const constraint of constraints) {
         if (constraint.startDate <= currentDate && currentDate <= constraint.endDate) {
-          const analystSchedules = daySchedules.filter(s => s.analystId === constraint.analystId);
+          const analystSchedules = daySchedules.filter((s: any) => s.analystId === constraint.analystId);
           
           if (analystSchedules.length > 0) {
             predictions.push({

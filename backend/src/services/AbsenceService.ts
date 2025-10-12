@@ -1,6 +1,27 @@
 import { PrismaClient } from '@prisma/client';
 import moment from 'moment-timezone';
 
+// Define a type for Absence with Analyst included
+type AbsenceWithAnalyst = {
+  analyst: {
+    id: string;
+    name: string;
+    email: string;
+    shiftType: string;
+  } | null;
+} & {
+  id: string;
+  analystId: string;
+  startDate: Date;
+  endDate: Date;
+  type: string;
+  reason: string | null;
+  isApproved: boolean;
+  isPlanned: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export interface AbsenceData {
   analystId: string;
   startDate: string; // ISO date string
@@ -241,7 +262,7 @@ export class AbsenceService {
       }
     });
 
-    return absences.map(absence => absence.analyst);
+    return absences.map((absence: AbsenceWithAnalyst) => absence.analyst);
   }
 
   /**
@@ -279,7 +300,7 @@ export class AbsenceService {
         date: start.format('YYYY-MM-DD'),
         description: `Absence conflicts with ${existingSchedules.length} existing schedule(s)`,
         severity: 'HIGH',
-        affectedAnalysts: existingSchedules.map(s => s.analyst.name),
+        affectedAnalysts: existingSchedules.map((s: any) => s.analyst.name),
         suggestedResolution: 'Consider rescheduling affected shifts or adjusting absence dates'
       });
     }
@@ -329,7 +350,7 @@ export class AbsenceService {
     });
 
     // Count unique analysts absent during this period
-    const absentAnalystIds = new Set(allAbsences.map(a => a.analystId));
+    const absentAnalystIds = new Set(allAbsences.map((a: any) => a.analystId));
     if (excludeId) {
       // If updating, remove the current absence from the count
       const currentAbsence = await this.prisma.absence.findUnique({
@@ -403,7 +424,7 @@ export class AbsenceService {
       byMonth: {} as Record<string, number>
     };
 
-    absences.forEach(absence => {
+    absences.forEach((absence: any) => {
       const start = moment(absence.startDate);
       const end = moment(absence.endDate);
       const days = end.diff(start, 'days') + 1;

@@ -1,6 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 import moment from 'moment-timezone';
 
+// Local type definition for Schedule to avoid import errors
+interface Schedule {
+  id: string;
+  analystId: string;
+  date: Date;
+  shiftType: string;
+  isScreener: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
 interface FairnessMetrics {
   analystId: string;
   analystName: string;
@@ -72,7 +82,7 @@ export class FairnessTracker {
     });
 
     // Process historical schedules to build fairness metrics
-    historicalSchedules.forEach(schedule => {
+    historicalSchedules.forEach((schedule: Schedule) => {
       const metrics = this.metrics.get(schedule.analystId);
       if (!metrics) return;
 
@@ -132,12 +142,12 @@ export class FairnessTracker {
   /**
    * Get the most fair analyst for a given shift
    */
-  getMostFairAnalyst(
+  async getMostFairAnalyst(
     availableAnalysts: any[],
     date: Date,
     shiftType: string,
     isScreener: boolean
-  ): string | null {
+  ): Promise<string | null> {
     if (availableAnalysts.length === 0) return null;
 
     const dayOfWeek = date.getDay();
@@ -147,9 +157,9 @@ export class FairnessTracker {
     let bestAnalyst = availableAnalysts[0];
     let bestScore = -Infinity;
 
-    availableAnalysts.forEach(analyst => {
+    for (const analyst of availableAnalysts) {
       const metrics = this.metrics.get(analyst.id);
-      if (!metrics) return;
+      if (!metrics) continue;
 
       // Calculate a score that favors analysts with lower workload
       let score = 0;
@@ -170,7 +180,7 @@ export class FairnessTracker {
         score -= metrics.screenerDaysAssigned * 50;
         
         // Check if screener was assigned in the last 2 days
-        const recentScreenerDays = this.getRecentScreenerDays(analyst.id, date, 2);
+        const recentScreenerDays = await this.getRecentScreenerDays(analyst.id, date, 2);
         if (recentScreenerDays >= 2) score -= 2000; // Max 2 consecutive screener days
       }
 
@@ -188,7 +198,7 @@ export class FairnessTracker {
         bestScore = score;
         bestAnalyst = analyst;
       }
-    });
+    }
 
     return bestAnalyst.id;
   }

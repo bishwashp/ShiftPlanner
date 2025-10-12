@@ -81,7 +81,7 @@ router.post('/test-high-impact', async (req: Request, res: Response) => {
   try {
     const testActivity = {
       type: 'SYSTEM_MAINTENANCE',
-      category: 'SYSTEM',
+      category: 'SYSTEM' as const,
       title: 'Critical System Update',
       description: 'Emergency security patch applied to resolve critical vulnerability affecting all user accounts',
       performedBy: 'admin',

@@ -243,14 +243,15 @@ app.post('/health/warm-cache', async (req, res) => {
 // API routes
 app.use('/api', routes);
 
-// GraphQL endpoint info
-app.get('/graphql', (req, res) => {
-  res.json({
-    message: 'GraphQL endpoint',
-    playground: '/graphql',
-    documentation: 'Use GraphQL Playground for interactive queries',
-    examples: {
-      health: `
+// Register GraphQL endpoint info after GraphQL middleware is mounted
+export function registerGraphQLEndpointInfo() {
+  app.get('/api/graphql', (req, res) => {
+    res.json({
+      message: 'GraphQL endpoint',
+      playground: '/api/graphql',
+      documentation: 'Use GraphQL Playground for interactive queries',
+      examples: {
+        health: `
         query {
           health {
             status
@@ -273,7 +274,7 @@ app.get('/graphql', (req, res) => {
           }
         }
       `,
-      analysts: `
+        analysts: `
         query {
           analysts {
             id
@@ -288,7 +289,7 @@ app.get('/graphql', (req, res) => {
           }
         }
       `,
-      schedulePreview: `
+        schedulePreview: `
         query {
           generateSchedulePreview(input: {
             startDate: "2025-01-01"
@@ -315,9 +316,10 @@ app.get('/graphql', (req, res) => {
           }
         }
       `
-    }
+      }
+    });
   });
-});
+}
 
 // Error handling middleware
 app.use(async (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -353,18 +355,20 @@ app.use(async (err: any, req: express.Request, res: express.Response, next: expr
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Not found',
-    message: `Route ${req.originalUrl} not found`,
-    availableEndpoints: {
-      health: '/health',
-      api: '/api',
-      graphql: '/graphql',
-      graphqlPlayground: '/graphql'
-    }
+// Register 404 handler last, after GraphQL middleware is mounted
+export function registerNotFoundHandler() {
+  app.use('*', (req, res) => {
+    res.status(404).json({
+      error: 'Not found',
+      message: `Route ${req.originalUrl} not found`,
+      availableEndpoints: {
+        health: '/health',
+        api: '/api',
+        graphql: '/api/graphql',
+        graphqlPlayground: '/api/graphql'
+      }
+    });
   });
-});
+}
 
 export { app, httpServer };

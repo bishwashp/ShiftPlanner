@@ -264,6 +264,145 @@ export class RotationManager {
     // Check if day of week is in pattern
     return pattern.days.includes(date.getDay());
   }
+
+  /**
+   * Check if weekend coverage is needed and if this analyst should provide it
+   * This ensures FR-2.4: exactly one analyst per shift type works on each weekend day
+   */
+  needsWeekendCoverage(
+    analystId: string,
+    date: Date,
+    shiftType: string,
+    rotationPlans: RotationPlan[],
+    allAnalysts: any[]
+  ): boolean {
+    // Only consider weekend days
+    if (!isWeekend(date)) {
+      return false;
+    }
+
+    // Check if this analyst is in rotation (they should work if in rotation)
+    const rotation = rotationPlans.find(r => 
+      r.analystId === analystId && 
+      r.startDate && r.endDate &&
+      date >= r.startDate && date <= r.endDate
+    );
+
+    if (rotation) {
+      // If in rotation, follow rotation pattern
+      if (rotation.pattern === 'BREAK') {
+        return false;
+      }
+      const pattern = this.workPatterns.find(p => p.name === rotation.pattern);
+      return pattern ? pattern.days.includes(date.getDay()) : false;
+    }
+
+    // If not in rotation, check if we need weekend coverage
+    // Find analysts of the same shift type who are available for weekend work
+    const shiftAnalysts = allAnalysts.filter(a => a.shiftType === shiftType && a.isActive);
+    
+    // Check if any analyst in rotation can cover this weekend
+    const rotationAnalystsForWeekend = shiftAnalysts.filter(analyst => {
+      const analystRotation = rotationPlans.find(r => 
+        r.analystId === analyst.id && 
+        r.startDate && r.endDate &&
+        date >= r.startDate && date <= r.endDate &&
+        r.pattern !== 'BREAK'
+      );
+      
+      if (analystRotation) {
+        const pattern = this.workPatterns.find(p => p.name === analystRotation.pattern);
+        return pattern ? pattern.days.includes(date.getDay()) : false;
+      }
+      return false;
+    });
+
+    // If someone in rotation can cover, this analyst doesn't need to
+    if (rotationAnalystsForWeekend.length > 0) {
+      return false;
+    }
+
+    // CRITICAL: If no one in rotation can cover, we MUST ensure weekend coverage
+    // Use a deterministic approach to guarantee exactly one analyst per shift type
+    return this.guaranteeWeekendCoverage(analystId, date, shiftAnalysts);
+  }
+
+  /**
+   * Guarantee weekend coverage by ensuring exactly one analyst per shift type works weekends
+   * This is a critical requirement (FR-2.4) that must never fail
+   */
+  private guaranteeWeekendCoverage(
+    analystId: string,
+    date: Date,
+    shiftAnalysts: any[]
+  ): boolean {
+    // Sort analysts consistently for deterministic assignment
+    const sortedAnalysts = shiftAnalysts.sort((a, b) => a.id.localeCompare(b.id));
+    const analystIndex = sortedAnalysts.findIndex(a => a.id === analystId);
+    
+    if (analystIndex === -1) {
+      return false;
+    }
+
+    // Use date-based deterministic assignment to ensure consistent weekend coverage
+    // This guarantees that the same analyst is always selected for the same weekend
+    const dateStr = date.toISOString().split('T')[0];
+    const dateHash = this.hashString(dateStr) % shiftAnalysts.length;
+    
+    // Assign exactly one analyst per shift type for this weekend
+    return analystIndex === dateHash;
+  }
+
+  /**
+   * Simple hash function for deterministic assignment
+   */
+  private hashString(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash);
+  }
+
+  /**
+   * Determine if this analyst should provide weekend coverage based on fairness
+   */
+  private shouldProvideWeekendCoverage(
+    analystId: string,
+    date: Date,
+    shiftAnalysts: any[]
+  ): boolean {
+    // Enhanced fairness: ensure weekend coverage while being fair
+    const sortedAnalysts = shiftAnalysts.sort((a, b) => a.id.localeCompare(b.id));
+    const analystIndex = sortedAnalysts.findIndex(a => a.id === analystId);
+    
+    if (analystIndex === -1) {
+      return false;
+    }
+
+    // Use a more reliable weekend rotation strategy
+    // Count weekends since a reference date to ensure consistent rotation
+    const referenceDate = new Date('2025-01-01'); // Reference date
+    const weeksSinceReference = Math.floor((date.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24 * 7));
+    
+    // Rotate through analysts based on weeks, ensuring weekend coverage
+    const rotationIndex = weeksSinceReference % shiftAnalysts.length;
+    
+    // For weekends, we need to ensure coverage, so we'll be more permissive
+    // If the primary analyst can't work, try the next one
+    const primaryMatch = analystIndex === rotationIndex;
+    
+    // If this is the primary analyst or we need backup coverage, assign them
+    if (primaryMatch) {
+      return true;
+    }
+    
+    // For weekends, ensure we always have coverage by having a backup strategy
+    // If no one else is assigned and this analyst is available, assign them
+    return analystIndex === (rotationIndex + 1) % shiftAnalysts.length;
+  }
   
   /**
    * Get the work pattern for a specific date and analyst

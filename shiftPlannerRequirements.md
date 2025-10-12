@@ -45,13 +45,19 @@ The application will:
   - Tuesday to Saturday
 
 - **FR-2.3**: The system shall rotate Analysts through different shift patterns as follows:
-  - **FR-2.3.1**: Weekend Rotation:
-    - The system shall maintain a rotation system where exactly one Analyst per shift type (morning/evening) follows a special rotation pattern at any given time
-    - The rotation pattern consists of:
-      - Week 1: The Analyst works Sunday-Thursday
-      - Week 2: After a 4-day break, the same Analyst works Tuesday-Saturday
-      - Week 3: The Analyst returns to regular Monday-Friday schedule
-    - When an Analyst completes their rotation cycle, the next Analyst is selected from the pool of available Analysts based on fairness metrics
+  - **FR-2.3.1**: Weekend Rotation (Staggered Two-Analyst System):
+    - The system shall maintain a staggered rotation system where TWO Analysts per shift type are in different phases of their personal 3-week rotation cycle simultaneously
+    - Each Analyst's personal rotation cycle consists of:
+      - **Week 1**: Works Sunday-Thursday (5 days, Friday auto comp-off)
+      - **Week 2**: Works Tuesday-Saturday (5 days, Monday auto comp-off, after Friday-Monday 4-day break from Week 1)
+      - **Week 3**: Returns to regular Monday-Friday schedule (5 days, back to normal)
+    - **Staggered Entry**: When an Analyst completes Week 1, a NEW Analyst enters Week 1 of their cycle
+    - **Example Timeline**:
+      - Calendar Week 1: Analyst A (Week 1: Sun-Thu), Analyst B (Week 2: Tue-Sat), Others (Mon-Fri)
+      - Calendar Week 2: Analyst A (Week 2: Tue-Sat), Analyst C (Week 1: Sun-Thu), Analyst B (Week 3: Mon-Fri), Others (Mon-Fri)
+      - Calendar Week 3: Analyst A (Week 3: Mon-Fri), Analyst C (Week 2: Tue-Sat), Analyst D (Week 1: Sun-Thu), Others (Mon-Fri)
+    - This ensures continuous weekend coverage while rotating fairly through all Analysts
+    - When an Analyst completes their 3-week rotation cycle, the next Analyst is selected from the pool of available Analysts based on fairness metrics
     - An Analyst shall not re-enter rotation until all other available Analysts have completed their rotation cycles
     - All other Analysts not currently in rotation shall work regular Monday-Friday schedules
 

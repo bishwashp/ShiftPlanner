@@ -5,11 +5,23 @@ import { cacheService } from './cacheService';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { debounce } from '../hooks/useDebounce';
 
+// GraphQL response interface
+interface GraphQLResponse {
+  data?: any;
+  errors?: Array<{
+    message: string;
+    locations?: Array<{ line: number; column: number }>;
+    path?: string[];
+    extensions?: any;
+  }>;
+}
+
 // Define AxiosRequestConfig type for compatibility
 type AxiosRequestConfig = any;
 
 // API Configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
+const GRAPHQL_ENDPOINT = '/graphql'; // Use a relative path to be appended to the apiClient baseURL
 
 // Request throttling configuration
 const THROTTLE_DELAY = 300; // 300ms between requests
@@ -959,6 +971,154 @@ export const apiService = {
         };
       };
     };
+  },
+
+  // GraphQL Methods for Comp-Off System
+  getCompOffBalance: async (analystId: string): Promise<any> => {
+    try {
+      const response = await apiClient.post(GRAPHQL_ENDPOINT, {
+        query: `
+          query GetCompOffBalance($analystId: ID!) {
+            compOffBalance(analystId: $analystId) {
+              analystId
+              availableBalance
+              totalEarned
+              totalUsed
+              recentTransactions {
+                id
+                type
+                earnedDate
+                compOffDate
+                reason
+                days
+                isAutoAssigned
+                isBanked
+                description
+                createdAt
+              }
+            }
+          }
+        `,
+        variables: { analystId }
+      });
+      
+      const graphQLResponse = response.data as GraphQLResponse;
+      if (graphQLResponse.errors && graphQLResponse.errors.length > 0) {
+        console.error("GraphQL errors:", graphQLResponse.errors);
+        throw new Error(graphQLResponse.errors[0].message || 'GraphQL error occurred');
+      }
+      
+      return graphQLResponse.data?.compOffBalance;
+    } catch (error) {
+      console.error("Error fetching comp-off balance:", error);
+      throw error;
+    }
+  },
+
+  getCompOffTransactions: async (analystId: string, startDate?: string, endDate?: string): Promise<any[]> => {
+    try {
+      const response = await apiClient.post(GRAPHQL_ENDPOINT, {
+        query: `
+          query GetCompOffTransactions($analystId: ID!, $startDate: DateTime, $endDate: DateTime) {
+            compOffTransactions(analystId: $analystId, startDate: $startDate, endDate: $endDate) {
+              id
+              analystId
+              type
+              earnedDate
+              compOffDate
+              reason
+              days
+              isAutoAssigned
+              isBanked
+              description
+              createdAt
+            }
+          }
+        `,
+        variables: { analystId, startDate, endDate }
+      });
+      
+      const graphQLResponse = response.data as GraphQLResponse;
+      if (graphQLResponse.errors && graphQLResponse.errors.length > 0) {
+        console.error("GraphQL errors:", graphQLResponse.errors);
+        throw new Error(graphQLResponse.errors[0].message || 'GraphQL error occurred');
+      }
+      
+      return graphQLResponse.data?.compOffTransactions || [];
+    } catch (error) {
+      console.error("Error fetching comp-off transactions:", error);
+      return [];
+    }
+  },
+
+  getWeeklyWorkloads: async (analystId?: string, startDate?: string, endDate?: string): Promise<any[]> => {
+    try {
+      const response = await apiClient.post(GRAPHQL_ENDPOINT, {
+        query: `
+          query GetWeeklyWorkloads($analystId: ID, $startDate: DateTime, $endDate: DateTime) {
+            weeklyWorkloads(analystId: $analystId, startDate: $startDate, endDate: $endDate) {
+              id
+              analystId
+              weekStart
+              weekEnd
+              scheduledWorkDays
+              weekendWorkDays
+              holidayWorkDays
+              overtimeDays
+              autoCompOffDays
+              bankedCompOffDays
+              totalWorkDays
+              isBalanced
+            }
+          }
+        `,
+        variables: { analystId, startDate, endDate }
+      });
+      
+      const graphQLResponse = response.data as GraphQLResponse;
+      if (graphQLResponse.errors && graphQLResponse.errors.length > 0) {
+        console.error("GraphQL errors:", graphQLResponse.errors);
+        throw new Error(graphQLResponse.errors[0].message || 'GraphQL error occurred');
+      }
+      
+      return graphQLResponse.data?.weeklyWorkloads || [];
+    } catch (error) {
+      console.error("Error fetching weekly workloads:", error);
+      return [];
+    }
+  },
+
+  getRotationStates: async (algorithmType?: string, shiftType?: string): Promise<any[]> => {
+    try {
+      const response = await apiClient.post(GRAPHQL_ENDPOINT, {
+        query: `
+          query GetRotationStates($algorithmType: String, $shiftType: ShiftType) {
+            rotationStates(algorithmType: $algorithmType, shiftType: $shiftType) {
+              id
+              algorithmType
+              shiftType
+              currentSunThuAnalyst
+              currentTueSatAnalyst
+              completedAnalysts
+              inProgressAnalysts
+              lastUpdated
+            }
+          }
+        `,
+        variables: { algorithmType, shiftType }
+      });
+      
+      const graphQLResponse = response.data as GraphQLResponse;
+      if (graphQLResponse.errors && graphQLResponse.errors.length > 0) {
+        console.error("GraphQL errors:", graphQLResponse.errors);
+        throw new Error(graphQLResponse.errors[0].message || 'GraphQL error occurred');
+      }
+      
+      return graphQLResponse.data?.rotationStates || [];
+    } catch (error) {
+      console.error("Error fetching rotation states:", error);
+      return [];
+    }
   },
 };
 

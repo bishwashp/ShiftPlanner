@@ -235,6 +235,10 @@ export class ConflictDetectionService {
         return;
       }
       
+      const date = new Date(dateStr);
+      const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      
       let missingShifts: string[] = [];
       
       // Check for missing shifts in partial schedules
@@ -245,15 +249,31 @@ export class ConflictDetectionService {
         missingShifts.push('Evening');
       }
       
-      // Add missing shift conflicts for partial schedules
-      if (missingShifts.length > 0 && datesWithPartialSchedules.has(dateStr)) {
-        conflicts.push({
-          date: dateStr,
-          message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment(dateStr).format('MMM D')}`,
-          type: 'NO_ANALYST_ASSIGNED',
-          missingShifts,
-          severity: 'critical'
-        });
+      // For weekends, we need exactly one analyst per shift type (FR-2.4)
+      // For weekdays, we need both shifts
+      if (missingShifts.length > 0) {
+        let shouldReportConflict = false;
+        
+        if (isWeekend) {
+          // Weekend: FR-2.4 requires exactly one analyst per shift type
+          // If morning OR evening exists, that's valid coverage for that shift
+          // Only report conflict if BOTH shifts are missing (no coverage at all)
+          shouldReportConflict = missingShifts.length === 2; // Both morning AND evening missing
+        } else {
+          // Weekday: Missing shifts are critical (business requirement)
+          shouldReportConflict = true;
+        }
+        
+        if (shouldReportConflict && datesWithPartialSchedules.has(dateStr)) {
+          const shiftType = isWeekend ? 'weekend' : 'weekday';
+          conflicts.push({
+            date: dateStr,
+            message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment(dateStr).format('MMM D')} (${shiftType})`,
+            type: 'NO_ANALYST_ASSIGNED',
+            missingShifts,
+            severity: 'critical'
+          });
+        }
       }
     });
   }
@@ -288,35 +308,42 @@ export class ConflictDetectionService {
     datesWithCompleteSchedules.forEach(dateStr => {
       const date = new Date(dateStr);
       const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
-      
-      // Skip screener conflict checks for weekends (Saturday=6, Sunday=0)
-      // Weekends should have analysts but no screeners per business requirements
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        return;
-      }
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       
       const screeners = screenerAssignments.get(dateStr) || { morning: 0, evening: 0 };
       let screenerIssues: string[] = [];
       
-      // Check for screener requirements (only on weekdays)
-      if (screeners.morning === 0) {
-        screenerIssues.push('Morning screener missing');
-      }
-      if (screeners.evening === 0) {
-        screenerIssues.push('Evening screener missing');
-      }
-      if (screeners.morning > 1) {
-        screenerIssues.push(`Multiple morning screeners (${screeners.morning})`);
-      }
-      if (screeners.evening > 1) {
-        screenerIssues.push(`Multiple evening screeners (${screeners.evening})`);
+      if (isWeekend) {
+        // Weekends: Screeners are optional, but if assigned, should follow rules
+        // This is consistent with business requirements that weekends have analysts but screeners are optional
+        if (screeners.morning > 1) {
+          screenerIssues.push(`Multiple morning screeners (${screeners.morning})`);
+        }
+        if (screeners.evening > 1) {
+          screenerIssues.push(`Multiple evening screeners (${screeners.evening})`);
+        }
+      } else {
+        // Weekdays: Screeners are required
+        if (screeners.morning === 0) {
+          screenerIssues.push('Morning screener missing');
+        }
+        if (screeners.evening === 0) {
+          screenerIssues.push('Evening screener missing');
+        }
+        if (screeners.morning > 1) {
+          screenerIssues.push(`Multiple morning screeners (${screeners.morning})`);
+        }
+        if (screeners.evening > 1) {
+          screenerIssues.push(`Multiple evening screeners (${screeners.evening})`);
+        }
       }
       
       // Add screener conflicts
       if (screenerIssues.length > 0) {
+        const shiftType = isWeekend ? 'weekend' : 'weekday';
         conflicts.push({
           date: dateStr,
-          message: `${screenerIssues.join(', ')} on ${moment(dateStr).format('MMM D')}`,
+          message: `${screenerIssues.join(', ')} on ${moment(dateStr).format('MMM D')} (${shiftType})`,
           type: 'SCREENER_CONFLICT',
           missingShifts: screenerIssues,
           severity: screenerIssues.some(issue => issue.includes('missing')) ? 'critical' : 'recommended'
