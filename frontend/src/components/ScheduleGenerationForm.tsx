@@ -13,18 +13,15 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
 }) => {
   const [startDate, setStartDate] = useState(moment().format('YYYY-MM-DD'));
   const [endDate, setEndDate] = useState(moment().add(7, 'days').format('YYYY-MM-DD'));
-  const [algorithm, setAlgorithm] = useState('WeekendRotationAlgorithm');
+  // Single algorithm: IntelligentScheduler
+  const algorithm = 'INTELLIGENT';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onGenerate(startDate, endDate, algorithm);
   };
 
-  const algorithms = [
-    { value: 'WeekendRotationAlgorithm', label: 'Weekend Rotation' },
-    { value: 'FairnessAlgorithm', label: 'Fairness Based' },
-    { value: 'ConstraintBasedAlgorithm', label: 'Constraint Based' }
-  ];
+  // Removed algorithm selection - using single IntelligentScheduler
 
   return (
     <div className="bg-card text-card-foreground rounded-lg border border-border p-6">
@@ -67,23 +64,7 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
           </div>
         </div>
 
-        {/* Algorithm Selection */}
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Algorithm
-          </label>
-          <select
-            value={algorithm}
-            onChange={(e) => setAlgorithm(e.target.value)}
-            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-transparent"
-          >
-            {algorithms.map((alg) => (
-              <option key={alg.value} value={alg.value}>
-                {alg.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Algorithm selection removed - using single IntelligentScheduler */}
 
         {/* Preview Info */}
         <div className="bg-muted/50 rounded-lg p-4">
@@ -93,7 +74,7 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
           </div>
           <div className="text-sm text-muted-foreground">
             <p>• Duration: {moment(endDate).diff(moment(startDate), 'days') + 1} days</p>
-            <p>• Algorithm: {algorithms.find(a => a.value === algorithm)?.label}</p>
+            <p>• Using: Intelligent Scheduling (rotation + fairness)</p>
             <p>• This will generate schedules for all active analysts</p>
           </div>
         </div>
