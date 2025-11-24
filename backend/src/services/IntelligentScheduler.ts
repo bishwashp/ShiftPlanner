@@ -80,82 +80,270 @@ export class IntelligentScheduler implements SchedulingStrategy {
   }
 
   /**
-   * Generate a schedule based on the provided context
+   * Generate a comprehensive schedule based on the provided context
+   * Incorporates rotation planning, fairness optimization, and screener assignments
    */
   async generate(context: SchedulingContext): Promise<SchedulingResult> {
-    const { startDate, endDate, existingSchedules } = context;
+    const startTime = Date.now();
+    console.log(`🚀 Starting Intelligent Scheduler with ${context.analysts.length} analysts`);
 
-    // 1. Identify missing shifts (conflicts)
-    const conflicts: Array<{ date: string; missingShifts: string[]; severity: string }> = [];
+    // Use default config if not provided
+    const config = context.algorithmConfig || {
+      optimizationStrategy: 'GREEDY',
+      maxIterations: 100,
+      fairnessWeight: 0.5,
+      constraintWeight: 0.5
+    };
+
+    // 1. Generate initial schedules using rotation logic
+    const initialSchedules = await this.generateInitialSchedules(context);
+
+    // 2. Validate constraints
+    const constraintValidation = constraintEngine.validateConstraints(
+      initialSchedules,
+      context.globalConstraints
+    );
+
+    // 3. Calculate initial fairness metrics
+    const fairnessMetrics = fairnessEngine.calculateFairness(initialSchedules, context.analysts);
+
+    // 4. Optimize schedules if needed
+    let optimizedSchedules = initialSchedules;
+    if (config.optimizationStrategy !== 'GREEDY' || fairnessMetrics.overallFairnessScore < 0.7) {
+      console.log(`🔧 Optimizing schedules using ${config.optimizationStrategy} strategy`);
+      optimizedSchedules = await optimizationEngine.optimizeSchedules(initialSchedules, context);
+    }
+
+    // 5. Recalculate metrics after optimization
+    const finalFairnessMetrics = fairnessEngine.calculateFairness(optimizedSchedules, context.analysts);
+    const finalConstraintValidation = constraintEngine.validateConstraints(
+      optimizedSchedules,
+      context.globalConstraints
+    );
+
+    // 6. Generate conflicts and overwrites
+    const conflicts = this.generateConflicts(optimizedSchedules, context);
+    const overwrites = this.generateOverwrites(optimizedSchedules, context.existingSchedules);
+
+    // 7. Calculate performance metrics
+    const executionTime = Date.now() - startTime;
+    const performanceMetrics = {
+      totalQueries: 0,
+      averageQueryTime: 0,
+      slowQueries: 0,
+      cacheHitRate: 0,
+      algorithmExecutionTime: executionTime,
+      memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024,
+      optimizationIterations: 0
+    };
+
+    console.log(`✅ Intelligent Scheduler completed in ${executionTime}ms`);
+    console.log(`📊 Fairness Score: ${finalFairnessMetrics.overallFairnessScore?.toFixed(4) || 'N/A'}`);
+    console.log(`🔒 Constraint Score: ${finalConstraintValidation.score?.toFixed(4) || 'N/A'}`);
+
+    return {
+      proposedSchedules: optimizedSchedules,
+      conflicts,
+      overwrites,
+      fairnessMetrics: finalFairnessMetrics,
+      performanceMetrics
+    };
+  }
+
+  /**
+   * Generate initial schedules using rotation logic
+   */
+  private async generateInitialSchedules(context: SchedulingContext): Promise<ProposedSchedule[]> {
+    const { startDate, endDate, analysts, existingSchedules, globalConstraints } = context;
+
+    const regularSchedules = await this.generateRegularWorkSchedules(
+      startDate, endDate, analysts, existingSchedules, globalConstraints
+    );
+
+    const screenerSchedules = await this.generateScreenerSchedules(
+      startDate, endDate, analysts, existingSchedules, globalConstraints, regularSchedules.proposedSchedules
+    );
+
+    const allSchedules = [...regularSchedules.proposedSchedules];
+
+    screenerSchedules.proposedSchedules.forEach(screenerSchedule => {
+      const index = allSchedules.findIndex(
+        p => p.analystId === screenerSchedule.analystId && p.date === screenerSchedule.date
+      );
+      if (index !== -1) {
+        allSchedules[index].isScreener = true;
+      } else {
+        allSchedules.push(screenerSchedule);
+      }
+    });
+
+    return allSchedules;
+  }
+
+  /**
+   * Generate regular work schedules using rotation manager
+   */
+  private async generateRegularWorkSchedules(
+    startDate: Date,
+    endDate: Date,
+    analysts: any[],
+    existingSchedules: any[],
+    globalConstraints: any[]
+  ): Promise<{ proposedSchedules: any[]; conflicts: any[]; overwrites: any[] }> {
+    const result = { proposedSchedules: [] as any[], conflicts: [] as any[], overwrites: [] as any[] };
+
+    const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
+    const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
+
+    const morningRotationPlans = await this.rotationManager.planRotation(
+      this.name, 'MORNING', startDate, endDate, morningAnalysts, existingSchedules
+    );
+
+    const eveningRotationPlans = await this.rotationManager.planRotation(
+      this.name, 'EVENING', startDate, endDate, eveningAnalysts, existingSchedules
+    );
+
     const currentDate = new Date(startDate);
-    const end = new Date(endDate);
-
-    while (currentDate <= end) {
+    while (currentDate <= endDate) {
       const dateStr = currentDate.toISOString().split('T')[0];
-      const daySchedules = existingSchedules.filter(s =>
-        s.date.toISOString().split('T')[0] === dateStr
+
+      const blackoutConstraint = globalConstraints.find(c =>
+        new Date((c as any).startDate) <= currentDate &&
+        new Date((c as any).endDate) >= currentDate &&
+        (c as any).constraintType === 'BLACKOUT_DATE'
       );
 
-      const hasMorning = daySchedules.some(s => s.shiftType === 'MORNING');
-      const hasEvening = daySchedules.some(s => s.shiftType === 'EVENING');
-
-      const missingShifts: string[] = [];
-      if (!hasMorning) missingShifts.push('MORNING');
-      if (!hasEvening) missingShifts.push('EVENING');
-
-      if (missingShifts.length > 0) {
-        conflicts.push({
-          date: dateStr,
-          missingShifts,
-          severity: 'critical'
+      if (blackoutConstraint) {
+        result.conflicts.push({
+          date: dateStr, type: 'BLACKOUT_DATE',
+          description: (blackoutConstraint as any).description || 'No scheduling allowed',
+          severity: 'CRITICAL'
         });
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+
+      for (const analyst of morningAnalysts) {
+        const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, morningRotationPlans);
+        const onVacation = analyst.vacations?.some((v: any) =>
+          new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate
+        ) || false;
+
+        if (shouldWork && !onVacation) {
+          result.proposedSchedules.push({
+            date: dateStr, analystId: analyst.id, analystName: analyst.name,
+            shiftType: 'MORNING', isScreener: false, type: 'NEW_SCHEDULE'
+          });
+        }
+      }
+
+      for (const analyst of eveningAnalysts) {
+        const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, eveningRotationPlans);
+        const onVacation = analyst.vacations?.some((v: any) =>
+          new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate
+        ) || false;
+
+        if (shouldWork && !onVacation) {
+          result.proposedSchedules.push({
+            date: dateStr, analystId: analyst.id, analystName: analyst.name,
+            shiftType: 'EVENING', isScreener: false, type: 'NEW_SCHEDULE'
+          });
+        }
       }
 
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // 2. Resolve conflicts using existing logic
-    const resolution = await this.resolveConflicts(
-      conflicts,
-      startDate.toISOString(),
-      endDate.toISOString()
-    );
+    return result;
+  }
 
-    // 3. Map to SchedulingResult
-    const proposedSchedules: ProposedSchedule[] = resolution.suggestedAssignments.map(assignment => ({
-      date: assignment.date,
-      analystId: assignment.analystId,
-      analystName: assignment.analystName,
-      shiftType: assignment.shiftType,
-      isScreener: false, // Default, logic can be enhanced
-      type: 'NEW_SCHEDULE',
-      assignmentReason: {
-        ...assignment.reason,
-        confidence: 1.0 // Default confidence
-      }
-    }));
+  /**
+   * Generate screener assignments
+   */
+  private async generateScreenerSchedules(
+    startDate: Date, endDate: Date, analysts: any[], existingSchedules: any[],
+    globalConstraints: any[], baseSchedules: any[]
+  ): Promise<{ proposedSchedules: any[]; conflicts: any[]; overwrites: any[] }> {
+    const result = { proposedSchedules: [] as any[], conflicts: [] as any[], overwrites: [] as any[] };
 
-    return {
-      proposedSchedules,
-      conflicts: [], // TODO: Map unresolved conflicts
-      overwrites: [],
-      fairnessMetrics: {
-        workloadDistribution: { standardDeviation: 0, giniCoefficient: 0, maxMinRatio: 0 },
-        screenerDistribution: { standardDeviation: 0, maxMinRatio: 0, fairnessScore: 0 },
-        weekendDistribution: { standardDeviation: 0, maxMinRatio: 0, fairnessScore: 0 },
-        overallFairnessScore: 0,
-        recommendations: []
-      },
-      performanceMetrics: {
-        totalQueries: 0,
-        averageQueryTime: 0,
-        slowQueries: 0,
-        cacheHitRate: 0,
-        algorithmExecutionTime: 0,
-        memoryUsage: 0,
-        optimizationIterations: 0
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const daySchedules = baseSchedules.filter(s => s.date === dateStr);
+      const morningSchedules = daySchedules.filter(s => s.shiftType === 'MORNING');
+      const eveningSchedules = daySchedules.filter(s => s.shiftType === 'EVENING');
+
+      if (morningSchedules.length > 0) {
+        result.proposedSchedules.push({ ...morningSchedules[0], isScreener: true });
       }
-    };
+      if (eveningSchedules.length > 0) {
+        result.proposedSchedules.push({ ...eveningSchedules[0], isScreener: true });
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return result;
+  }
+
+  /**
+   * Detect conflicts in proposed schedules
+   */
+  private generateConflicts(schedules: any[], context: SchedulingContext): any[] {
+    const conflicts: any[] = [];
+    const dailyCoverage = new Map<string, { morning: number; evening: number }>();
+
+    for (const schedule of schedules) {
+      const date = schedule.date;
+      if (!dailyCoverage.has(date)) {
+        dailyCoverage.set(date, { morning: 0, evening: 0 });
+      }
+      const coverage = dailyCoverage.get(date)!;
+      if (schedule.shiftType === 'MORNING') coverage.morning++;
+      else if (schedule.shiftType === 'EVENING') coverage.evening++;
+    }
+
+    for (const [date, coverage] of dailyCoverage) {
+      if (coverage.morning === 0) {
+        conflicts.push({
+          date, type: 'INSUFFICIENT_STAFF', description: 'No morning shift coverage',
+          severity: 'HIGH', suggestedResolution: 'Assign additional morning analyst'
+        });
+      }
+      if (coverage.evening === 0) {
+        conflicts.push({
+          date, type: 'INSUFFICIENT_STAFF', description: 'No evening shift coverage',
+          severity: 'HIGH', suggestedResolution: 'Assign additional evening analyst'
+        });
+      }
+    }
+
+    return conflicts;
+  }
+
+  /**
+   * Detect overwrites where proposed schedules differ from existing
+   */
+  private generateOverwrites(schedules: any[], existingSchedules: any[]): any[] {
+    const overwrites: any[] = [];
+
+    for (const schedule of schedules) {
+      const existing = existingSchedules.find(s =>
+        s.analystId === schedule.analystId &&
+        new Date(s.date).toISOString().split('T')[0] === schedule.date
+      );
+
+      if (existing && (existing.shiftType !== schedule.shiftType || existing.isScreener !== schedule.isScreener)) {
+        overwrites.push({
+          date: schedule.date, analystId: schedule.analystId, analystName: schedule.analystName,
+          from: { shiftType: existing.shiftType, isScreener: existing.isScreener },
+          to: { shiftType: schedule.shiftType, isScreener: schedule.isScreener },
+          reason: 'Algorithm optimization'
+        });
+      }
+    }
+
+    return overwrites;
   }
 
   /**
