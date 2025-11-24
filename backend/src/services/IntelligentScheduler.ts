@@ -4,6 +4,12 @@ import HolidayService from './HolidayService';
 import AbsenceService from './AbsenceService';
 import { SchedulingStrategy } from './scheduling/strategies/SchedulingStrategy';
 import { SchedulingContext, SchedulingResult, ProposedSchedule } from './scheduling/algorithms/types';
+import { RotationManager } from './scheduling/RotationManager';
+import { fairnessCalculator } from './scheduling/FairnessCalculator';
+import { constraintEngine } from './scheduling/algorithms/ConstraintEngine';
+import { fairnessEngine } from './scheduling/algorithms/FairnessEngine';
+import { optimizationEngine } from './scheduling/algorithms/OptimizationEngine';
+import { PatternContinuityService } from './scheduling/PatternContinuityService';
 
 export interface AssignmentStrategy {
   id: string;
@@ -54,11 +60,18 @@ export class IntelligentScheduler implements SchedulingStrategy {
   private holidayService: HolidayService;
   private absenceService: AbsenceService;
   private shiftDefinitions: any;
+  private rotationManager: RotationManager;
+  private patternContinuityService: PatternContinuityService;
 
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
     this.holidayService = new HolidayService(prisma);
     this.absenceService = new AbsenceService(prisma);
+
+    // Initialize pattern continuity and rotation management
+    this.patternContinuityService = new PatternContinuityService(prisma);
+    this.rotationManager = new RotationManager(this.patternContinuityService);
+
     this.shiftDefinitions = {
       MORNING: { startHour: 9, endHour: 18, tz: 'America/Chicago' },
       EVENING: { startHour: 9, endHour: 18, tz: 'America/Los_Angeles' },
