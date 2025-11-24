@@ -49,7 +49,7 @@ const processQueue = async () => {
     if (config.method?.toLowerCase() === 'get' && config.url) {
       const cacheKey = `${config.url}${config.params ? JSON.stringify(config.params) : ''}`;
       const cachedData = cacheService.get(cacheKey);
-      
+
       if (cachedData) {
         console.log(`Cache hit for: ${config.url}`);
         resolve(cachedData);
@@ -60,23 +60,23 @@ const processQueue = async () => {
     }
 
     const response = await axios(config);
-    
+
     // Cache successful GET responses
     if (config.method?.toLowerCase() === 'get' && config.url) {
       const cacheKey = `${config.url}${config.params ? JSON.stringify(config.params) : ''}`;
       cacheService.set(cacheKey, response, CACHE_TTL);
     }
-    
+
     resolve(response);
   } catch (error: any) {
     // Retry on rate limit errors
     if (error.response?.status === 429 && retryCount < MAX_RETRIES) {
-      const retryAfter = error.response.headers['retry-after'] 
-        ? parseInt(error.response.headers['retry-after']) * 1000 
+      const retryAfter = error.response.headers['retry-after']
+        ? parseInt(error.response.headers['retry-after']) * 1000
         : RETRY_DELAY;
-      
+
       console.log(`Rate limited. Retrying after ${retryAfter}ms (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
-      
+
       setTimeout(() => {
         requestQueue.push({ config, resolve, reject, retryCount: retryCount + 1 });
         processQueue();
@@ -104,7 +104,7 @@ const throttledRequest = (config: AxiosRequestConfig) => {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const originalRequest = apiClient.request;
 // @ts-ignore - Ignore type checking for this line as we're using a custom implementation
-apiClient.request = function(config) {
+apiClient.request = function (config) {
   return throttledRequest(config);
 };
 
@@ -128,13 +128,13 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     console.error('API Response Error:', error.response?.data || error.message);
-    
+
     // Handle rate limiting errors
     if (error.response?.status === 429) {
       const retryAfter = error.response.data?.retryAfter || 60;
       console.warn(`Rate limit exceeded. Retry after ${retryAfter} seconds.`);
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -459,19 +459,24 @@ export const apiService = {
     await apiClient.delete(`/schedules/${id}`);
   },
 
+  validateSchedule: async (data: { analystId: string; date: string; shiftType: 'MORNING' | 'EVENING'; isScreener?: boolean; scheduleId?: string }): Promise<{ isValid: boolean; violations: any[] }> => {
+    const response = await apiClient.post('/schedules/validate', data);
+    return response.data as { isValid: boolean; violations: any[] };
+  },
+
   getScheduleHealth: async (params?: { startDate: string; endDate: string }): Promise<Array<{
-    date: string; 
-    message: string; 
-    type: string; 
-    missingShifts: string[]; 
+    date: string;
+    message: string;
+    type: string;
+    missingShifts: string[];
     severity: string;
   }>> => {
     const response = await apiClient.get('/schedules/health/conflicts', { params });
     return response.data as Array<{
-      date: string; 
-      message: string; 
-      type: string; 
-      missingShifts: string[]; 
+      date: string;
+      message: string;
+      type: string;
+      missingShifts: string[];
       severity: string;
     }>;
   },
@@ -578,9 +583,9 @@ export const apiService = {
   },
 
   // Analytics
-  getWorkDayTally: async (month: number, year: number): Promise<Array<{ 
-    analystId: string; 
-    analystName: string; 
+  getWorkDayTally: async (month: number, year: number): Promise<Array<{
+    analystId: string;
+    analystName: string;
     month: number;
     year: number;
     totalWorkDays: number;
@@ -591,9 +596,9 @@ export const apiService = {
     fairnessScore: number;
   }>> => {
     const response = await apiClient.get(`/analytics/monthly-tallies/${year}/${month}`);
-    return (response.data as any).data as Array<{ 
-      analystId: string; 
-      analystName: string; 
+    return (response.data as any).data as Array<{
+      analystId: string;
+      analystName: string;
       month: number;
       year: number;
       totalWorkDays: number;
@@ -607,8 +612,8 @@ export const apiService = {
 
   // Enhanced Analytics Endpoints
   getFairnessReport: async (startDate: string, endDate: string): Promise<any> => {
-    const response = await apiClient.get('/analytics/fairness-report', { 
-      params: { startDate, endDate } 
+    const response = await apiClient.get('/analytics/fairness-report', {
+      params: { startDate, endDate }
     });
     return (response.data as any).data;
   },
@@ -697,16 +702,16 @@ export const apiService = {
   },
 
   // Applies a list of assignments to resolve conflicts
-  applyAutoFix: async (data: { assignments: any[] }): Promise<{ 
-    message: string; 
-    createdSchedules: any[]; 
-    errors?: Array<{ assignment: any; error: string }> 
+  applyAutoFix: async (data: { assignments: any[] }): Promise<{
+    message: string;
+    createdSchedules: any[];
+    errors?: Array<{ assignment: any; error: string }>
   }> => {
     const response = await apiClient.post('/schedules/apply-auto-fix', data);
-    return response.data as { 
-      message: string; 
-      createdSchedules: any[]; 
-      errors?: Array<{ assignment: any; error: string }> 
+    return response.data as {
+      message: string;
+      createdSchedules: any[];
+      errors?: Array<{ assignment: any; error: string }>
     };
   },
 
@@ -824,7 +829,7 @@ export const apiService = {
     if (year) params.year = year;
     if (timezone) params.timezone = timezone;
     if (isActive !== undefined) params.isActive = isActive;
-    
+
     const response = await apiClient.get('/holidays', { params });
     return response.data as any[];
   },
@@ -855,9 +860,9 @@ export const apiService = {
   },
 
   initializeDefaultHolidays: async (year: number, timezone?: string): Promise<any> => {
-    const response = await apiClient.post('/holidays/initialize-defaults', { 
-      year, 
-      timezone: timezone || 'America/New_York' 
+    const response = await apiClient.post('/holidays/initialize-defaults', {
+      year,
+      timezone: timezone || 'America/New_York'
     });
     return response.data as any;
   },
@@ -871,7 +876,7 @@ export const apiService = {
     if (isPlanned !== undefined) params.isPlanned = isPlanned;
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
-    
+
     const response = await apiClient.get('/absences', { params });
     return response.data as any[];
   },
@@ -899,7 +904,7 @@ export const apiService = {
     const params: any = {};
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
-    
+
     const response = await apiClient.get(`/absences/analyst/${analystId}`, { params });
     return response.data as any[];
   },

@@ -19,6 +19,7 @@ interface WeekScheduleViewProps {
   events: CalendarEvent[];
   analysts: Analyst[];
   onScheduleUpdate?: (schedules: Schedule[]) => void;
+  onScheduleClick?: (schedule: Schedule) => void;
 }
 
 interface DaySchedule {
@@ -37,7 +38,8 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
   clickedDay,
   events,
   analysts,
-  onScheduleUpdate
+  onScheduleUpdate,
+  onScheduleClick
 }) => {
   const [draggedSchedule, setDraggedSchedule] = useState<Schedule | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
@@ -53,22 +55,22 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
 
   const weekDays = useMemo(() => {
     const days: DaySchedule[] = [];
-    
+
     for (let i = 0; i < 7; i++) {
       const dayDate = weekStart.clone().add(i, 'days');
       const dayString = dayDate.format('YYYY-MM-DD');
-      
+
       // Use same filtering logic as CalendarGrid
       const dayEvents = events.filter(event =>
         event.date === dayString
       );
-      
+
       // Extract schedules from events
       const daySchedules = dayEvents.map(event => event.resource);
-      
+
       const morningSchedules = daySchedules.filter(s => s.shiftType === 'MORNING');
       const eveningSchedules = daySchedules.filter(s => s.shiftType === 'EVENING');
-      
+
       // Context-aware conflict detection following backend logic
       const conflicts: string[] = [];
       const morningScreeners = morningSchedules.filter(s => s.isScreener);
@@ -76,7 +78,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
       const dayOfWeek = dayDate.day(); // 0 = Sunday, 6 = Saturday
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isPastDate = dayDate.isBefore(moment().startOf('day'));
-      
+
       // Don't show conflicts for past dates
       if (isPastDate) {
         // Past dates don't need conflict checking
@@ -90,7 +92,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
             conflicts.push('Multiple evening screeners');
           }
         }
-        
+
         // Only show coverage conflicts if there are existing schedules for this date
         // This prevents showing conflicts when no schedules should exist
         if (daySchedules.length > 0) {
@@ -100,7 +102,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
           if (eveningSchedules.length === 0) {
             conflicts.push('No evening coverage');
           }
-          
+
           // Check for missing screeners on weekdays (only if there are schedules)
           if (!isWeekend && daySchedules.length > 0) {
             if (morningSchedules.length > 0 && morningScreeners.length === 0) {
@@ -112,7 +114,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
           }
         }
       }
-      
+
       days.push({
         date: dayDate,
         schedules: daySchedules,
@@ -146,34 +148,60 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
 
   const handleDrop = useCallback(async (e: React.DragEvent, targetDay: moment.Moment) => {
     e.preventDefault();
-    
+
     if (!draggedSchedule) return;
-    
+
     const newDate = targetDay.toDate();
-    
+
     try {
+      // Validate the move first
+      const validationResult = await apiService.validateSchedule({
+        analystId: draggedSchedule.analystId,
+        date: newDate.toISOString(),
+        shiftType: draggedSchedule.shiftType,
+        isScreener: draggedSchedule.isScreener,
+        scheduleId: draggedSchedule.id
+      });
+
+      // Check for hard violations
+      const hardViolations = validationResult.violations.filter((v: any) => v.type === 'HARD');
+      if (hardViolations.length > 0) {
+        const messages = hardViolations.map((v: any) => `• ${v.description}`).join('\n');
+        alert(`Cannot move schedule due to critical conflicts:\n\n${messages}`);
+        return;
+      }
+
+      // Check for soft violations
+      const softViolations = validationResult.violations.filter((v: any) => v.type === 'SOFT');
+      if (softViolations.length > 0) {
+        const messages = softViolations.map((v: any) => `• ${v.description}`).join('\n');
+        const confirmed = window.confirm(`Warning: This move causes the following conflicts:\n\n${messages}\n\nDo you want to proceed anyway?`);
+        if (!confirmed) return;
+      }
+
       // Update the schedule date
       const updatedSchedule = {
         ...draggedSchedule,
         date: newDate.toISOString()
       };
-      
+
       // Call API to update schedule
       await apiService.updateSchedule(draggedSchedule.id, {
         date: newDate.toISOString(),
         shiftType: draggedSchedule.shiftType,
         isScreener: draggedSchedule.isScreener
       });
-      
+
       // Update local state - convert events back to schedules for the callback
-      const updatedSchedules = events.map(event => 
+      const updatedSchedules = events.map(event =>
         event.resource.id === draggedSchedule.id ? updatedSchedule : event.resource
       );
-      
+
       onScheduleUpdate?.(updatedSchedules);
-      
+
     } catch (error) {
       console.error('Failed to update schedule:', error);
+      alert('Failed to update schedule. Please try again.');
     } finally {
       setDraggedSchedule(null);
       setDragOverDay(null);
@@ -206,7 +234,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
             <Calendar className="h-4 w-4" />
             <span>Month View</span>
           </button>
-          
+
           <div className="flex items-center space-x-2">
             <button
               onClick={handlePrevWeek}
@@ -214,11 +242,11 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            
+
             <h2 className="text-lg font-semibold min-w-[200px] text-center">
               {weekStart.format('MMM D')} - {weekStart.clone().add(6, 'days').format('MMM D, YYYY')}
             </h2>
-            
+
             <button
               onClick={handleNextWeek}
               className="p-2 rounded-md hover:bg-muted"
@@ -227,7 +255,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
             </button>
           </div>
         </div>
-        
+
         <div className="text-sm text-muted-foreground">
           {weekDays.reduce((total, day) => total + day.schedules.length, 0)} total assignments
         </div>
@@ -259,7 +287,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
                     {day.date.format('D')}
                   </div>
                 </div>
-                
+
                 {day.conflicts.length > 0 && (
                   <AlertTriangle className="h-4 w-4 text-red-500" />
                 )}
@@ -277,10 +305,11 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
                       key={schedule.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, schedule)}
+                      onClick={() => onScheduleClick?.(schedule)}
                       className={`
                         p-2 rounded text-xs cursor-move transition-colors
-                        ${schedule.isScreener 
-                          ? 'bg-yellow-200 text-yellow-800 border border-yellow-300' 
+                        ${schedule.isScreener
+                          ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
                           : 'bg-blue-100 text-blue-800 border border-blue-200'
                         }
                         ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
@@ -310,10 +339,11 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
                       key={schedule.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, schedule)}
+                      onClick={() => onScheduleClick?.(schedule)}
                       className={`
                         p-2 rounded text-xs cursor-move transition-colors
-                        ${schedule.isScreener 
-                          ? 'bg-yellow-200 text-yellow-800 border border-yellow-300' 
+                        ${schedule.isScreener
+                          ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
                           : 'bg-purple-100 text-purple-800 border border-purple-200'
                         }
                         ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}

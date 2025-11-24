@@ -2,6 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import moment from 'moment-timezone';
 import HolidayService from './HolidayService';
 import AbsenceService from './AbsenceService';
+import { SchedulingStrategy } from './scheduling/strategies/SchedulingStrategy';
+import { SchedulingContext, SchedulingResult, ProposedSchedule } from './scheduling/algorithms/types';
 
 export interface AssignmentStrategy {
   id: string;
@@ -20,6 +22,7 @@ export interface AssignmentReason {
   secondaryFactors: string[];
   workWeight: number;
   computationCost: 'LOW' | 'MEDIUM' | 'HIGH';
+  confidence?: number;
 }
 
 export interface ProposedAssignment {
@@ -43,7 +46,10 @@ export interface ConflictResolution {
   };
 }
 
-export class IntelligentScheduler {
+export class IntelligentScheduler implements SchedulingStrategy {
+  name = 'Intelligent Scheduler';
+  description = 'AI-driven scheduler that balances workload, experience, and constraints.';
+
   private prisma: PrismaClient;
   private holidayService: HolidayService;
   private absenceService: AbsenceService;
@@ -61,6 +67,85 @@ export class IntelligentScheduler {
   }
 
   /**
+   * Generate a schedule based on the provided context
+   */
+  async generate(context: SchedulingContext): Promise<SchedulingResult> {
+    const { startDate, endDate, existingSchedules } = context;
+
+    // 1. Identify missing shifts (conflicts)
+    const conflicts: Array<{ date: string; missingShifts: string[]; severity: string }> = [];
+    const currentDate = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (currentDate <= end) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const daySchedules = existingSchedules.filter(s =>
+        s.date.toISOString().split('T')[0] === dateStr
+      );
+
+      const hasMorning = daySchedules.some(s => s.shiftType === 'MORNING');
+      const hasEvening = daySchedules.some(s => s.shiftType === 'EVENING');
+
+      const missingShifts: string[] = [];
+      if (!hasMorning) missingShifts.push('MORNING');
+      if (!hasEvening) missingShifts.push('EVENING');
+
+      if (missingShifts.length > 0) {
+        conflicts.push({
+          date: dateStr,
+          missingShifts,
+          severity: 'critical'
+        });
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // 2. Resolve conflicts using existing logic
+    const resolution = await this.resolveConflicts(
+      conflicts,
+      startDate.toISOString(),
+      endDate.toISOString()
+    );
+
+    // 3. Map to SchedulingResult
+    const proposedSchedules: ProposedSchedule[] = resolution.suggestedAssignments.map(assignment => ({
+      date: assignment.date,
+      analystId: assignment.analystId,
+      analystName: assignment.analystName,
+      shiftType: assignment.shiftType,
+      isScreener: false, // Default, logic can be enhanced
+      type: 'NEW_SCHEDULE',
+      assignmentReason: {
+        ...assignment.reason,
+        confidence: 1.0 // Default confidence
+      }
+    }));
+
+    return {
+      proposedSchedules,
+      conflicts: [], // TODO: Map unresolved conflicts
+      overwrites: [],
+      fairnessMetrics: {
+        workloadDistribution: { standardDeviation: 0, giniCoefficient: 0, maxMinRatio: 0 },
+        screenerDistribution: { standardDeviation: 0, maxMinRatio: 0, fairnessScore: 0 },
+        weekendDistribution: { standardDeviation: 0, maxMinRatio: 0, fairnessScore: 0 },
+        overallFairnessScore: 0,
+        recommendations: []
+      },
+      performanceMetrics: {
+        totalQueries: 0,
+        averageQueryTime: 0,
+        slowQueries: 0,
+        cacheHitRate: 0,
+        algorithmExecutionTime: 0,
+        memoryUsage: 0,
+        optimizationIterations: 0
+      }
+    };
+  }
+
+  /**
    * Main method to resolve conflicts intelligently
    */
   async resolveConflicts(
@@ -69,7 +154,7 @@ export class IntelligentScheduler {
     endDate: string
   ): Promise<ConflictResolution> {
     const startTime = Date.now();
-    
+
     // Get all available analysts
     const analysts = await this.prisma.analyst.findMany({
       where: { isActive: true },
@@ -105,7 +190,7 @@ export class IntelligentScheduler {
           startDate,
           endDate
         );
-        
+
         if (assignment) {
           console.log(`✅ Successfully assigned analyst ${assignment.analystId} for ${shiftType} on ${conflict.date}`);
           proposedAssignments.push(assignment);
@@ -143,10 +228,10 @@ export class IntelligentScheduler {
   ): Promise<ProposedAssignment | null> {
     const strategy = await this.getAssignmentStrategy(date, shiftType);
     const availableAnalysts = await this.getAvailableAnalysts(date, shiftType);
-    
+
     console.log(`🔍 Assignment strategy for ${date} ${shiftType}:`, strategy.logic);
     console.log(`👥 Available analysts: ${availableAnalysts.length}/${analysts.length}`);
-    
+
     if (availableAnalysts.length === 0) {
       console.log(`❌ No available analysts for ${shiftType} on ${date}`);
       return null;
@@ -197,7 +282,7 @@ export class IntelligentScheduler {
         };
         break;
     }
-    
+
     const shiftDef = this.shiftDefinitions[shiftType];
     const shiftDate = moment.tz(date, shiftDef.tz).hour(shiftDef.startHour).minute(0).second(0).utc().format();
 
@@ -248,25 +333,7 @@ export class IntelligentScheduler {
     };
   }
 
-  /**
-   * Get analysts available for a specific date and shift
-   */
-  private getAvailableAnalysts(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any[] {
-    return analysts.filter(analyst => {
-      // Check if analyst is assigned to this shift type
-      if (analyst.shiftType !== shiftType) {
-        return false;
-      }
 
-      // Check if analyst is already scheduled for this date
-      const hasSchedule = analyst.schedules.some((schedule: any) => {
-        const scheduleDate = schedule.date.toISOString().split('T')[0];
-        return scheduleDate === date;
-      });
-
-      return !hasSchedule;
-    });
-  }
 
   /**
    * Round-robin assignment strategy
@@ -281,7 +348,7 @@ export class IntelligentScheduler {
    */
   private assignHolidayCoverage(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any {
     // For holidays, prefer analysts with more experience (created earlier)
-    return analysts.sort((a: any, b: any) => 
+    return analysts.sort((a: any, b: any) =>
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     )[0];
   }
@@ -290,8 +357,8 @@ export class IntelligentScheduler {
    * Workload balance assignment strategy
    */
   private assignWorkloadBalance(
-    date: string, 
-    shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', 
+    date: string,
+    shiftType: 'MORNING' | 'EVENING' | 'WEEKEND',
     analysts: any[],
     startDate: string,
     endDate: string
@@ -306,7 +373,7 @@ export class IntelligentScheduler {
    */
   private assignExperienceBased(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any {
     // Prefer analysts with more experience (created earlier)
-    return analysts.sort((a: any, b: any) => 
+    return analysts.sort((a: any, b: any) =>
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     )[0];
   }

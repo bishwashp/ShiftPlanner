@@ -24,6 +24,7 @@ export interface ProposedSchedule {
     analystId: string;
     analystName: string;
     shiftType: 'MORNING' | 'EVENING' | 'WEEKEND';
+    analystShiftType?: 'MORNING' | 'EVENING' | 'WEEKEND';
     isScreener: boolean;
     type: 'NEW_SCHEDULE' | 'OVERWRITE_SCHEDULE';
     assignmentReason?: AssignmentReason;

@@ -246,6 +246,24 @@ model Activity {
   @@map("activities")
 }
 
+model WorkPattern {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "SUN_THU", "MON_FRI", "TUE_SAT"
+  displayName String   // e.g., "Sunday-Thursday", "Monday-Friday"
+  days        String   // Comma-separated day numbers: "0,1,2,3,4" (Sunday=0, Saturday=6)
+  nextPattern String   // Name of next pattern in rotation sequence
+  breakDays   Int      @default(0) // Number of break days after this pattern
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0) // Order in which patterns are cycled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Performance indexes
+  @@index([isActive, sortOrder]) // For active pattern queries in order
+  @@index([name, isActive]) // For pattern lookups by name
+  @@map("work_patterns")
+}
+
 // SQLite doesn't support enums, so we use string constants
 // ShiftType: "MORNING", "EVENING", "WEEKEND"
 // EmployeeType: "EMPLOYEE", "CONTRACTOR"
@@ -253,3 +271,4 @@ model Activity {
 // PreferenceType: "PREFERRED", "AVAILABLE", "UNAVAILABLE"
 // ConstraintType: "BLACKOUT_DATE", "MAX_SCREENER_DAYS", "MIN_SCREENER_DAYS", "PREFERRED_SCREENER", "UNAVAILABLE_SCREENER"
 // AbsenceType: "VACATION", "SICK_LEAVE", "PERSONAL", "EMERGENCY", "TRAINING", "CONFERENCE"
+

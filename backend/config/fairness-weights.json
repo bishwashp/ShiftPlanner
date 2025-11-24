@@ -1,0 +1,15 @@
+{
+    "fairnessWeights": {
+        "weekendPenalty": 100,
+        "timeBonus": 50,
+        "balanceBonus": 30,
+        "maxWeekendPenalty": 100,
+        "maxTimeBonus": 50,
+        "maxBalanceBonus": 30
+    },
+    "scoringFactors": {
+        "weekendDaysMultiplier": 2,
+        "timeDivisor": 7,
+        "description": "Scoring factors for fairness calculations. weekendDaysMultiplier: Each weekend worked reduces score by (days * multiplier). timeDivisor: Days since last rotation divided by this value to calculate time bonus."
+    }
+}

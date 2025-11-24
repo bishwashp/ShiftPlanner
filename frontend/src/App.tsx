@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
-import ScheduleView from './components/ScheduleView';
+import ScheduleCalendar from './components/ScheduleCalendar';
 import AppHeader from './components/layout/AppHeader';
 import CollapsibleSidebar from './components/layout/CollapsibleSidebar';
 import { View as SidebarView } from './components/layout/CollapsibleSidebar';
@@ -20,11 +20,10 @@ import { notificationService } from './services/notificationService';
 
 // Toast notification component for better UX
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => (
-  <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
-    type === 'success' ? 'bg-green-500 text-white' :
+  <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${type === 'success' ? 'bg-green-500 text-white' :
     type === 'error' ? 'bg-red-500 text-white' :
-    'bg-blue-500 text-white'
-  }`}>
+      'bg-blue-500 text-white'
+    }`}>
     <div className="flex items-center justify-between">
       <span>{message}</span>
       <button onClick={onClose} className="ml-4 text-white hover:text-gray-200">
@@ -67,7 +66,7 @@ function App() {
     const savedActiveView = localStorage.getItem('activeView') as SidebarView;
     const savedCalendarView = localStorage.getItem('calendarView') as 'month' | 'week' | 'day';
     const savedCalendarDate = localStorage.getItem('calendarDate');
-    
+
     if (savedSidebarOpen !== null) {
       setSidebarOpen(savedSidebarOpen === 'true');
     }
@@ -170,8 +169,8 @@ function App() {
       case 'schedule':
       default:
         return (
-          <ScheduleView 
-            onViewChange={() => {}} 
+          <ScheduleCalendar
+            onViewChange={() => { }}
             date={calendarDate}
             setDate={setCalendarDate}
             view={calendarView}
@@ -186,15 +185,15 @@ function App() {
   return (
     <ActionPromptProvider>
       <div className={`flex h-screen bg-background text-foreground transition-colors duration-200 ${theme}`}>
-        <CollapsibleSidebar 
-          isOpen={sidebarOpen} 
-          onViewChange={handleViewChange} 
+        <CollapsibleSidebar
+          isOpen={sidebarOpen}
+          onViewChange={handleViewChange}
           activeView={activeView}
         />
         <div className="flex-1 flex flex-col">
-          <AppHeader 
-            sidebarOpen={sidebarOpen} 
-            setSidebarOpen={setSidebarOpen} 
+          <AppHeader
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
             date={calendarDate}
             setDate={setCalendarDate}
             view={calendarView}
@@ -219,10 +218,10 @@ function App() {
           </main>
         </div>
         {toast && (
-          <Toast 
-            message={toast.message} 
-            type={toast.type} 
-            onClose={() => setToast(null)} 
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
           />
         )}
       </div>
