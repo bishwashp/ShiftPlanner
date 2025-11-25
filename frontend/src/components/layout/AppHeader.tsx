@@ -92,7 +92,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   return (
     <>
       <header className={`
-        mx-3 mt-3 rounded-2xl
+        mx-3 mt-3 rounded-[32px]
         bg-white/60 dark:bg-gray-900/50 backdrop-blur-xl
         border border-gray-300/50 dark:border-white/10
         shadow-lg shadow-black/10 dark:shadow-black/30

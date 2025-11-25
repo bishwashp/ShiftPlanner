@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { View } from './layout/CollapsibleSidebar';
 import { UsersIcon, CheckCircleIcon, CalendarIcon, PlusIcon, ChartBarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { apiService, DashboardStats, Activity } from '../services/api';
@@ -10,6 +11,9 @@ import { useActionPrompts } from '../contexts/ActionPromptContext';
 import ScheduleGenerationForm from './ScheduleGenerationForm';
 import ScheduleGenerationModal from './ScheduleGenerationModal';
 import GlassCard from './common/GlassCard';
+import TodaysScreenersWidget from './dashboard/widgets/TodaysScreenersWidget';
+import UpcomingHolidaysWidget from './dashboard/widgets/UpcomingHolidaysWidget';
+import CoverageWidget from './dashboard/widgets/CoverageWidget';
 
 interface StatCardProps {
   title: string;
@@ -23,23 +27,38 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bgColor, highlight = '', loading = false, onClick }) => (
-  <GlassCard
-    className={`p-5 flex items-center h-full ${highlight}`}
-    enableRefraction
+  <motion.div
+    whileHover={{ scale: 1.02, y: -2 }}
+    whileTap={{ scale: 0.98 }}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3 }}
     onClick={onClick}
+    className={`relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-lg cursor-pointer group transition-all duration-300 hover:shadow-xl hover:bg-white/10 ${highlight}`}
   >
-    <div className="flex-1">
-      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{title}</p>
-      {loading ? (
-        <div className="h-8 bg-muted rounded animate-pulse mt-1"></div>
-      ) : (
-        <p className="text-3xl font-bold text-gray-900 dark:text-white">{value}</p>
-      )}
+    {/* Gradient Glow Effect on Hover */}
+    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+
+    <div className="p-6 flex items-center h-full relative z-10">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 truncate">{title}</p>
+        {loading ? (
+          <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        ) : (
+          <div className="flex items-baseline">
+            <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{value}</p>
+          </div>
+        )}
+      </div>
+
+      <motion.div
+        whileHover={{ rotate: 15, scale: 1.1 }}
+        className={`w-12 h-12 rounded-xl flex items-center justify-center ${bgColor} shadow-inner ml-4 flex-shrink-0`}
+      >
+        <Icon className={`w-6 h-6 ${color}`} />
+      </motion.div>
     </div>
-    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${bgColor}`}>
-      <Icon className={`w-6 h-6 ${color}`} />
-    </div>
-  </GlassCard>
+  </motion.div>
 );
 
 interface QuickActionButtonProps {
@@ -50,11 +69,13 @@ interface QuickActionButtonProps {
 
 const QuickActionButton: React.FC<QuickActionButtonProps> = ({ text, icon: Icon, onClick }) => (
   <button
-    className="flex-1 flex items-center justify-center px-4 py-3 rounded-xl transition-all bg-primary/10 hover:bg-primary/20 border border-white/5 hover:border-white/10 backdrop-blur-sm"
+    className="group relative flex-1 rounded-xl p-[1px] bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 hover:from-indigo-500/40 hover:via-purple-500/40 hover:to-pink-500/40 transition-all shadow-sm hover:shadow-md"
     onClick={onClick}
   >
-    <Icon className="w-5 h-5 mr-2.5 text-primary" />
-    <span className="text-sm font-semibold text-primary">{text}</span>
+    <div className="relative flex items-center justify-center w-full h-full px-4 py-3 rounded-xl bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm transition-all group-hover:bg-white/80 dark:group-hover:bg-gray-900/80">
+      <Icon className="w-5 h-5 mr-2.5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
+      <span className="text-sm font-semibold text-gray-900 dark:text-white">{text}</span>
+    </div>
   </button>
 );
 
@@ -95,9 +116,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
     setLoading(true);
     setError(null);
     try {
-      // Use dynamic date range based on current date
-      const startDate = moment().format('YYYY-MM-DD');
-      const endDate = moment().add(30, 'days').format('YYYY-MM-DD');
+      // Use dynamic date range based on current month (matching Analytics)
+      const startDate = moment().startOf('month').format('YYYY-MM-DD');
+      const endDate = moment().endOf('month').format('YYYY-MM-DD');
 
       // Fetch data sequentially to avoid rate limiting
       const stats = await apiService.getDashboardStats();
@@ -201,9 +222,30 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
   };
 
   const statCards = [
-    { title: 'Total Analysts', value: stats.totalAnalysts, icon: UsersIcon, color: 'text-primary', bgColor: 'bg-primary/10' },
-    { title: 'Active Analysts', value: stats.activeAnalysts, icon: CheckCircleIcon, color: 'text-green-600', bgColor: 'bg-green-600/10' },
-    { title: 'Scheduled Shifts', value: stats.scheduledShifts, icon: CalendarIcon, color: 'text-purple-600', bgColor: 'bg-purple-600/10' },
+    {
+      title: 'Total Analysts',
+      value: stats.totalAnalysts,
+      icon: UsersIcon,
+      color: 'text-blue-600 dark:text-blue-400',
+      bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+      onClick: () => onViewChange('analysts')
+    },
+    {
+      title: 'Active Analysts',
+      value: stats.activeAnalysts,
+      icon: CheckCircleIcon,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
+      onClick: () => onViewChange('analysts')
+    },
+    {
+      title: 'Scheduled Shifts',
+      value: stats.scheduledShifts,
+      icon: CalendarIcon,
+      color: 'text-violet-600 dark:text-violet-400',
+      bgColor: 'bg-violet-100 dark:bg-violet-900/30',
+      onClick: () => onViewChange('schedule')
+    },
     { ...conflictCard, onClick: handleNavigateToConflicts },
   ];
 
@@ -347,22 +389,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {statCards.map((card, index) => (
-            card.title === 'Schedule Conflicts' ? (
-              <button
-                key={index}
-                onClick={() => onViewChange('conflicts')}
-                className="w-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
-                style={{ background: 'none', border: 'none', padding: 0 }}
-                tabIndex={0}
-              >
-                <StatCard {...card} loading={loading} />
-              </button>
-            ) : (
-              <div key={index} className="h-full">
-                <StatCard {...card} loading={loading} />
-              </div>
-            )
+            <StatCard key={index} {...card} loading={loading} />
           ))}
+        </div>
+        {/* New Widgets Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 h-80">
+          <TodaysScreenersWidget />
+          <UpcomingHolidaysWidget />
+          <CoverageWidget />
         </div>
 
         <GlassCard className="mb-8 p-6">
@@ -391,30 +425,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
           </div>
         </GlassCard>
 
-        {/* Schedule Snapshot */}
-        <div className="mb-8">
-          <ScheduleSnapshot />
-        </div>
-
         <GlassCard className="p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
-            <div className="flex space-x-1 bg-muted/50 rounded-lg p-1 backdrop-blur-sm">
+            <div className="flex bg-muted/50 rounded-lg p-1">
               <button
                 onClick={() => setActiveActivityTab('recent')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeActivityTab === 'recent'
-                  ? 'bg-background/80 text-foreground shadow-sm backdrop-blur-md'
-                  : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
-                  }`}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeActivityTab === 'recent' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 Recent
               </button>
               <button
                 onClick={() => setActiveActivityTab('all')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeActivityTab === 'all'
-                  ? 'bg-background/80 text-foreground shadow-sm backdrop-blur-md'
-                  : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
-                  }`}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeActivityTab === 'all' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 All Activities
               </button>
@@ -452,45 +475,76 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
                 );
               }
 
-              return currentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start justify-between text-sm p-2 rounded-lg hover:bg-white/5 transition-colors">
-                  <div className="flex items-start flex-1">
-                    <div className="flex items-center mr-3">
-                      <span className="text-base mr-2">{getActivityIcon(activity.category)}</span>
-                      <span className={`w-2 h-2 rounded-full ${getActivityColor(activity)}`}></span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <h3 className="font-medium text-foreground text-sm">{activity.title}</h3>
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${activity.impact === 'CRITICAL' ? 'bg-red-500/20 text-red-200' :
-                          activity.impact === 'HIGH' ? 'bg-orange-500/20 text-orange-200' :
-                            activity.impact === 'MEDIUM' ? 'bg-blue-500/20 text-blue-200' :
-                              'bg-green-500/20 text-green-200'
+              return (
+                <div className="relative pl-4 border-l border-white/10 space-y-6">
+                  {currentActivities.map((activity, index) => (
+                    <motion.div
+                      key={activity.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="relative group"
+                    >
+                      {/* Timeline Dot */}
+                      <div className={`absolute -left-[21px] top-1.5 w-3 h-3 rounded-full border-2 border-background ${getActivityColor(activity)}`} />
+
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {activity.title}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                              {activeActivityTab === 'recent'
+                                ? moment(activity.createdAt).fromNow()
+                                : moment(activity.createdAt).format('MMM D, h:mm A')}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">
+                            {activity.description}
+                          </p>
+
+                          {/* Action Button based on Category/Type */}
+                          {activity.category === 'SCHEDULE' && (
+                            <button
+                              onClick={() => onViewChange('schedule')}
+                              className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+                            >
+                              View Schedule →
+                            </button>
+                          )}
+                          {activity.category === 'ANALYST' && (
+                            <button
+                              onClick={() => onViewChange('analysts')}
+                              className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+                            >
+                              View Analyst →
+                            </button>
+                          )}
+                          {activity.category === 'CONFLICT' && (
+                            <button
+                              onClick={() => onViewChange('conflicts')}
+                              className="text-xs font-medium text-red-500 hover:text-red-400 flex items-center gap-1 transition-colors"
+                            >
+                              Resolve Conflict →
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Impact Badge */}
+                        <div className={`flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${activity.impact === 'CRITICAL' ? 'bg-red-500/10 text-red-500' :
+                          activity.impact === 'HIGH' ? 'bg-orange-500/10 text-orange-500' :
+                            activity.impact === 'MEDIUM' ? 'bg-blue-500/10 text-blue-500' :
+                              'bg-green-500/10 text-green-500'
                           }`}>
                           {activity.impact}
-                        </span>
-                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-gray-700 dark:text-gray-200">
-                          {activity.category}
-                        </span>
+                        </div>
                       </div>
-                      <p className="text-gray-700 dark:text-gray-200 text-xs mb-1 leading-relaxed">{activity.description}</p>
-                      {activity.performedBy && (
-                        <p className="text-xs text-gray-700 dark:text-gray-200/70">
-                          by {activity.performedBy}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right ml-3 flex-shrink-0">
-                    <p className="text-gray-700 dark:text-gray-200/50 text-xs">
-                      {activeActivityTab === 'recent'
-                        ? moment(activity.createdAt).fromNow()
-                        : moment(activity.createdAt).format('MMM D, h:mm A')
-                      }
-                    </p>
-                  </div>
+                    </motion.div>
+                  ))}
                 </div>
-              ));
+              );
             })()}
           </div>
         </GlassCard>
@@ -498,8 +552,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
 
       {showFairnessReport && (
         <FairnessReportModal
-          startDate={moment().subtract(30, 'days').format('YYYY-MM-DD')}
-          endDate={moment().format('YYYY-MM-DD')}
+          startDate={moment().startOf('month').format('YYYY-MM-DD')}
+          endDate={moment().endOf('month').format('YYYY-MM-DD')}
           onClose={() => setShowFairnessReport(false)}
         />
       )}
