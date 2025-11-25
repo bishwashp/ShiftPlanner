@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, Trash2, Edit, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { PlusIcon, CalendarIcon, TrashIcon, PencilSquareIcon, ExclamationTriangleIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 import { apiService } from '../services/api';
 import moment from 'moment-timezone';
 import Checkbox from './ui/Checkbox';
@@ -75,7 +75,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
         ...formData,
         year: formData.isRecurring ? undefined : formData.year
       };
-      
+
       await apiService.createHoliday(holidayData);
       setFormData({
         name: '',
@@ -106,7 +106,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
         ...formData,
         year: formData.isRecurring ? undefined : formData.year
       };
-      
+
       await apiService.updateHoliday(editingHoliday.id, holidayData);
       setEditingHoliday(null);
       setFormData({
@@ -173,17 +173,17 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await apiService.initializeDefaultHolidays(selectedYear, timezone);
-      
+
       // Show success message
       alert(`Successfully initialized ${response.count} default holidays for ${selectedYear}`);
-      
+
       // Refresh the holidays list
       fetchHolidays();
     } catch (err: any) {
       console.error('Error initializing holidays:', err);
-      
+
       // Check if holidays already exist (400 error)
       if (err.response?.status === 400 && err.response?.data?.error?.includes('already exist')) {
         const existingCount = err.response?.data?.existingCount || 0;
@@ -214,7 +214,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Holiday Management</h2>
-          <p className="text-muted-foreground">
+          <p className="text-gray-700 dark:text-gray-200">
             Manage company holidays that affect scheduling
           </p>
         </div>
@@ -229,7 +229,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
             onClick={() => setShowAddForm(true)}
             className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center space-x-2"
           >
-            <Plus className="h-4 w-4" />
+            <PlusIcon className="h-4 w-4" />
             <span>Add Holiday</span>
           </button>
         </div>
@@ -254,7 +254,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
             })}
           </select>
         </div>
-        <div className="text-sm text-muted-foreground">
+        <div className="text-sm text-gray-700 dark:text-gray-200">
           <span>Timezone: </span>
           <span className="font-medium">{timezone}</span>
         </div>
@@ -264,7 +264,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
       {error && (
         <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
           <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <ExclamationTriangleIcon className="h-5 w-5 text-destructive" />
             <span className="text-destructive">{error}</span>
           </div>
         </div>
@@ -272,7 +272,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
 
       {/* Add/Edit Form */}
       {showAddForm && (
-        <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border">
+        <div className="mb-6 p-4 glass-static">
           <h3 className="text-lg font-semibold mb-4">
             {editingHoliday ? 'Edit Holiday' : 'Add New Holiday'}
           </h3>
@@ -306,7 +306,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Timezone
                 </label>
-                <div className="w-full px-3 py-2 border border-border rounded-md bg-muted text-muted-foreground">
+                <div className="w-full px-3 py-2 border border-border rounded-md bg-muted text-gray-700 dark:text-gray-200">
                   {timezone}
                 </div>
               </div>
@@ -371,36 +371,36 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
       )}
 
       {/* Holidays List */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="relative overflow-hidden rounded-xl border bg-white/40 dark:bg-gray-800/50 border-gray-300/50 dark:border-white/10 backdrop-blur-xl shadow-xl shadow-black/5 dark:shadow-black/20">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-muted/50">
+            <thead className="bg-white/10 dark:bg-black/10">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Holiday
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Timezone
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-card divide-y divide-border">
+            <tbody className="divide-y divide-border">
               {holidays.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-700 dark:text-gray-200">
+                    <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No holidays found for {selectedYear}</p>
                     <p className="text-sm">Click "Add Holiday" to create your first holiday</p>
                   </td>
@@ -412,7 +412,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                       <div>
                         <div className="text-sm font-medium text-foreground">{holiday.name}</div>
                         {holiday.description && (
-                          <div className="text-sm text-muted-foreground">{holiday.description}</div>
+                          <div className="text-sm text-gray-700 dark:text-gray-200">{holiday.description}</div>
                         )}
                       </div>
                     </td>
@@ -422,31 +422,29 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-muted-foreground">{holiday.timezone}</div>
+                      <div className="text-sm text-gray-700 dark:text-gray-200">{holiday.timezone}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        holiday.isRecurring
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
-                      }`}>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${holiday.isRecurring
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                        }`}>
                         {holiday.isRecurring ? 'Recurring' : 'One-time'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
-                        holiday.isActive
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                      }`}>
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${holiday.isActive
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                        }`}>
                         {holiday.isActive ? (
                           <>
-                            <CheckCircle className="h-3 w-3 mr-1" />
+                            <CheckCircleIcon className="h-3 w-3 mr-1" />
                             Active
                           </>
                         ) : (
                           <>
-                            <XCircle className="h-3 w-3 mr-1" />
+                            <XCircleIcon className="h-3 w-3 mr-1" />
                             Inactive
                           </>
                         )}
@@ -458,13 +456,13 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                           onClick={() => startEdit(holiday)}
                           className="text-primary hover:text-primary/80 transition-colors"
                         >
-                          <Edit className="h-4 w-4" />
+                          <PencilSquareIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteHoliday(holiday.id)}
                           className="text-destructive hover:text-destructive/80 transition-colors"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <TrashIcon className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

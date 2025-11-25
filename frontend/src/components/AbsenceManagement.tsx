@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Trash2, Edit, AlertTriangle, CheckCircle, XCircle, Clock, User } from 'lucide-react';
+import { PlusIcon, UsersIcon, TrashIcon, PencilSquareIcon, ExclamationTriangleIcon, CheckCircleIcon, XCircleIcon, ClockIcon, UserIcon } from '@heroicons/react/24/outline';
 import { apiService } from '../services/api';
 import moment from 'moment-timezone';
 import Checkbox from './ui/Checkbox';
@@ -82,7 +82,7 @@ const AbsenceManagement: React.FC = () => {
       if (filters.type) params.type = filters.type;
       if (filters.isApproved !== '') params.isApproved = filters.isApproved === 'true';
       if (filters.isPlanned !== '') params.isPlanned = filters.isPlanned === 'true';
-      
+
       const data = await apiService.getAbsences(
         params.analystId,
         params.type,
@@ -117,23 +117,23 @@ const AbsenceManagement: React.FC = () => {
     try {
       setSubmitting(true);
       const response = await apiService.createAbsence(formData);
-      
+
       // Check for conflicts
       if (response.conflicts && response.conflicts.length > 0) {
-        const conflictMessages = response.conflicts.map((conflict: any) => 
+        const conflictMessages = response.conflicts.map((conflict: any) =>
           `${conflict.type}: ${conflict.description}`
         ).join('\n');
-        
+
         const proceed = window.confirm(
           `Scheduling conflicts detected:\n\n${conflictMessages}\n\nDo you want to proceed anyway?`
         );
-        
+
         if (!proceed) {
           setSubmitting(false);
           return;
         }
       }
-      
+
       setFormData({
         analystId: '',
         startDate: '',
@@ -160,23 +160,23 @@ const AbsenceManagement: React.FC = () => {
     try {
       setSubmitting(true);
       const response = await apiService.updateAbsence(editingAbsence.id, formData);
-      
+
       // Check for conflicts
       if (response.conflicts && response.conflicts.length > 0) {
-        const conflictMessages = response.conflicts.map((conflict: any) => 
+        const conflictMessages = response.conflicts.map((conflict: any) =>
           `${conflict.type}: ${conflict.description}`
         ).join('\n');
-        
+
         const proceed = window.confirm(
           `Scheduling conflicts detected:\n\n${conflictMessages}\n\nDo you want to proceed anyway?`
         );
-        
+
         if (!proceed) {
           setSubmitting(false);
           return;
         }
       }
-      
+
       setEditingAbsence(null);
       setFormData({
         analystId: '',
@@ -279,7 +279,7 @@ const AbsenceManagement: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Absence Management</h2>
-          <p className="text-muted-foreground">
+          <p className="text-gray-700 dark:text-gray-200">
             Manage analyst vacations, sick days, and other absences
           </p>
         </div>
@@ -287,7 +287,7 @@ const AbsenceManagement: React.FC = () => {
           onClick={() => setShowAddForm(true)}
           className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center space-x-2"
         >
-          <Plus className="h-4 w-4" />
+          <PlusIcon className="h-4 w-4" />
           <span>Add Absence</span>
         </button>
       </div>
@@ -354,7 +354,7 @@ const AbsenceManagement: React.FC = () => {
       {error && (
         <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
           <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <ExclamationTriangleIcon className="h-5 w-5 text-destructive" />
             <span className="text-destructive">{error}</span>
           </div>
         </div>
@@ -362,7 +362,7 @@ const AbsenceManagement: React.FC = () => {
 
       {/* Add/Edit Form */}
       {showAddForm && (
-        <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border">
+        <div className="mb-6 p-4 glass-static">
           <h3 className="text-lg font-semibold mb-4">
             {editingAbsence ? 'Edit Absence' : 'Add New Absence'}
           </h3>
@@ -477,36 +477,36 @@ const AbsenceManagement: React.FC = () => {
       )}
 
       {/* Absences List */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className="relative overflow-hidden rounded-xl border bg-white/40 dark:bg-gray-800/50 border-gray-300/50 dark:border-white/10 backdrop-blur-xl shadow-xl shadow-black/5 dark:shadow-black/20">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-muted/50">
+            <thead className="bg-white/10 dark:bg-black/10">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Analyst
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Date Range
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Duration
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-card divide-y divide-border">
+            <tbody className="divide-y divide-border">
               {absences.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-700 dark:text-gray-200">
+                    <UsersIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No absences found</p>
                     <p className="text-sm">Click "Add Absence" to create your first absence record</p>
                   </td>
@@ -516,17 +516,17 @@ const AbsenceManagement: React.FC = () => {
                   const startDate = moment(absence.startDate);
                   const endDate = moment(absence.endDate);
                   const duration = endDate.diff(startDate, 'days') + 1;
-                  
+
                   return (
                     <tr key={absence.id} className="hover:bg-muted/50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="p-2 bg-primary/10 rounded-full mr-3">
-                            <User className="h-4 w-4 text-primary" />
+                            <UserIcon className="h-4 w-4 text-primary" />
                           </div>
                           <div>
                             <div className="text-sm font-medium text-foreground">{absence.analyst.name}</div>
-                            <div className="text-sm text-muted-foreground">{absence.analyst.email}</div>
+                            <div className="text-sm text-gray-700 dark:text-gray-200">{absence.analyst.email}</div>
                           </div>
                         </div>
                       </td>
@@ -540,41 +540,39 @@ const AbsenceManagement: React.FC = () => {
                           {startDate.format('MMM DD')} - {endDate.format('MMM DD, YYYY')}
                         </div>
                         {absence.reason && (
-                          <div className="text-sm text-muted-foreground truncate max-w-xs" title={absence.reason}>
+                          <div className="text-sm text-gray-700 dark:text-gray-200 truncate max-w-xs" title={absence.reason}>
                             {absence.reason}
                           </div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-foreground">
-                          <Clock className="h-4 w-4 mr-1" />
+                          <ClockIcon className="h-4 w-4 mr-1" />
                           {duration} day{duration !== 1 ? 's' : ''}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="space-y-1">
-                          <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
-                            absence.isApproved
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                          }`}>
+                          <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${absence.isApproved
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                            }`}>
                             {absence.isApproved ? (
                               <>
-                                <CheckCircle className="h-3 w-3 mr-1" />
+                                <CheckCircleIcon className="h-3 w-3 mr-1" />
                                 Approved
                               </>
                             ) : (
                               <>
-                                <Clock className="h-3 w-3 mr-1" />
+                                <ClockIcon className="h-3 w-3 mr-1" />
                                 Pending
                               </>
                             )}
                           </span>
-                          <div className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
-                            absence.isPlanned
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                              : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
-                          }`}>
+                          <div className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${absence.isPlanned
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                            : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
+                            }`}>
                             {absence.isPlanned ? 'Planned' : 'Unplanned'}
                           </div>
                         </div>
@@ -586,7 +584,7 @@ const AbsenceManagement: React.FC = () => {
                             className="text-primary hover:text-primary/80 transition-colors"
                             title="Edit absence"
                           >
-                            <Edit className="h-4 w-4" />
+                            <PencilSquareIcon className="h-4 w-4" />
                           </button>
                           {!absence.isApproved && (
                             <button
@@ -594,7 +592,7 @@ const AbsenceManagement: React.FC = () => {
                               className="text-green-600 hover:text-green-800 transition-colors"
                               title="Approve absence"
                             >
-                              <CheckCircle className="h-4 w-4" />
+                              <CheckCircleIcon className="h-4 w-4" />
                             </button>
                           )}
                           {absence.isApproved && (
@@ -603,7 +601,7 @@ const AbsenceManagement: React.FC = () => {
                               className="text-yellow-600 hover:text-yellow-800 transition-colors"
                               title="Revoke approval"
                             >
-                              <XCircle className="h-4 w-4" />
+                              <XCircleIcon className="h-4 w-4" />
                             </button>
                           )}
                           <button
@@ -611,7 +609,7 @@ const AbsenceManagement: React.FC = () => {
                             className="text-destructive hover:text-destructive/80 transition-colors"
                             title="Delete absence"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <TrashIcon className="h-4 w-4" />
                           </button>
                         </div>
                       </td>

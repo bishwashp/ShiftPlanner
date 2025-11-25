@@ -11,12 +11,16 @@ import ConflictManagement from './components/ConflictManagement';
 import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
+import { useCalendarFilters } from './hooks/useCalendarFilters';
+import { apiService, Schedule, Analyst } from './services/api';
 
 // import ActivitiesView from './components/ActivitiesView'; // Now integrated into Dashboard
 import ActionPromptProvider from './contexts/ActionPromptContext';
 import moment from 'moment-timezone';
 import { useTheme } from 'react18-themes';
 import { notificationService } from './services/notificationService';
+
+import LiquidBackground from './components/layout/LiquidBackground';
 
 // Toast notification component for better UX
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => (
@@ -51,6 +55,14 @@ function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [analysts, setAnalysts] = useState<Analyst[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Initialize filtering system
+  const filterHook = useCalendarFilters(schedules, analysts);
+  const { filters, toggleSidebar } = filterHook;
 
   // Auto-save user preferences
   useEffect(() => {
@@ -141,6 +153,50 @@ function App() {
     }
   }, [activeView]);
 
+  // Data fetching logic lifted from ScheduleCalendar
+  const fetchSchedulesAndAnalysts = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Date range calculation
+      const localDate = moment(calendarDate).tz(timezone);
+      const start = localDate.clone().startOf('month').subtract(7, 'days').format('YYYY-MM-DD');
+      const end = localDate.clone().endOf('month').add(7, 'days').format('YYYY-MM-DD');
+
+      // Fetch data sequentially
+      const analystsData = await apiService.getAnalysts();
+      const activeAnalysts = analystsData.filter(a => a.isActive);
+      setAnalysts(activeAnalysts);
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const schedulesData = await apiService.getSchedules(start, end);
+      setSchedules(schedulesData);
+
+    } catch (err: any) {
+      console.error('Error fetching data:', err);
+      const errorMessage = err.response?.status === 429
+        ? `Rate limit exceeded. Please wait ${err.response.data?.retryAfter || 60} seconds.`
+        : 'Failed to load schedule data. Please try again.';
+      handleError(errorMessage);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [calendarDate, timezone, handleError]);
+
+  useEffect(() => {
+    if (activeView === 'schedule') {
+      fetchSchedulesAndAnalysts();
+    }
+  }, [fetchSchedulesAndAnalysts, activeView]);
+
+  const handleModalSuccess = useCallback(() => {
+    fetchSchedulesAndAnalysts();
+    handleSuccess('Schedule updated successfully');
+  }, [fetchSchedulesAndAnalysts, handleSuccess]);
+
 
   const renderView = () => {
     const commonProps = {
@@ -175,6 +231,12 @@ function App() {
             view={calendarView}
             setView={setCalendarView}
             timezone={timezone}
+            schedules={schedules}
+            analysts={analysts}
+            loading={loading}
+            error={error}
+            filterHook={filterHook}
+            onRefreshData={fetchSchedulesAndAnalysts}
             {...commonProps}
           />
         );
@@ -183,7 +245,8 @@ function App() {
 
   return (
     <ActionPromptProvider>
-      <div className={`flex h-screen bg-background text-foreground transition-colors duration-200 ${theme}`}>
+      <div className={`flex h-screen bg-transparent text-foreground transition-colors duration-200 ${theme} overflow-hidden`}>
+        <LiquidBackground />
         <CollapsibleSidebar
           isOpen={sidebarOpen}
           onViewChange={handleViewChange}
@@ -208,10 +271,11 @@ function App() {
             onConflictTabChange={setActiveConflictTab}
             onRefresh={handleRefresh}
             isRefreshing={isRefreshing}
+            filterHook={filterHook}
           />
           <main className="flex-1 overflow-auto relative">
             {isLoading && (
-              <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10">
+              <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-10">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             )}

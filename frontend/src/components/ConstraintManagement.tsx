@@ -118,11 +118,11 @@ const ConstraintManagement: React.FC = () => {
     };
 
     if (loading) {
-        return <div className="text-center p-8 text-muted-foreground">Loading constraints...</div>;
+        return <div className="text-center p-8 text-gray-700 dark:text-gray-200">Loading constraints...</div>;
     }
-    
+
     return (
-        <div className="bg-background text-foreground p-6">
+        <div className="text-foreground p-6 relative z-10">
             <div className="max-w-6xl mx-auto">
                 {error && (
                     <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg">
@@ -136,12 +136,12 @@ const ConstraintManagement: React.FC = () => {
                 </div>
 
                 {(showAddForm || editingConstraint) && (
-                    <div className="bg-card text-card-foreground rounded-2xl p-6 shadow-sm border border-border mb-8">
+                    <div className="glass-static p-6 mb-8">
                         <h2 className="text-xl font-semibold text-foreground mb-4">{editingConstraint ? 'Edit Constraint' : 'Add New Constraint'}</h2>
                         <form onSubmit={editingConstraint ? handleUpdateConstraint : handleAddConstraint}>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-2">Analyst (optional)</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Analyst (optional)</label>
                                     <select value={formData.analystId || ''} onChange={(e) => setFormData({ ...formData, analystId: e.target.value || undefined })} className="w-full input bg-input border-border text-foreground">
                                         <option value="">Global Constraint</option>
                                         {analysts.map(analyst => (
@@ -150,7 +150,7 @@ const ConstraintManagement: React.FC = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-2">Constraint Type</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Constraint Type</label>
                                     <select value={formData.constraintType} onChange={(e) => setFormData({ ...formData, constraintType: e.target.value as any })} className="w-full input bg-input border-border text-foreground">
                                         <option value="BLACKOUT_DATE">Blackout Date</option>
                                         <option value="MAX_SCREENER_DAYS">Max Screener Days</option>
@@ -160,15 +160,15 @@ const ConstraintManagement: React.FC = () => {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-2">Start Date</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Start Date</label>
                                     <input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} className="w-full input bg-input border-border text-foreground" required />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-muted-foreground mb-2">End Date</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">End Date</label>
                                     <input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} className="w-full input bg-input border-border text-foreground" required />
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-muted-foreground mb-2">Description</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Description</label>
                                     <textarea value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full input bg-input border-border text-foreground" rows={3}></textarea>
                                 </div>
                                 <div className="flex items-center">
@@ -176,14 +176,14 @@ const ConstraintManagement: React.FC = () => {
                                         checked={formData.isActive}
                                         onChange={(checked) => setFormData({ ...formData, isActive: checked })}
                                     />
-                                    <span className="ml-2 block text-sm text-muted-foreground">Active</span>
+                                    <span className="ml-2 block text-sm text-gray-700 dark:text-gray-200">Active</span>
                                 </div>
                             </div>
                             <div className="flex items-center space-x-4 mt-6">
                                 <button type="submit" disabled={submitting} className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50">
                                     {submitting ? 'Saving...' : (editingConstraint ? 'Update' : 'Add')}
                                 </button>
-                                <button type="button" onClick={editingConstraint ? handleCancelEdit : () => setShowAddForm(false)} className="px-6 py-2 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80">
+                                <button type="button" onClick={editingConstraint ? handleCancelEdit : () => setShowAddForm(false)} className="px-6 py-2 bg-muted text-gray-700 dark:text-gray-200 rounded-lg hover:bg-muted/80">
                                     Cancel
                                 </button>
                             </div>
@@ -191,27 +191,27 @@ const ConstraintManagement: React.FC = () => {
                     </div>
                 )}
 
-                <div className="bg-card text-card-foreground rounded-2xl shadow-sm border border-border">
+                <div className="glass-static">
                     <div className="px-6 py-4 border-b border-border">
                         <h2 className="text-lg font-semibold text-foreground">Constraints ({constraints.length})</h2>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-muted/50">
+                            <thead className="bg-white/10 dark:bg-black/10">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Analyst</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Dates</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Analyst</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Type</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Dates</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-card divide-y divide-border">
+                            <tbody className="divide-y divide-border">
                                 {constraints.map(c => (
                                     <tr key={c.id} className="hover:bg-muted/50">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{c.analystId ? analysts.find(a => a.id === c.analystId)?.name : 'Global'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{c.constraintType}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{formatDateTime(c.startDate, moment.tz.guess(), 'MMM D, YYYY')} - {formatDateTime(c.endDate, moment.tz.guess(), 'MMM D, YYYY')}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{c.constraintType}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{formatDateTime(c.startDate, moment.tz.guess(), 'MMM D, YYYY')} - {formatDateTime(c.endDate, moment.tz.guess(), 'MMM D, YYYY')}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${c.isActive ? 'bg-green-600/10 text-green-600' : 'bg-destructive/10 text-destructive'}`}>
                                                 {c.isActive ? 'Active' : 'Inactive'}

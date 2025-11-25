@@ -54,9 +54,9 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
   }, []);
 
   const currentConflicts = conflicts[activeTab] || [];
-  
+
   // Check if there's a "no schedule exists" or "incomplete schedules" conflict (now in recommended section)
-  const hasNoScheduleConflict = conflicts.recommended.some(conflict => 
+  const hasNoScheduleConflict = conflicts.recommended.some(conflict =>
     conflict.type === 'NO_SCHEDULE_EXISTS' || conflict.type === 'INCOMPLETE_SCHEDULES'
   );
 
@@ -73,7 +73,7 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
         setAutoFixing(false);
         return;
       }
-      
+
       setProposals(result.proposals);
       setIsPreviewOpen(true);
     } catch (err: any) {
@@ -103,9 +103,9 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
     setAutoFixMsg(null);
     try {
       // Call the backend to generate proposals for this single conflict
-      const result = await apiService.autoFixConflicts({ 
-        startDate: conflict.date, 
-        endDate: conflict.date 
+      const result = await apiService.autoFixConflicts({
+        startDate: conflict.date,
+        endDate: conflict.date
       });
 
       if (!result.suggestedAssignments || result.suggestedAssignments.length === 0) {
@@ -113,7 +113,7 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
         setAutoFixing(false);
         return;
       }
-      
+
       setProposals(result.suggestedAssignments);
       setIsPreviewOpen(true);
     } catch (err: any) {
@@ -146,9 +146,9 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
   };
 
   return (
-    <div className="bg-background text-foreground max-w-4xl mx-auto p-6">
+    <div className="text-foreground max-w-4xl mx-auto p-6 relative z-10">
       {loading ? (
-        <div className="text-center text-muted-foreground">Loading conflicts...</div>
+        <div className="text-center text-gray-700 dark:text-gray-200">Loading conflicts...</div>
       ) : hasNoScheduleConflict && activeTab === 'recommended' ? (
         <div className="text-center">
           <div className="p-6 bg-yellow-500/10 dark:bg-yellow-500/20 border border-yellow-500 dark:border-yellow-400 rounded-lg">
@@ -164,7 +164,7 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
           </div>
         </div>
       ) : currentConflicts.length === 0 ? (
-        <div className="text-center text-muted-foreground">No {activeTab} conflicts detected in the next 30 days.</div>
+        <div className="text-center text-gray-700 dark:text-gray-200">No {activeTab} conflicts detected in the next 30 days.</div>
       ) : (
         <>
           <div className="mb-4 flex justify-end">
@@ -182,34 +182,34 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
           <div className="space-y-4">
             {currentConflicts.map((conflict, idx) => (
               <div key={idx}>
-                <div className="p-4 bg-card text-card-foreground rounded-lg shadow border border-border flex items-center justify-between">
+                <div className="p-4 glass-static text-card-foreground flex items-center justify-between">
                   <div>
                     <div className="font-semibold text-foreground">
                       <span className="text-primary font-bold">
                         {formatDateTime(conflict.date, moment.tz.guess(), 'MMM D, YYYY')}
                       </span>
-                      {conflict.shiftType && <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-1 rounded">{conflict.shiftType}</span>}
+                      {conflict.shiftType && <span className="ml-2 text-xs bg-muted text-gray-700 dark:text-gray-200 px-2 py-1 rounded">{conflict.shiftType}</span>}
                     </div>
-                    <div className="text-muted-foreground mt-1">{conflict.message}</div>
+                    <div className="text-gray-700 dark:text-gray-200 mt-1">{conflict.message}</div>
                   </div>
                   {/* Auto-fix/recommendation actions */}
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       className="px-3 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={() => handleAutoFixSingle(conflict)}
                       disabled={autoFixing}
                     >
                       {autoFixing ? 'Fixing...' : 'Auto-Fix'}
                     </button>
-                    <button 
-                      className="px-3 py-1 bg-muted text-muted-foreground rounded hover:bg-muted/80 font-medium"
+                    <button
+                      className="px-3 py-1 bg-muted text-gray-700 dark:text-gray-200 rounded hover:bg-muted/80 font-medium"
                       onClick={() => setShowManualAssignment(showManualAssignment === conflict.date ? null : conflict.date)}
                     >
                       Manual
                     </button>
                   </div>
                 </div>
-                
+
                 {/* Manual Assignment Interface */}
                 {showManualAssignment === conflict.date && (
                   <div className="mt-2 p-4 bg-muted/20 rounded-lg border border-border">
@@ -221,7 +221,7 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
                         <div key={shiftType} className="space-y-2">
                           <label className="text-sm font-medium text-foreground">{shiftType} Shift</label>
                           <div className="flex gap-2">
-                            <select 
+                            <select
                               className="flex-1 px-3 py-1 bg-background border border-border rounded text-foreground"
                               onChange={(e) => {
                                 if (e.target.value) {
@@ -248,7 +248,7 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
           </div>
         </>
       )}
-      <AutoFixPreview 
+      <AutoFixPreview
         isOpen={isPreviewOpen}
         onClose={() => setIsPreviewOpen(false)}
         onConfirm={handleConfirmAutoFix}

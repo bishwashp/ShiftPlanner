@@ -4,7 +4,7 @@ import { apiService, Schedule, Analyst } from '../services/api';
 import { View as AppView } from './layout/CollapsibleSidebar';
 import { useTheme } from 'react18-themes';
 import { useActionPrompts } from '../contexts/ActionPromptContext';
-import { Filter } from 'lucide-react';
+import { FunnelIcon, ExclamationCircleIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 
 // Simplified calendar imports
 import { CalendarGrid } from './calendar/simplified/CalendarGrid';
@@ -63,6 +63,12 @@ interface SimplifiedScheduleViewProps {
   onError?: (error: string) => void;
   onSuccess?: (message: string) => void;
   isLoading?: (loading: boolean) => void;
+  schedules: Schedule[];
+  analysts: Analyst[];
+  loading: boolean;
+  error: string | null;
+  filterHook: any; // Using any to avoid circular dependency issues for now, or import type
+  onRefreshData: () => void;
 }
 
 interface CalendarEvent {
@@ -125,14 +131,16 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
   timezone,
   onError,
   onSuccess,
-  isLoading
+  isLoading,
+  schedules,
+  analysts,
+  loading,
+  error,
+  filterHook,
+  onRefreshData
 }) => {
   const { theme } = useTheme();
   const { showImportantPrompt } = useActionPrompts();
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [analysts, setAnalysts] = useState<Analyst[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
 
@@ -152,8 +160,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
     }
   }, [view, showWeekView]);
 
-  // Initialize filtering system
-  const filterHook = useCalendarFilters(schedules, analysts);
+  // Initialize filtering system - now passed as prop
   const { filters, filteredSchedules, toggleSidebar } = filterHook;
 
   // Performance tracking
@@ -247,66 +254,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
 
 
 
-  // Enhanced data fetching with performance monitoring and rate limiting handling
-  const fetchSchedulesAndAnalysts = useCallback(async () => {
-    const fetchStart = performance.now();
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch data sequentially to avoid rate limiting
-      const analystsData = await apiService.getAnalysts();
-
-      // Filter active analysts (performance optimization)
-      const activeAnalysts = analystsData.filter(a => a.isActive);
-      setAnalysts(activeAnalysts);
-
-      // Add a small delay between requests
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const schedulesData = await apiService.getSchedules(startDate, endDate);
-      setSchedules(schedulesData);
-
-      // Track performance metrics
-      const fetchTime = performance.now() - fetchStart;
-
-      console.log('📊 Data Fetch Performance:', {
-        fetchTime: `${fetchTime.toFixed(2)}ms`,
-        scheduleCount: schedulesData.length,
-        analystCount: activeAnalysts.length,
-        memoryMB: `${((performance as any).memory?.usedJSHeapSize / 1024 / 1024 || 0).toFixed(2)}MB`
-      });
-
-    } catch (err: any) {
-      console.error('Error fetching data:', err);
-
-      // Handle rate limiting specifically
-      if (err.response?.status === 429) {
-        const retryAfter = err.response.data?.retryAfter || 60;
-        const errorMessage = `Rate limit exceeded. Please wait ${retryAfter} seconds and try again.`;
-        setError(errorMessage);
-        onError?.(errorMessage);
-      } else {
-        const errorMessage = 'Failed to load schedule data. Please try again.';
-        setError(errorMessage);
-        onError?.(errorMessage);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [startDate, endDate, onError]);
-
-  const handleModalSuccess = useCallback(() => {
-    fetchSchedulesAndAnalysts();
-    onSuccess?.('Schedule updated successfully');
-  }, [fetchSchedulesAndAnalysts, onSuccess]);
-
-
-  useEffect(() => {
-    fetchSchedulesAndAnalysts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]); // Only refetch when date range changes, not when function changes
+  // Data fetching is now handled by parent App component
 
   // Week view handlers
   const handleShowMoreClick = useCallback((clickedDate: Date) => {
@@ -328,9 +276,9 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
   }, [setDate]);
 
   const handleScheduleUpdate = useCallback((updatedSchedules: Schedule[]) => {
-    setSchedules(updatedSchedules);
-    // No need to refetch - we already have the updated data
-  }, []);
+    // Optimistic update or just refetch
+    onRefreshData();
+  }, [onRefreshData]);
 
   // Optimized analyst lookup with Map for O(1) performance
   const analystMap = useMemo(() => {
@@ -352,9 +300,9 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
     const events: CalendarEvent[] = [];
 
     // Use filtered schedules instead of all schedules
-    const validSchedules = filteredSchedules.filter(schedule => schedule.date);
+    const validSchedules = filteredSchedules.filter((schedule: Schedule) => schedule.date);
 
-    validSchedules.forEach(schedule => {
+    validSchedules.forEach((schedule: Schedule) => {
       const scheduleDateUtc = moment.utc(schedule.date);
       const dateString = scheduleDateUtc.format('YYYY-MM-DD');
 
@@ -379,7 +327,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading schedule...</p>
+          <p className="text-gray-700 dark:text-gray-200">Loading schedule...</p>
         </div>
       </div>
     );
@@ -391,13 +339,11 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="text-red-500 mb-4">
-            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
+            <ExclamationCircleIcon className="w-12 h-12 mx-auto" />
           </div>
           <p className="text-destructive mb-4">{error}</p>
           <button
-            onClick={fetchSchedulesAndAnalysts}
+            onClick={onRefreshData}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
           >
             Retry
@@ -425,14 +371,20 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
         <CreateScheduleModal
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
-          onSuccess={handleModalSuccess}
+          onSuccess={() => {
+            onRefreshData();
+            onSuccess?.('Schedule updated successfully');
+          }}
           initialDate={selectedDate}
           analysts={analysts}
         />
         <EditScheduleModal
           isOpen={editModalOpen}
           onClose={() => setEditModalOpen(false)}
-          onSuccess={handleModalSuccess}
+          onSuccess={() => {
+            onRefreshData();
+            onSuccess?.('Schedule updated successfully');
+          }}
           schedule={selectedSchedule}
           analysts={analysts}
         />
@@ -442,31 +394,12 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
 
   return (
     <div
-      className={`relative h-full bg-background text-foreground transition-colors duration-200 ${theme}`}
+      className={`relative h-full text-foreground transition-colors duration-200 ${theme} z-10`}
       {...(isMobile ? swipeHandlers : {})}
       role="application"
       aria-label="ShiftPlanner Simplified Schedule Calendar"
     >
-      {/* Filter Toggle Button - Fixed position */}
-      <div className="absolute top-4 right-4 z-40">
-        <button
-          onClick={toggleSidebar}
-          className={`px-4 py-2 text-sm font-medium border rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-lg ${filters.isOpen
-            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-            : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
-          aria-label={filters.isOpen ? 'Close filters' : 'Open filters'}
-          aria-pressed={filters.isOpen}
-        >
-          <Filter className="h-4 w-4 mr-2 inline-block" />
-          Filters
-          {filterHook.activeFilterCount > 0 && (
-            <span className="ml-2 bg-white/20 text-xs px-1.5 py-0.5 rounded-full">
-              {filterHook.activeFilterCount}
-            </span>
-          )}
-        </button>
-      </div>
+      {/* Filter toggle removed - moved to View Settings */}
 
       {/* Calendar Container - Adjust margin when filter panel is open */}
       <div className={`h-full p-4 transition-all duration-300 ${filters.isOpen ? 'mr-80' : ''}`}>
@@ -499,13 +432,11 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
         {view !== 'month' && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="text-muted-foreground mb-4">
-                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+              <div className="text-gray-700 dark:text-gray-200 mb-4">
+                <CalendarDaysIcon className="w-16 h-16 mx-auto" />
               </div>
               <h3 className="text-lg font-medium mb-2">{view.charAt(0).toUpperCase() + view.slice(1)} View</h3>
-              <p className="text-muted-foreground mb-4">Coming in Phase 2.2 - Enhanced Views</p>
+              <p className="text-gray-700 dark:text-gray-200 mb-4">Coming in Phase 2.2 - Enhanced Views</p>
               <button
                 onClick={() => setView('month')}
                 className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors touch-manipulation min-h-[44px]"
@@ -518,7 +449,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
 
         {/* Mobile swipe indicator */}
         {isMobile && view === 'month' && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground bg-muted/80 px-3 py-1 rounded-full backdrop-blur-sm">
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-700 dark:text-gray-200 bg-muted/80 px-3 py-1 rounded-full backdrop-blur-sm">
             ← Swipe to navigate →
           </div>
         )}
@@ -538,14 +469,20 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
       <CreateScheduleModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onSuccess={handleModalSuccess}
+        onSuccess={() => {
+          onRefreshData();
+          onSuccess?.('Schedule updated successfully');
+        }}
         initialDate={selectedDate}
         analysts={analysts}
       />
       <EditScheduleModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        onSuccess={handleModalSuccess}
+        onSuccess={() => {
+          onRefreshData();
+          onSuccess?.('Schedule updated successfully');
+        }}
         schedule={selectedSchedule}
         analysts={analysts}
       />

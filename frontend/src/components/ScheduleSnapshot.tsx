@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
-import { Users, Calendar, BarChart3, Sun, Moon, Zap } from 'lucide-react';
+import { UsersIcon, CalendarIcon, ChartBarIcon, SunIcon, MoonIcon, BoltIcon } from '@heroicons/react/24/outline';
 
 interface ScheduleSnapshotData {
   todaysScreeners: {
@@ -52,34 +52,34 @@ const ScheduleSnapshot: React.FC = () => {
 
   const getShiftConfig = (shiftType: string) => {
     switch (shiftType) {
-      case 'MORNING': 
-        return { 
-          icon: Sun, 
-          color: 'text-blue-500', 
+      case 'MORNING':
+        return {
+          icon: SunIcon,
+          color: 'text-blue-500',
           bgColor: 'bg-blue-500/10',
           borderColor: 'border-blue-500/20',
           label: 'Morning'
         };
-      case 'EVENING': 
-        return { 
-          icon: Moon, 
-          color: 'text-purple-500', 
+      case 'EVENING':
+        return {
+          icon: MoonIcon,
+          color: 'text-purple-500',
           bgColor: 'bg-purple-500/10',
           borderColor: 'border-purple-500/20',
           label: 'Evening'
         };
-      case 'WEEKEND': 
-        return { 
-          icon: Zap, 
-          color: 'text-green-500', 
+      case 'WEEKEND':
+        return {
+          icon: BoltIcon,
+          color: 'text-green-500',
           bgColor: 'bg-green-500/10',
           borderColor: 'border-green-500/20',
           label: 'Weekend'
         };
-      default: 
-        return { 
-          icon: Sun, 
-          color: 'text-gray-500', 
+      default:
+        return {
+          icon: SunIcon,
+          color: 'text-gray-500',
           bgColor: 'bg-gray-500/10',
           borderColor: 'border-gray-500/20',
           label: 'Unknown'
@@ -103,9 +103,9 @@ const ScheduleSnapshot: React.FC = () => {
 
   const formatHolidayDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric'
     });
   };
 
@@ -115,7 +115,7 @@ const ScheduleSnapshot: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Loading skeleton */}
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="bg-card/50 backdrop-blur-sm rounded-xl p-4 border border-border/50 animate-pulse">
+            <div key={index} className="glass-static p-4 animate-pulse">
               <div className="h-4 bg-muted-foreground/20 rounded w-3/4 mb-3"></div>
               <div className="h-3 bg-muted-foreground/20 rounded w-full mb-1"></div>
               <div className="h-3 bg-muted-foreground/20 rounded w-2/3"></div>
@@ -129,9 +129,9 @@ const ScheduleSnapshot: React.FC = () => {
   if (error || !data) {
     return (
       <div className="mb-4">
-        <div className="bg-card/50 backdrop-blur-sm rounded-xl p-4 border border-border/50 text-center">
-          <p className="text-muted-foreground mb-3 text-sm">{error || 'No data available'}</p>
-          <button 
+        <div className="glass-static p-4 text-center">
+          <p className="text-gray-700 dark:text-gray-200 mb-3 text-sm">{error || 'No data available'}</p>
+          <button
             onClick={fetchSnapshotData}
             className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm"
           >
@@ -149,16 +149,16 @@ const ScheduleSnapshot: React.FC = () => {
         <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 rounded-xl p-4 border border-blue-200/50 dark:border-blue-800/30 backdrop-blur-sm">
           <div className="flex items-center mb-3">
             <div className="p-1.5 bg-blue-500/10 rounded-lg mr-2">
-              <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <UsersIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </div>
             <h3 className="font-semibold text-sm text-blue-900 dark:text-blue-100">Today's Screeners</h3>
           </div>
-          
+
           <div className="space-y-2">
             {Object.entries(data.todaysScreeners).map(([shift, screeners]) => {
               const config = getShiftConfig(shift);
               const IconComponent = config.icon;
-              
+
               return (
                 <div key={shift} className={`flex items-center p-2 rounded-lg ${config.bgColor} border ${config.borderColor}`}>
                   <div className={`p-1 rounded-md ${config.bgColor} mr-2`}>
@@ -166,7 +166,7 @@ const ScheduleSnapshot: React.FC = () => {
                   </div>
                   <div className="flex-1">
                     <p className="text-xs font-medium text-foreground">{config.label}</p>
-                    <p className="text-xs text-muted-foreground">{formatScreeners(screeners)}</p>
+                    <p className="text-xs text-gray-700 dark:text-gray-200">{formatScreeners(screeners)}</p>
                   </div>
                 </div>
               );
@@ -178,11 +178,11 @@ const ScheduleSnapshot: React.FC = () => {
         <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-800/30 backdrop-blur-sm">
           <div className="flex items-center mb-3">
             <div className="p-1.5 bg-purple-500/10 rounded-lg mr-2">
-              <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <CalendarIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
             </div>
             <h3 className="font-semibold text-sm text-purple-900 dark:text-purple-100">Upcoming Holiday</h3>
           </div>
-          
+
           {data.upcomingHoliday ? (
             <div className="p-3 bg-purple-500/5 rounded-lg border border-purple-200/30 dark:border-purple-800/30">
               <p className="text-sm font-semibold text-purple-900 dark:text-purple-100 mb-1">
@@ -206,17 +206,17 @@ const ScheduleSnapshot: React.FC = () => {
         <div className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 rounded-xl p-4 border border-green-200/50 dark:border-green-800/30 backdrop-blur-sm">
           <div className="flex items-center mb-3">
             <div className="p-1.5 bg-green-500/10 rounded-lg mr-2">
-              <BarChart3 className="w-4 h-4 text-green-600 dark:text-green-400" />
+              <ChartBarIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
             </div>
             <h3 className="font-semibold text-sm text-green-900 dark:text-green-100">Today's Coverage</h3>
           </div>
-          
+
           <div className="space-y-2">
             {Object.entries(data.todaysCoverage.counts).map(([shift, count]) => {
               const config = getShiftConfig(shift);
               const IconComponent = config.icon;
               const status = data.todaysCoverage.status[shift as keyof typeof data.todaysCoverage.status];
-              
+
               return (
                 <div key={shift} className={`flex items-center justify-between p-2 rounded-lg ${config.bgColor} border ${config.borderColor}`}>
                   <div className="flex items-center">
@@ -232,7 +232,7 @@ const ScheduleSnapshot: React.FC = () => {
               );
             })}
           </div>
-          
+
         </div>
       </div>
     </div>

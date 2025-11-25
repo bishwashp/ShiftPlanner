@@ -43,7 +43,7 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-card rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="glass-static p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
           <div className="animate-pulse">
             <div className="h-8 bg-muted rounded w-1/3 mb-4"></div>
             <div className="space-y-3">
@@ -60,9 +60,9 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
   if (error) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-card rounded-lg p-8 max-w-md w-full mx-4">
+        <div className="glass-static p-8 max-w-md w-full mx-4">
           <h2 className="text-xl font-semibold text-foreground mb-4">Error</h2>
-          <p className="text-muted-foreground mb-4">{error}</p>
+          <p className="text-gray-700 dark:text-gray-200 mb-4">{error}</p>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90"
@@ -78,17 +78,17 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-card rounded-lg p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="glass-static p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-start mb-6">
           <div>
             <h2 className="text-2xl font-semibold text-foreground">Fairness Report</h2>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-gray-700 dark:text-gray-200 mt-1">
               {moment(startDate).format('MMM D, YYYY')} - {moment(endDate).format('MMM D, YYYY')}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-gray-700 dark:text-gray-200 hover:text-foreground"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -104,7 +104,7 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
               {formatScore(report.overallScore)}
             </span>
           </div>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-gray-700 dark:text-gray-200 mt-2">
             Based on {report.schedulesAnalyzed} schedules across {report.analystsCount} analysts
           </p>
         </div>
@@ -113,7 +113,7 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {Object.entries(report.components).map(([key, value]) => (
             <div key={key} className="bg-muted/20 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-muted-foreground capitalize mb-2">{key}</h4>
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 capitalize mb-2">{key}</h4>
               <div className={`text-2xl font-semibold ${getScoreColor(value)}`}>
                 {formatScore(value)}
               </div>
@@ -129,7 +129,7 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
               {report.recommendations.map((rec, index) => (
                 <div key={index} className="flex items-start">
                   <span className="text-primary mr-2">•</span>
-                  <p className="text-muted-foreground">{rec}</p>
+                  <p className="text-gray-700 dark:text-gray-200">{rec}</p>
                 </div>
               ))}
             </div>
@@ -143,21 +143,21 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-2 px-3 text-sm font-medium text-muted-foreground">Analyst</th>
-                  <th className="text-center py-2 px-3 text-sm font-medium text-muted-foreground">Total Days</th>
-                  <th className="text-center py-2 px-3 text-sm font-medium text-muted-foreground">Weekends</th>
-                  <th className="text-center py-2 px-3 text-sm font-medium text-muted-foreground">Screener Days</th>
-                  <th className="text-center py-2 px-3 text-sm font-medium text-muted-foreground">Max Consecutive</th>
+                  <th className="text-left py-2 px-3 text-sm font-medium text-gray-700 dark:text-gray-200">Analyst</th>
+                  <th className="text-center py-2 px-3 text-sm font-medium text-gray-700 dark:text-gray-200">Total Days</th>
+                  <th className="text-center py-2 px-3 text-sm font-medium text-gray-700 dark:text-gray-200">Weekends</th>
+                  <th className="text-center py-2 px-3 text-sm font-medium text-gray-700 dark:text-gray-200">Screener Days</th>
+                  <th className="text-center py-2 px-3 text-sm font-medium text-gray-700 dark:text-gray-200">Max Consecutive</th>
                 </tr>
               </thead>
               <tbody>
                 {report.analystMetrics.map((metric) => (
                   <tr key={metric.analystId} className="border-b border-border/50">
                     <td className="py-2 px-3 text-sm text-foreground">{metric.analystName}</td>
-                    <td className="text-center py-2 px-3 text-sm text-muted-foreground">{metric.totalDaysWorked}</td>
-                    <td className="text-center py-2 px-3 text-sm text-muted-foreground">{metric.weekendDaysWorked}</td>
-                    <td className="text-center py-2 px-3 text-sm text-muted-foreground">{metric.screenerDaysAssigned}</td>
-                    <td className="text-center py-2 px-3 text-sm text-muted-foreground">
+                    <td className="text-center py-2 px-3 text-sm text-gray-700 dark:text-gray-200">{metric.totalDaysWorked}</td>
+                    <td className="text-center py-2 px-3 text-sm text-gray-700 dark:text-gray-200">{metric.weekendDaysWorked}</td>
+                    <td className="text-center py-2 px-3 text-sm text-gray-700 dark:text-gray-200">{metric.screenerDaysAssigned}</td>
+                    <td className="text-center py-2 px-3 text-sm text-gray-700 dark:text-gray-200">
                       {Math.max(...(metric.consecutiveWorkDays || [0]))}
                     </td>
                   </tr>
@@ -171,7 +171,7 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
         <div className="flex justify-end mt-8 space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-muted text-muted-foreground rounded hover:bg-muted/80"
+            className="px-4 py-2 bg-muted text-gray-700 dark:text-gray-200 rounded hover:bg-muted/80"
           >
             Close
           </button>

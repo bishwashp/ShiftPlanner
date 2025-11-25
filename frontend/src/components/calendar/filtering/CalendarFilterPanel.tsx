@@ -2,7 +2,7 @@
 // Phase 6B: Calendar Layering System Implementation
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Filter, Search, Users, Layers, Clock, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import { XMarkIcon, FunnelIcon, MagnifyingGlassIcon, UsersIcon, RectangleStackIcon, ClockIcon, TagIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import Checkbox from '../../ui/Checkbox';
 import { FilterTab } from '../../../types/CalendarFilters';
 import { UseCalendarFilters } from '../../../types/CalendarFilters';
@@ -56,7 +56,7 @@ const LayersTab: React.FC<{ filterHook: UseCalendarFilters }> = ({ filterHook })
   );
 };
 
-const EmployeesTab: React.FC<{ 
+const EmployeesTab: React.FC<{
   filterHook: UseCalendarFilters;
   analysts: Array<{ id: string; name: string }>;
 }> = ({ filterHook, analysts }) => {
@@ -77,7 +77,7 @@ const EmployeesTab: React.FC<{
     <div className="space-y-4">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
         <input
           type="text"
           placeholder="Search employees..."
@@ -91,7 +91,7 @@ const EmployeesTab: React.FC<{
             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
             aria-label="Clear search"
           >
-            <X className="h-4 w-4" />
+            <XMarkIcon className="h-4 w-4" />
           </button>
         )}
       </div>
@@ -144,12 +144,12 @@ const EmployeesTab: React.FC<{
         >
           {showAll ? (
             <>
-              <ChevronUp className="h-4 w-4" />
+              <ChevronUpIcon className="h-4 w-4" />
               <span>Show Less</span>
             </>
           ) : (
             <>
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDownIcon className="h-4 w-4" />
               <span>Show More ({filteredAnalysts.length - 10})</span>
             </>
           )}
@@ -259,7 +259,7 @@ const CalendarFilterPanel: React.FC<CalendarFilterPanelProps> = ({
     clearAllFilters,
     presets
   } = filterHook;
-  
+
   const [activeTab, setActiveTab] = useState<FilterTab>('layers');
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -288,10 +288,10 @@ const CalendarFilterPanel: React.FC<CalendarFilterPanelProps> = ({
   }, [onClose]);
 
   const tabs = [
-    { id: 'layers' as FilterTab, label: 'Layers', icon: Layers },
-    { id: 'employees' as FilterTab, label: 'People', icon: Users },
-    { id: 'shifts' as FilterTab, label: 'Shifts', icon: Clock },
-    { id: 'types' as FilterTab, label: 'Types', icon: Tag },
+    { id: 'layers' as FilterTab, label: 'Layers', icon: RectangleStackIcon },
+    { id: 'employees' as FilterTab, label: 'People', icon: UsersIcon },
+    { id: 'shifts' as FilterTab, label: 'Shifts', icon: ClockIcon },
+    { id: 'types' as FilterTab, label: 'Types', icon: TagIcon },
   ];
 
   // Mock analysts data - in real implementation this would come from props
@@ -314,7 +314,7 @@ const CalendarFilterPanel: React.FC<CalendarFilterPanelProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center space-x-3">
-          <Filter className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+          <FunnelIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
           <h2 id="filter-panel-title" className="text-lg font-semibold text-gray-900 dark:text-white">
             Calendar Filters
           </h2>
@@ -329,12 +329,12 @@ const CalendarFilterPanel: React.FC<CalendarFilterPanelProps> = ({
           className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           aria-label="Close filter panel"
         >
-          <X className="h-5 w-5" />
+          <XMarkIcon className="h-5 w-5" />
         </button>
       </div>
 
       {/* Filter Summary */}
-      <div 
+      <div
         id="filter-panel-description"
         className="p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
         aria-live="polite"
@@ -387,11 +387,10 @@ const CalendarFilterPanel: React.FC<CalendarFilterPanelProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex flex-col items-center py-3 px-1 text-xs font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-              }`}
+              className={`flex-1 flex flex-col items-center py-3 px-1 text-xs font-medium border-b-2 transition-colors ${activeTab === tab.id
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                }`}
               aria-selected={activeTab === tab.id}
               role="tab"
             >

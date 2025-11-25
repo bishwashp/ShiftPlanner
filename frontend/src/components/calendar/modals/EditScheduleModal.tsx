@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Analyst, Schedule, apiService } from '../../../services/api';
 import moment from 'moment';
+import GlassCard from '../../common/GlassCard';
 
 interface EditScheduleModalProps {
     isOpen: boolean;
@@ -122,11 +123,11 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
     if (!isOpen || !schedule) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-6 border border-border max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
+            <GlassCard className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" enableRefraction>
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Edit Schedule</h2>
-                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Schedule</h2>
+                    <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                         ✕
                     </button>
                 </div>
@@ -144,8 +145,8 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                             <div
                                 key={index}
                                 className={`p-3 rounded-md text-sm border ${violation.type === 'HARD'
-                                        ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'
-                                        : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200'
+                                    ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'
+                                    : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200'
                                     }`}
                             >
                                 <div className="font-medium flex items-center gap-2">
@@ -164,13 +165,13 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
 
                 {showDeleteConfirm ? (
                     <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-gray-700 dark:text-gray-200">
                             Are you sure you want to delete this schedule? This action cannot be undone.
                         </p>
                         <div className="flex justify-end space-x-3">
                             <button
                                 onClick={() => setShowDeleteConfirm(false)}
-                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-foreground transition-colors"
                                 disabled={deleteLoading}
                             >
                                 Cancel
@@ -251,7 +252,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                                 id="editIsScreener"
                                 checked={isScreener}
                                 onChange={(e) => setIsScreener(e.target.checked)}
-                                className="rounded border-input text-primary focus:ring-primary"
+                                className="h-4 w-4 rounded border-border"
                             />
                             <label htmlFor="editIsScreener" className="text-sm font-medium cursor-pointer">
                                 Assign as Screener
@@ -271,7 +272,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-foreground transition-colors"
                                     disabled={loading}
                                 >
                                     Cancel
@@ -287,7 +288,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                         </div>
                     </form>
                 )}
-            </div>
+            </GlassCard>
         </div>
     );
 };

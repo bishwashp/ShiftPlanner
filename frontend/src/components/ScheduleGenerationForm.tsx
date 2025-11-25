@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, Users } from 'lucide-react';
+import { CalendarIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/outline';
 import moment from 'moment';
 
 interface ScheduleGenerationFormProps {
@@ -24,12 +24,12 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
   // Removed algorithm selection - using single IntelligentScheduler
 
   return (
-    <div className="bg-card text-card-foreground rounded-lg border border-border p-6">
+    <div className="glass-static p-6">
       <div className="flex items-center space-x-3 mb-6">
-        <Calendar className="h-6 w-6 text-primary" />
+        <CalendarIcon className="h-6 w-6 text-primary" />
         <div>
           <h3 className="text-lg font-semibold">Generate Schedule</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-700 dark:text-gray-200">
             Create schedules for your analysts
           </p>
         </div>
@@ -69,10 +69,10 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
         {/* Preview Info */}
         <div className="bg-muted/50 rounded-lg p-4">
           <div className="flex items-center space-x-2 mb-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <ClockIcon className="h-4 w-4 text-gray-700 dark:text-gray-200" />
             <span className="text-sm font-medium">Preview</span>
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-gray-700 dark:text-gray-200">
             <p>• Duration: {moment(endDate).diff(moment(startDate), 'days') + 1} days</p>
             <p>• Using: Intelligent Scheduling (rotation + fairness)</p>
             <p>• This will generate schedules for all active analysts</p>
@@ -92,7 +92,7 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
             </>
           ) : (
             <>
-              <Users className="h-4 w-4" />
+              <UsersIcon className="h-4 w-4" />
               <span>Generate Schedule</span>
             </>
           )}

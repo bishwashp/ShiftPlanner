@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { HelpCircle } from 'lucide-react';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 
 const LegendItem: React.FC<{ color: string, label: string }> = ({ color, label }) => (
   <div className="flex items-center space-x-2">
     <div className={`w-3 h-3 rounded-full ${color}`}></div>
-    <span className="text-sm text-muted-foreground">{label}</span>
+    <span className="text-sm text-gray-700 dark:text-gray-200">{label}</span>
   </div>
 );
 
@@ -13,16 +13,16 @@ const CalendarLegend: React.FC = () => {
 
   return (
     <div className="relative">
-      <button 
-        onClick={() => setIsOpen(!isOpen)} 
+      <button
+        onClick={() => setIsOpen(!isOpen)}
         onBlur={() => setIsOpen(false)}
         className="p-2 rounded-md hover:bg-muted"
       >
-        <HelpCircle size={20} />
+        <QuestionMarkCircleIcon className="h-5 w-5" />
       </button>
       {isOpen && (
-        <div 
-          className="absolute top-full right-0 mt-2 w-48 bg-card text-card-foreground p-4 rounded-lg shadow-lg border border-border z-10"
+        <div
+          className="absolute top-full right-0 mt-2 w-48 glass-static text-card-foreground p-4 z-10"
           onMouseDown={(e) => e.preventDefault()} // Prevents onBlur from closing the popover when clicking inside
         >
           <h3 className="font-bold mb-3 text-foreground">Legend</h3>

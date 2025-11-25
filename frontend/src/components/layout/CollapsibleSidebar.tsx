@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
-  CalendarDays,
-
-  Users,
-  Clock,
-  AlertTriangle,
-  BarChart2,
-  ListTodo,
-  Cpu
-} from 'lucide-react';
-import BellIcon from '../icons/BellIcon';
+  CalendarDaysIcon,
+  UsersIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  ChartBarIcon,
+  ClipboardDocumentListIcon,
+  CpuChipIcon,
+  Squares2X2Icon,
+  BellIcon
+} from '@heroicons/react/24/outline';
 import NotificationCenter from '../NotificationCenter';
 import { notificationService } from '../../services/notificationService';
 
@@ -45,23 +45,30 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
   // Define navigation structure with groups
   const navGroups = [
     {
+      id: 'overview_group',
+      label: 'Overview',
+      items: [
+        { view: 'dashboard', label: 'Dashboard', icon: Squares2X2Icon },
+      ]
+    },
+    {
       id: 'schedule_group',
       label: 'Schedule',
       items: [
-        { view: 'schedule', label: 'Calendar', icon: CalendarDays },
-        { view: 'conflicts', label: 'Conflicts', icon: AlertTriangle },
-        { view: 'analytics', label: 'Analytics', icon: BarChart2 },
+        { view: 'schedule', label: 'Calendar', icon: CalendarDaysIcon },
+        { view: 'conflicts', label: 'Conflicts', icon: ExclamationTriangleIcon },
+        { view: 'analytics', label: 'Analytics', icon: ChartBarIcon },
       ]
     },
     {
       id: 'team_group',
       label: 'Team',
       items: [
-        { view: 'analysts', label: 'Analysts', icon: Users },
+        { view: 'analysts', label: 'Analysts', icon: UsersIcon },
         {
           view: 'availability',
           label: 'Availability',
-          icon: Clock,
+          icon: ClockIcon,
           subItems: [
             { id: 'holidays', label: 'Holidays' },
             { id: 'absences', label: 'Absences' }
@@ -73,26 +80,32 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
       id: 'config_group',
       label: 'Configuration',
       items: [
-        { view: 'constraints', label: 'Constraints', icon: ListTodo },
-        { view: 'algorithms', label: 'Algorithms', icon: Cpu },
+        { view: 'constraints', label: 'Constraints', icon: ClipboardDocumentListIcon },
+        { view: 'algorithms', label: 'Algorithms', icon: CpuChipIcon },
       ]
     }
   ];
 
   return (
-    <>
-      {/* Sidebar with smooth card-like sliding animation */}
+    <div className={`
+      relative
+      ${isOpen ? 'w-64' : 'w-16'}
+      m-3
+      transition-all duration-300 ease-in-out
+      z-50
+    `}>
+      {/* Floating Glass Sidebar */}
       <aside
         className={`
-          ${isOpen ? 'w-64' : 'w-16'}
-          bg-card text-card-foreground border-r border-border flex flex-col h-full
-          transition-all duration-300 ease-in-out transform
-          ${isOpen ? 'translate-x-0' : 'translate-x-0'}
-          overflow-hidden shadow-lg
+          w-full h-full
+          flex flex-col
+          rounded-2xl
+          bg-white/60 dark:bg-gray-900/50 backdrop-blur-xl
+          border border-gray-300/50 dark:border-white/10
+          shadow-2xl shadow-black/20
+          overflow-hidden
+          max-h-[calc(100vh-24px)]
         `}
-        style={{
-          transform: isOpen ? 'translateX(0)' : 'translateX(0)',
-        }}
       >
         {/* Header */}
         <div className={`flex items-center mb-4 p-4 ${isOpen ? 'space-x-2' : 'justify-center'} transition-all duration-300`}>
@@ -111,7 +124,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
               <div key={group.id}>
                 {/* Group Label - Only show when open */}
                 <div className={`
-                  px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-all duration-300
+                  px-3 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider transition-all duration-300
                   ${isOpen ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}
                 `}>
                   {group.label}
@@ -128,11 +141,11 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
                         <button
                           onClick={() => onViewChange(item.view as View)}
                           className={`
-                            w-full flex items-center rounded-md text-sm font-medium transition-all duration-200
+                            w-full flex items-center rounded-lg text-sm font-medium transition-all duration-200
                             ${isOpen ? 'space-x-3 px-3 py-2' : 'justify-center p-3'}
                             ${isActive
-                              ? 'bg-primary/10 text-primary shadow-sm'
-                              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:shadow-sm'
+                              ? 'bg-primary/20 text-primary border-l-2 border-primary shadow-lg shadow-primary/20'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-300/60 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white hover:translate-x-0.5'
                             }
                             min-height-44px
                           `}
@@ -160,7 +173,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
                                     w-full flex items-center rounded-md text-sm transition-all duration-200 px-3 py-1.5
                                     ${(item.view === 'availability' && props.activeAvailabilityTab === subItem.id)
                                       ? 'text-primary font-medium bg-primary/5'
-                                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                      : 'text-gray-700 dark:text-gray-200 hover:text-foreground hover:bg-muted/50'
                                     }
                                   `}
                                 >
@@ -177,7 +190,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
 
                 {/* Separator between groups (except last) */}
                 {groupIndex < navGroups.length - 1 && isOpen && (
-                  <div className="my-2 border-t border-border/50 mx-3" />
+                  <div className="my-3 border-t border-gray-200/50 dark:border-white/10 mx-3" />
                 )}
               </div>
             ))}
@@ -185,15 +198,15 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
         </nav>
 
         {/* Notification Bell - Bottom */}
-        <div className={`border-t border-border p-2 ${isOpen ? 'pt-4' : 'pt-2'}`}>
+        <div className={`border-t border-gray-200/50 dark:border-white/10 p-2 ${isOpen ? 'pt-4' : 'pt-2'}`}>
           <button
             onClick={() => setNotificationCenterOpen(!notificationCenterOpen)}
             className={`
-              relative w-full flex items-center rounded-md text-sm font-medium transition-all duration-200
+              relative w-full flex items-center rounded-lg text-sm font-medium transition-all duration-200
               ${isOpen ? 'space-x-3 px-3 py-2' : 'justify-center p-3'}
               ${notificationCenterOpen
-                ? 'bg-primary/10 text-primary shadow-sm'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:shadow-sm'
+                ? 'bg-primary/20 text-primary shadow-lg shadow-primary/20'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
               }
               min-height-44px
             `}
@@ -221,7 +234,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
         isOpen={notificationCenterOpen}
         onClose={() => setNotificationCenterOpen(false)}
       />
-    </>
+    </div>
   );
 };
 

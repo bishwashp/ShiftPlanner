@@ -22,12 +22,10 @@ const Availability: React.FC<AvailabilityProps> = ({ timezone = 'America/New_Yor
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen relative z-10">
       <div className="container mx-auto px-4 py-6">
         {/* Content */}
-        <div className="bg-card rounded-lg border border-border shadow-sm">
-          {renderView()}
-        </div>
+        {renderView()}
       </div>
     </div>
   );

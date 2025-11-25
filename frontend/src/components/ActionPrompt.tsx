@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, AlertTriangle, Info, Clock } from 'lucide-react';
+import { XMarkIcon, ExclamationTriangleIcon, InformationCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 export type ActionPromptType = 'critical' | 'important' | 'optional';
 export type ActionPromptStatus = 'pending' | 'in-progress' | 'completed' | 'dismissed';
@@ -39,13 +39,13 @@ const ActionPromptComponent: React.FC<ActionPromptProps> = ({ prompt, onDismiss,
   const getIcon = () => {
     switch (prompt.type) {
       case 'critical':
-        return <AlertTriangle className="w-6 h-6 text-red-500" />;
+        return <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />;
       case 'important':
-        return <Clock className="w-6 h-6 text-yellow-500" />;
+        return <ClockIcon className="w-6 h-6 text-yellow-500" />;
       case 'optional':
-        return <Info className="w-6 h-6 text-blue-500" />;
+        return <InformationCircleIcon className="w-6 h-6 text-blue-500" />;
       default:
-        return <Info className="w-6 h-6 text-gray-500" />;
+        return <InformationCircleIcon className="w-6 h-6 text-gray-500" />;
     }
   };
 
@@ -84,7 +84,7 @@ const ActionPromptComponent: React.FC<ActionPromptProps> = ({ prompt, onDismiss,
             {getIcon()}
             <div>
               <h3 className="text-lg font-semibold text-foreground">{prompt.title}</h3>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-gray-700 dark:text-gray-200">
                 {prompt.type === 'critical' && 'Requires immediate attention'}
                 {prompt.type === 'important' && 'Should be addressed soon'}
                 {prompt.type === 'optional' && 'Nice to have'}
@@ -93,10 +93,10 @@ const ActionPromptComponent: React.FC<ActionPromptProps> = ({ prompt, onDismiss,
           </div>
           <button
             onClick={() => onDismiss(prompt.id)}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-gray-700 dark:text-gray-200 hover:text-foreground transition-colors"
             title={prompt.type === 'critical' ? 'Dismiss (conflicts will still be visible in Conflict Management)' : 'Dismiss'}
           >
-            <X className="w-5 h-5" />
+            <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
@@ -114,11 +114,11 @@ const ActionPromptComponent: React.FC<ActionPromptProps> = ({ prompt, onDismiss,
               disabled={action.loading}
               className={`
                 px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed
-                ${action.variant === 'destructive' 
-                  ? 'bg-red-500 text-white hover:bg-red-600' 
+                ${action.variant === 'destructive'
+                  ? 'bg-red-500 text-white hover:bg-red-600'
                   : action.variant === 'secondary'
-                  ? 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    ? 'bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted/80'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
                 }
               `}
             >
@@ -136,7 +136,7 @@ const ActionPromptComponent: React.FC<ActionPromptProps> = ({ prompt, onDismiss,
 
         {/* Timeout indicator for non-critical prompts */}
         {prompt.type !== 'critical' && prompt.timeout && (
-          <div className="mt-4 text-xs text-muted-foreground text-center">
+          <div className="mt-4 text-xs text-gray-700 dark:text-gray-200 text-center">
             This prompt will auto-dismiss in {Math.ceil(prompt.timeout / 1000)}s
           </div>
         )}

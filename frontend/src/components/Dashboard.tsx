@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View } from './layout/CollapsibleSidebar';
-import AnalystsIcon from './icons/AnalystsIcon';
-import CheckIcon from './icons/CheckIcon';
-import ScheduleIcon from './icons/ScheduleIcon';
-import PlusIcon from './icons/PlusIcon';
-import AnalyticsIcon from './icons/AnalyticsIcon';
-import AlertIcon from './icons/AlertIcon';
+import { UsersIcon, CheckCircleIcon, CalendarIcon, PlusIcon, ChartBarIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { apiService, DashboardStats, Activity } from '../services/api';
 import ScheduleSnapshot from './ScheduleSnapshot';
 import { formatDateTime } from '../utils/formatDateTime';
@@ -14,6 +9,7 @@ import FairnessReportModal from './FairnessReport';
 import { useActionPrompts } from '../contexts/ActionPromptContext';
 import ScheduleGenerationForm from './ScheduleGenerationForm';
 import ScheduleGenerationModal from './ScheduleGenerationModal';
+import GlassCard from './common/GlassCard';
 
 interface StatCardProps {
   title: string;
@@ -27,19 +23,23 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bgColor, highlight = '', loading = false, onClick }) => (
-  <div className={`bg-card text-card-foreground rounded-2xl p-5 shadow-sm border border-border flex items-center ${highlight}`}>
+  <GlassCard
+    className={`p-5 flex items-center h-full ${highlight}`}
+    enableRefraction
+    onClick={onClick}
+  >
     <div className="flex-1">
-      <p className="text-sm font-medium text-muted-foreground">{title}</p>
+      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{title}</p>
       {loading ? (
         <div className="h-8 bg-muted rounded animate-pulse mt-1"></div>
       ) : (
-        <p className="text-3xl font-bold text-foreground">{value}</p>
+        <p className="text-3xl font-bold text-gray-900 dark:text-white">{value}</p>
       )}
     </div>
     <div className={`w-12 h-12 rounded-full flex items-center justify-center ${bgColor}`}>
       <Icon className={`w-6 h-6 ${color}`} />
     </div>
-  </div>
+  </GlassCard>
 );
 
 interface QuickActionButtonProps {
@@ -50,7 +50,7 @@ interface QuickActionButtonProps {
 
 const QuickActionButton: React.FC<QuickActionButtonProps> = ({ text, icon: Icon, onClick }) => (
   <button
-    className="flex-1 flex items-center justify-center px-4 py-3 rounded-xl transition-all bg-primary/10 hover:bg-primary/20"
+    className="flex-1 flex items-center justify-center px-4 py-3 rounded-xl transition-all bg-primary/10 hover:bg-primary/20 border border-white/5 hover:border-white/10 backdrop-blur-sm"
     onClick={onClick}
   >
     <Icon className="w-5 h-5 mr-2.5 text-primary" />
@@ -189,7 +189,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
   const conflictCard = {
     title: 'Schedule Conflicts',
     value: conflicts.critical.length + conflicts.recommended.length,
-    icon: conflicts.critical.length > 0 ? AlertIcon : CheckIcon,
+    icon: conflicts.critical.length > 0 ? ExclamationTriangleIcon : CheckCircleIcon,
     color: conflicts.critical.length > 0 ? 'text-destructive' : 'text-green-600',
     bgColor: conflicts.critical.length > 0 ? 'bg-destructive/10' : 'bg-green-600/10',
     // Add yellow highlight when no schedules exist
@@ -201,9 +201,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
   };
 
   const statCards = [
-    { title: 'Total Analysts', value: stats.totalAnalysts, icon: AnalystsIcon, color: 'text-primary', bgColor: 'bg-primary/10' },
-    { title: 'Active Analysts', value: stats.activeAnalysts, icon: CheckIcon, color: 'text-green-600', bgColor: 'bg-green-600/10' },
-    { title: 'Scheduled Shifts', value: stats.scheduledShifts, icon: ScheduleIcon, color: 'text-purple-600', bgColor: 'bg-purple-600/10' },
+    { title: 'Total Analysts', value: stats.totalAnalysts, icon: UsersIcon, color: 'text-primary', bgColor: 'bg-primary/10' },
+    { title: 'Active Analysts', value: stats.activeAnalysts, icon: CheckCircleIcon, color: 'text-green-600', bgColor: 'bg-green-600/10' },
+    { title: 'Scheduled Shifts', value: stats.scheduledShifts, icon: CalendarIcon, color: 'text-purple-600', bgColor: 'bg-purple-600/10' },
     { ...conflictCard, onClick: handleNavigateToConflicts },
   ];
 
@@ -319,16 +319,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
 
 
   return (
-    <div className="bg-background text-foreground p-6">
+    <div className="p-6 relative z-10">
       <div className="max-w-7xl mx-auto">
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border-l-4 border-red-500 rounded">
+          <div className="mb-6 p-4 bg-red-500/10 border-l-4 border-red-500 rounded backdrop-blur-sm">
             <p className="text-red-500 font-medium">{error}</p>
           </div>
         )}
 
         {conflicts.critical.length > 0 && !hasActivePrompts() && !hasNoScheduleConflict && (
-          <div className="mb-6 p-4 bg-yellow-500/10 border-l-4 border-yellow-500 rounded flex items-center justify-between">
+          <div className="mb-6 p-4 bg-yellow-500/10 border-l-4 border-yellow-500 rounded flex items-center justify-between backdrop-blur-sm">
             <span className="text-yellow-700 dark:text-yellow-300 font-medium">Schedule issues have been detected for the next 30 days. Please review the Conflict Management for more details.</span>
             <button
               onClick={() => onViewChange('conflicts')}
@@ -340,12 +340,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
         )}
 
         <div className="flex items-center justify-end mb-4">
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-gray-700 dark:text-gray-200 bg-white/5 px-3 py-1 rounded-full backdrop-blur-sm">
             Last updated: {formatDateTime(lastUpdated, moment.tz.guess())}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {statCards.map((card, index) => (
             card.title === 'Schedule Conflicts' ? (
               <button
@@ -358,14 +358,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
                 <StatCard {...card} loading={loading} />
               </button>
             ) : (
-              <div key={index}>
+              <div key={index} className="h-full">
                 <StatCard {...card} loading={loading} />
               </div>
             )
           ))}
         </div>
 
-        <div className="mt-8 bg-card text-card-foreground rounded-2xl p-6 shadow-sm border border-border">
+        <GlassCard className="mb-8 p-6">
           <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <QuickActionButton
@@ -375,36 +375,36 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
             />
             <QuickActionButton
               text="Generate Schedule"
-              icon={ScheduleIcon}
+              icon={CalendarIcon}
               onClick={handleGenerateSchedule}
             />
             <QuickActionButton
               text="View Analytics"
-              icon={AnalyticsIcon}
+              icon={ChartBarIcon}
               onClick={handleViewAnalytics}
             />
             <QuickActionButton
               text="Fairness Report"
-              icon={CheckIcon}
+              icon={CheckCircleIcon}
               onClick={() => setShowFairnessReport(true)}
             />
           </div>
-        </div>
+        </GlassCard>
 
         {/* Schedule Snapshot */}
-        <div className="mt-8">
+        <div className="mb-8">
           <ScheduleSnapshot />
         </div>
 
-        <div className="mt-8 bg-card text-card-foreground rounded-2xl p-6 shadow-sm border border-border">
+        <GlassCard className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
-            <div className="flex space-x-1 bg-muted rounded-lg p-1">
+            <div className="flex space-x-1 bg-muted/50 rounded-lg p-1 backdrop-blur-sm">
               <button
                 onClick={() => setActiveActivityTab('recent')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeActivityTab === 'recent'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-background/80 text-foreground shadow-sm backdrop-blur-md'
+                  : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
                   }`}
               >
                 Recent
@@ -412,8 +412,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
               <button
                 onClick={() => setActiveActivityTab('all')}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeActivityTab === 'all'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-background/80 text-foreground shadow-sm backdrop-blur-md'
+                  : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
                   }`}
               >
                 All Activities
@@ -439,10 +439,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
               if (isEmpty) {
                 return (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground">
+                    <p className="text-gray-700 dark:text-gray-200">
                       {activeActivityTab === 'recent' ? 'No recent activity' : 'No activities found'}
                     </p>
-                    <p className="text-sm text-muted-foreground/70 mt-1">
+                    <p className="text-sm text-gray-700 dark:text-gray-200/70 mt-1">
                       {activeActivityTab === 'recent'
                         ? 'Activities will appear here as you use the system'
                         : 'Try adjusting your filters or check back later'
@@ -453,7 +453,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
               }
 
               return currentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start justify-between text-sm p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                <div key={activity.id} className="flex items-start justify-between text-sm p-2 rounded-lg hover:bg-white/5 transition-colors">
                   <div className="flex items-start flex-1">
                     <div className="flex items-center mr-3">
                       <span className="text-base mr-2">{getActivityIcon(activity.category)}</span>
@@ -462,27 +462,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-medium text-foreground text-sm">{activity.title}</h3>
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${activity.impact === 'CRITICAL' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                          activity.impact === 'HIGH' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                            activity.impact === 'MEDIUM' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                              'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${activity.impact === 'CRITICAL' ? 'bg-red-500/20 text-red-200' :
+                          activity.impact === 'HIGH' ? 'bg-orange-500/20 text-orange-200' :
+                            activity.impact === 'MEDIUM' ? 'bg-blue-500/20 text-blue-200' :
+                              'bg-green-500/20 text-green-200'
                           }`}>
                           {activity.impact}
                         </span>
-                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-gray-700 dark:text-gray-200">
                           {activity.category}
                         </span>
                       </div>
-                      <p className="text-muted-foreground text-xs mb-1 leading-relaxed">{activity.description}</p>
+                      <p className="text-gray-700 dark:text-gray-200 text-xs mb-1 leading-relaxed">{activity.description}</p>
                       {activity.performedBy && (
-                        <p className="text-xs text-muted-foreground/70">
+                        <p className="text-xs text-gray-700 dark:text-gray-200/70">
                           by {activity.performedBy}
                         </p>
                       )}
                     </div>
                   </div>
                   <div className="text-right ml-3 flex-shrink-0">
-                    <p className="text-muted-foreground/50 text-xs">
+                    <p className="text-gray-700 dark:text-gray-200/50 text-xs">
                       {activeActivityTab === 'recent'
                         ? moment(activity.createdAt).fromNow()
                         : moment(activity.createdAt).format('MMM D, h:mm A')
@@ -493,7 +493,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
               ));
             })()}
           </div>
-        </div>
+        </GlassCard>
       </div>
 
       {showFairnessReport && (
@@ -506,23 +506,23 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
 
       {/* Schedule Generation Form */}
       {showGenerationForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background border border-border rounded-lg shadow-xl max-w-2xl w-full">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <GlassCard className="max-w-2xl w-full" enableRefraction>
             <div className="p-6">
               <ScheduleGenerationForm
                 onGenerate={handleGenerateSchedules}
                 isLoading={isGenerating}
               />
             </div>
-            <div className="flex justify-end p-6 border-t border-border">
+            <div className="flex justify-end p-6 border-t border-white/10">
               <button
                 onClick={() => setShowGenerationForm(false)}
-                className="px-4 py-2 border border-border rounded-md hover:bg-muted transition-colors"
+                className="px-4 py-2 border border-white/10 rounded-md hover:bg-white/5 transition-colors text-white"
               >
                 Cancel
               </button>
             </div>
-          </div>
+          </GlassCard>
         </div>
       )}
 

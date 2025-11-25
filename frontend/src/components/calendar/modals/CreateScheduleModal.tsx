@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Analyst, apiService } from '../../../services/api';
 import moment from 'moment';
+import GlassCard from '../../common/GlassCard';
 
 interface CreateScheduleModalProps {
     isOpen: boolean;
@@ -102,17 +103,17 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-6 border border-border max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
+            <GlassCard className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" enableRefraction>
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold">Create Schedule</h2>
-                    <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Create Schedule</h2>
+                    <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                         ✕
                     </button>
                 </div>
 
                 {error && (
-                    <div className="bg-destructive/10 text-destructive p-3 rounded-md mb-4 text-sm whitespace-pre-wrap">
+                    <div className="bg-destructive/20 border border-destructive/30 text-destructive-foreground p-3 rounded-md mb-4 text-sm whitespace-pre-wrap backdrop-blur-sm">
                         {error}
                     </div>
                 )}
@@ -123,9 +124,9 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                         {validationViolations.map((violation, index) => (
                             <div
                                 key={index}
-                                className={`p-3 rounded-md text-sm border ${violation.type === 'HARD'
-                                    ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'
-                                    : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200'
+                                className={`p-3 rounded-md text-sm border backdrop-blur-sm ${violation.type === 'HARD'
+                                    ? 'bg-red-500/20 border-red-500/30 text-red-200'
+                                    : 'bg-yellow-500/20 border-yellow-500/30 text-yellow-200'
                                     }`}
                             >
                                 <div className="font-medium flex items-center gap-2">
@@ -144,18 +145,18 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium mb-1">Date</label>
+                        <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Date</label>
                         <input
                             type="date"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-white/20 bg-white dark:bg-white/10 text-gray-900 dark:text-white backdrop-blur-sm focus:ring-2 focus:ring-primary focus:border-primary placeholder:text-gray-500 dark:placeholder:text-white/50"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-1">Analyst</label>
+                        <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Analyst</label>
                         <select
                             value={analystId}
                             onChange={(e) => {
@@ -166,12 +167,12 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                                     setShiftType(selectedAnalyst.shiftType);
                                 }
                             }}
-                            className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-white/20 bg-white dark:bg-white/10 text-gray-900 dark:text-white backdrop-blur-sm focus:ring-2 focus:ring-primary focus:border-primary"
                             required
                         >
-                            <option value="">Select Analyst</option>
+                            <option value="" className="bg-white dark:bg-gray-900">Select Analyst</option>
                             {analysts.map((analyst) => (
-                                <option key={analyst.id} value={analyst.id}>
+                                <option key={analyst.id} value={analyst.id} className="bg-white dark:bg-gray-900">
                                     {analyst.name} ({analyst.shiftType})
                                 </option>
                             ))}
@@ -179,9 +180,9 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-1">Shift Type</label>
+                        <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Shift Type</label>
                         <div className="flex space-x-4">
-                            <label className="flex items-center space-x-2 cursor-pointer">
+                            <label className="flex items-center space-x-2 cursor-pointer text-gray-900 dark:text-white">
                                 <input
                                     type="radio"
                                     checked={shiftType === 'MORNING'}
@@ -190,7 +191,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                                 />
                                 <span>Morning</span>
                             </label>
-                            <label className="flex items-center space-x-2 cursor-pointer">
+                            <label className="flex items-center space-x-2 cursor-pointer text-gray-900 dark:text-white">
                                 <input
                                     type="radio"
                                     checked={shiftType === 'EVENING'}
@@ -208,9 +209,9 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                             id="isScreener"
                             checked={isScreener}
                             onChange={(e) => setIsScreener(e.target.checked)}
-                            className="rounded border-input text-primary focus:ring-primary"
+                            className="h-4 w-4 rounded border-gray-300 dark:border-white/20 bg-white dark:bg-white/10"
                         />
-                        <label htmlFor="isScreener" className="text-sm font-medium cursor-pointer">
+                        <label htmlFor="isScreener" className="text-sm font-medium cursor-pointer text-gray-900 dark:text-white">
                             Assign as Screener
                         </label>
                     </div>
@@ -219,23 +220,24 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                             disabled={loading}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 shadow-lg"
                             disabled={loading || validationViolations.some(v => v.type === 'HARD')}
                         >
                             {loading ? 'Creating...' : 'Create Schedule'}
                         </button>
                     </div>
                 </form>
-            </div>
+            </GlassCard>
         </div>
     );
 };
 
 export default CreateScheduleModal;
+

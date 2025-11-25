@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { notificationService, Notification, NotificationType } from '../services/notificationService';
-import { X, Check, AlertTriangle, Calendar, Settings, CheckCircle, BarChart3 } from 'lucide-react';
+import { XMarkIcon, CheckIcon, ExclamationTriangleIcon, CalendarIcon, Cog6ToothIcon, CheckCircleIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -15,38 +15,37 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
     if (isOpen) {
       const unsubscribe = notificationService.subscribe(setNotifications);
       setNotifications(notificationService.getNotifications());
-      
+
       return unsubscribe;
     }
   }, [isOpen]);
 
   const getNotificationIcon = (type: NotificationType, priority: string) => {
-    const iconProps = { 
-      className: `h-5 w-5 ${
-        priority === 'critical' ? 'text-red-500' :
+    const iconProps = {
+      className: `h-5 w-5 ${priority === 'critical' ? 'text-red-500' :
         priority === 'high' ? 'text-orange-500' :
-        priority === 'medium' ? 'text-yellow-500' :
-        'text-blue-500'
-      }` 
+          priority === 'medium' ? 'text-yellow-500' :
+            'text-blue-500'
+        }`
     };
 
     switch (type) {
       case 'recommendation':
-        return <AlertTriangle {...iconProps} className="text-blue-500" />;
+        return <ExclamationTriangleIcon {...iconProps} className="text-blue-500" />;
       case 'history':
-        return <Calendar {...iconProps} className="text-gray-500" />;
+        return <CalendarIcon {...iconProps} className="text-gray-500" />;
       case 'system':
-        return <Settings {...iconProps} />;
+        return <Cog6ToothIcon {...iconProps} />;
       case 'success':
-        return <CheckCircle {...iconProps} className="text-green-500" />;
+        return <CheckCircleIcon {...iconProps} className="text-green-500" />;
       case 'analytics':
-        return <BarChart3 {...iconProps} className="text-purple-500" />;
+        return <ChartBarIcon {...iconProps} className="text-purple-500" />;
       default:
-        return <Settings {...iconProps} />;
+        return <Cog6ToothIcon {...iconProps} />;
     }
   };
 
-  const filteredNotifications = notifications.filter(n => 
+  const filteredNotifications = notifications.filter(n =>
     filter === 'all' || !n.isRead
   );
 
@@ -80,18 +79,36 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
     notificationService.clearAll();
   };
 
+  // Handle click outside to close
+  useEffect(() => {
+    if (isOpen) {
+      const handleClickOutside = (event: MouseEvent) => {
+        // If the click is on the backdrop or outside the notification panel
+        const target = event.target as HTMLElement;
+        if (target.closest('.glass-static') === null && !target.closest('button[title="Notifications"]')) {
+          onClose();
+        }
+      };
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 z-40 bg-black/20" 
+      {/* Backdrop - Fixed to cover screen, but might be contained if parent has transform */}
+      <div
+        className="fixed inset-0 z-40 bg-black/5 dark:bg-black/20 backdrop-blur-[1px]"
         onClick={onClose}
       />
-      
-      {/* Notification Panel */}
-      <div className="fixed bottom-20 left-4 z-50 w-96 max-w-[calc(100vw-2rem)] bg-card border border-border rounded-lg shadow-lg">
+
+      {/* Notification Panel - Absolute relative to Sidebar Wrapper */}
+      <div className="absolute bottom-14 left-4 z-50 w-80 sm:w-96 max-w-[calc(100vw-2rem)] glass-static animate-in slide-in-from-bottom-2 duration-200 shadow-2xl border border-white/20">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
@@ -102,11 +119,11 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               </span>
             )}
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="p-1 hover:bg-muted rounded-md transition-colors"
           >
-            <X className="h-4 w-4" />
+            <XMarkIcon className="h-4 w-4" />
           </button>
         </div>
 
@@ -114,21 +131,19 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
         <div className="flex border-b border-border">
           <button
             onClick={() => setFilter('unread')}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-              filter === 'unread' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${filter === 'unread'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
+              }`}
           >
             Unread ({notificationService.getUnreadCount()})
           </button>
           <button
             onClick={() => setFilter('all')}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-              filter === 'all' 
-                ? 'bg-primary/10 text-primary border-b-2 border-primary' 
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${filter === 'all'
+              ? 'bg-primary/10 text-primary border-b-2 border-primary'
+              : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
+              }`}
           >
             All ({notifications.length})
           </button>
@@ -155,11 +170,11 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
         )}
 
         {/* Notifications list */}
-        <div className="max-h-96 overflow-y-auto">
+        <div className="max-h-[60vh] overflow-y-auto">
           {filteredNotifications.length === 0 ? (
-            <div className="p-6 text-center text-muted-foreground">
+            <div className="p-6 text-center text-gray-700 dark:text-gray-200">
               <div className="mb-2">
-                <Check className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                <CheckIcon className="h-8 w-8 mx-auto text-gray-700 dark:text-gray-200/50" />
               </div>
               <p className="text-sm">
                 {filter === 'unread' ? 'No unread notifications' : 'No notifications'}
@@ -168,33 +183,31 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
           ) : (
             <div className="divide-y divide-border">
               {filteredNotifications.map((notification) => (
-                <div 
+                <div
                   key={notification.id}
-                  className={`p-4 hover:bg-muted/50 transition-colors ${
-                    !notification.isRead ? 'bg-primary/5' : ''
-                  }`}
+                  className={`p-4 hover:bg-muted/50 transition-colors ${!notification.isRead ? 'bg-primary/5' : ''
+                    }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-1">
                       {getNotificationIcon(notification.type, notification.priority)}
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <h4 className={`text-sm font-medium ${
-                            !notification.isRead ? 'text-foreground' : 'text-muted-foreground'
-                          }`}>
+                          <h4 className={`text-sm font-medium ${!notification.isRead ? 'text-foreground' : 'text-gray-700 dark:text-gray-200'
+                            }`}>
                             {notification.title}
                           </h4>
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          <p className="text-xs text-gray-700 dark:text-gray-200 mt-1 line-clamp-2">
                             {notification.message}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-2">
+                          <p className="text-xs text-gray-700 dark:text-gray-200 mt-2">
                             {formatTimestamp(notification.timestamp)}
                           </p>
                         </div>
-                        
+
                         <div className="flex items-center gap-1">
                           {!notification.isRead && (
                             <button
@@ -202,7 +215,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                               className="p-1 hover:bg-muted rounded transition-colors"
                               title="Mark as read"
                             >
-                              <Check className="h-3 w-3" />
+                              <CheckIcon className="h-3 w-3" />
                             </button>
                           )}
                           <button
@@ -210,16 +223,16 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                             className="p-1 hover:bg-muted rounded transition-colors"
                             title="Remove"
                           >
-                            <X className="h-3 w-3" />
+                            <XMarkIcon className="h-3 w-3" />
                           </button>
                         </div>
                       </div>
-                      
+
                       {/* Notification metadata */}
                       {notification.metadata?.tags && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {notification.metadata.tags.map((tag, index) => (
-                            <span key={index} className="px-2 py-1 bg-muted text-muted-foreground rounded text-xs">
+                            <span key={index} className="px-2 py-1 bg-muted text-gray-700 dark:text-gray-200 rounded text-xs">
                               {tag}
                             </span>
                           ))}

@@ -36,9 +36,9 @@ const AutoFixPreview: React.FC<AutoFixPreviewProps> = ({ isOpen, onClose, onConf
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4">
-      <div className="bg-card text-card-foreground rounded-lg shadow-xl p-6 w-full max-w-2xl border border-border">
+      <div className="glass-static p-6 w-full max-w-2xl">
         <h2 className="text-xl font-bold mb-4 text-foreground">Confirm Auto-Fix Assignments</h2>
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="text-sm text-gray-700 dark:text-gray-200 mb-4">
           The following {proposals.length} assignment(s) are proposed to resolve the conflicts. Review the changes and confirm to apply them.
         </p>
 
@@ -46,14 +46,14 @@ const AutoFixPreview: React.FC<AutoFixPreviewProps> = ({ isOpen, onClose, onConf
           <table className="min-w-full divide-y divide-border">
             <thead className="bg-muted/50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Action</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Shift</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Analyst</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Reason</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Action</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Shift</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Analyst</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Reason</th>
               </tr>
             </thead>
-            <tbody className="bg-card divide-y divide-border">
+            <tbody className="divide-y divide-border">
               {proposals.map((p, index) => {
                 const display = actionDisplay[p.action] || { label: 'N/A', color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' };
                 return (
@@ -66,7 +66,7 @@ const AutoFixPreview: React.FC<AutoFixPreviewProps> = ({ isOpen, onClose, onConf
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">{p.date}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">{p.shiftType}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">{p.analystName}</td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{p.reason}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-200">{p.reason}</td>
                   </tr>
                 );
               })}

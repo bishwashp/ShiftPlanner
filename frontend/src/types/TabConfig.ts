@@ -1,9 +1,9 @@
-import { LucideIcon, Calendar, Users, AlertTriangle, CheckCircle } from 'lucide-react';
+import { CalendarIcon, UsersIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 export interface TabConfig {
   key: string;
   label: string;
-  icon: LucideIcon;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   mobileLabel?: string; // Optional shorter label for mobile
 }
 
@@ -18,15 +18,15 @@ export interface PageTabConfig {
 export const PAGE_TAB_CONFIGS: PageTabConfig = {
   availability: {
     tabs: [
-      { key: 'holidays', label: 'Holidays', icon: Calendar },
-      { key: 'absences', label: 'Absences', icon: Users }
+      { key: 'holidays', label: 'Holidays', icon: CalendarIcon },
+      { key: 'absences', label: 'Absences', icon: UsersIcon }
     ],
     defaultTab: 'holidays'
   },
   conflicts: {
     tabs: [
-      { key: 'critical', label: 'Critical', icon: AlertTriangle },
-      { key: 'recommended', label: 'Recommended', icon: CheckCircle }
+      { key: 'critical', label: 'Critical', icon: ExclamationTriangleIcon },
+      { key: 'recommended', label: 'Recommended', icon: CheckCircleIcon }
     ],
     defaultTab: 'critical'
   }
