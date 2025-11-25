@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Analyst, apiService } from '../../../services/api';
 import moment from 'moment';
 import GlassCard from '../../common/GlassCard';
+import Button from '../../ui/Button';
 
 interface CreateScheduleModalProps {
     isOpen: boolean;
@@ -217,21 +218,22 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                     </div>
 
                     <div className="flex justify-end space-x-3 mt-6">
-                        <button
+                        <Button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                            variant="secondary"
                             disabled={loading}
                         >
                             Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
-                            className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 shadow-lg"
+                            variant="primary"
+                            isLoading={loading}
                             disabled={loading || validationViolations.some(v => v.type === 'HARD')}
                         >
-                            {loading ? 'Creating...' : 'Create Schedule'}
-                        </button>
+                            Create Schedule
+                        </Button>
                     </div>
                 </form>
             </GlassCard>

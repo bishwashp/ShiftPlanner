@@ -14,6 +14,7 @@ import GlassCard from './common/GlassCard';
 import TodaysScreenersWidget from './dashboard/widgets/TodaysScreenersWidget';
 import UpcomingHolidaysWidget from './dashboard/widgets/UpcomingHolidaysWidget';
 import CoverageWidget from './dashboard/widgets/CoverageWidget';
+import Button from './ui/Button';
 
 interface StatCardProps {
   title: string;
@@ -68,15 +69,16 @@ interface QuickActionButtonProps {
 }
 
 const QuickActionButton: React.FC<QuickActionButtonProps> = ({ text, icon: Icon, onClick }) => (
-  <button
-    className="group relative flex-1 rounded-xl p-[1px] bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 hover:from-indigo-500/40 hover:via-purple-500/40 hover:to-pink-500/40 transition-all shadow-sm hover:shadow-md"
+  <Button
     onClick={onClick}
+    variant="primary"
+    className="w-full h-full"
   >
-    <div className="relative flex items-center justify-center w-full h-full px-4 py-3 rounded-xl bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm transition-all group-hover:bg-white/80 dark:group-hover:bg-gray-900/80">
+    <div className="flex items-center justify-center w-full">
       <Icon className="w-5 h-5 mr-2.5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300" />
       <span className="text-sm font-semibold text-gray-900 dark:text-white">{text}</span>
     </div>
-  </button>
+  </Button>
 );
 
 interface DashboardProps {
@@ -372,12 +374,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
         {conflicts.critical.length > 0 && !hasActivePrompts() && !hasNoScheduleConflict && (
           <div className="mb-6 p-4 bg-yellow-500/10 border-l-4 border-yellow-500 rounded flex items-center justify-between backdrop-blur-sm">
             <span className="text-yellow-700 dark:text-yellow-300 font-medium">Schedule issues have been detected for the next 30 days. Please review the Conflict Management for more details.</span>
-            <button
+            <Button
               onClick={() => onViewChange('conflicts')}
-              className="ml-4 px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 font-semibold"
+              variant="secondary"
+              className="ml-4 bg-yellow-500 text-white hover:bg-yellow-600 border-none"
             >
               View
-            </button>
+            </Button>
           </div>
         )}
 
@@ -429,18 +432,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
             <div className="flex bg-muted/50 rounded-lg p-1">
-              <button
+              <Button
                 onClick={() => setActiveActivityTab('recent')}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeActivityTab === 'recent' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                variant={activeActivityTab === 'recent' ? 'primary' : 'ghost'}
+                size="sm"
+                className={activeActivityTab === 'recent' ? '' : 'text-muted-foreground hover:text-foreground'}
               >
                 Recent
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setActiveActivityTab('all')}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeActivityTab === 'all' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                variant={activeActivityTab === 'all' ? 'primary' : 'ghost'}
+                size="sm"
+                className={activeActivityTab === 'all' ? '' : 'text-muted-foreground hover:text-foreground'}
               >
                 All Activities
-              </button>
+              </Button>
             </div>
           </div>
           <div className="space-y-2">
@@ -569,12 +576,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
               />
             </div>
             <div className="flex justify-end p-6 border-t border-white/10">
-              <button
+              <Button
                 onClick={() => setShowGenerationForm(false)}
-                className="px-4 py-2 border border-white/10 rounded-md hover:bg-white/5 transition-colors text-white"
+                variant="secondary"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </GlassCard>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiService, Schedule, Analyst } from '../services/api';
 import moment from 'moment-timezone';
+import Button from './ui/Button';
 
 
 interface CalendarExportProps {
@@ -252,18 +253,20 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Analysts</h3>
           <div className="space-x-2">
-            <button
+            <Button
               onClick={handleSelectAllAnalysts}
-              className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              variant="primary"
+              size="sm"
             >
               Select All
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleDeselectAllAnalysts}
-              className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
+              variant="secondary"
+              size="sm"
             >
               Deselect All
-            </button>
+            </Button>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -319,23 +322,16 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
 
       {/* Export Button */}
       <div className="glass-static p-4">
-        <button
+        <Button
           onClick={handleExport}
           disabled={isExporting || selectedAnalysts.length === 0}
-          className="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+          isLoading={isExporting}
+          variant="primary"
+          className="w-full"
         >
-          {isExporting ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
-              <span>Exporting...</span>
-            </>
-          ) : (
-            <>
-              <span>📤</span>
-              <span>Export Calendar</span>
-            </>
-          )}
-        </button>
+          {!isExporting && <span className="mr-2">📤</span>}
+          Export Calendar
+        </Button>
       </div>
 
       {/* External Calendar Integration */}
@@ -383,12 +379,12 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
               Enable webhook notifications for schedule changes
             </span>
           </div>
-          <button
+          <Button
             onClick={handleWebhookSetup}
-            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
+            variant="secondary"
           >
             Configure Webhook
-          </button>
+          </Button>
         </div>
       </div>
     </div>

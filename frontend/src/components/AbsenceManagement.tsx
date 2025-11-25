@@ -3,6 +3,9 @@ import { PlusIcon, UsersIcon, TrashIcon, PencilSquareIcon, ExclamationTriangleIc
 import { apiService } from '../services/api';
 import moment from 'moment-timezone';
 import Checkbox from './ui/Checkbox';
+import HeaderActionPortal from './layout/HeaderActionPortal';
+import HeaderActionButton from './layout/HeaderActionButton';
+import Button from './ui/Button';
 
 interface Absence {
   id: string;
@@ -275,78 +278,80 @@ const AbsenceManagement: React.FC = () => {
 
   return (
     <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Absence Management</h2>
-          <p className="text-gray-700 dark:text-gray-200">
-            Manage analyst vacations, sick days, and other absences
-          </p>
-        </div>
-        <button
+      <HeaderActionPortal>
+        <HeaderActionButton
+          icon={PlusIcon}
+          label="Add New"
           onClick={() => setShowAddForm(true)}
-          className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center space-x-2"
-        >
-          <PlusIcon className="h-4 w-4" />
-          <span>Add Absence</span>
-        </button>
-      </div>
+        />
+      </HeaderActionPortal>
 
       {/* Filters */}
-      <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Analyst</label>
-          <select
-            value={filters.analystId}
-            onChange={(e) => setFilters({ ...filters, analystId: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-          >
-            <option value="">All Analysts</option>
-            {analysts.map(analyst => (
-              <option key={analyst.id} value={analyst.id}>
-                {analyst.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Type</label>
-          <select
-            value={filters.type}
-            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-          >
-            <option value="">All Types</option>
-            {absenceTypes.map(type => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Approval Status</label>
-          <select
-            value={filters.isApproved}
-            onChange={(e) => setFilters({ ...filters, isApproved: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-          >
-            <option value="">All</option>
-            <option value="true">Approved</option>
-            <option value="false">Pending</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Planning</label>
-          <select
-            value={filters.isPlanned}
-            onChange={(e) => setFilters({ ...filters, isPlanned: e.target.value })}
-            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-          >
-            <option value="">All</option>
-            <option value="true">Planned</option>
-            <option value="false">Unplanned</option>
-          </select>
+      <div className="mb-6 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-foreground whitespace-nowrap">Analyst:</label>
+            <select
+              value={filters.analystId}
+              onChange={(e) => setFilters({ ...filters, analystId: e.target.value })}
+              className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary max-w-[150px]"
+            >
+              <option value="">All Analysts</option>
+              {analysts.map(analyst => (
+                <option key={analyst.id} value={analyst.id}>
+                  {analyst.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 hidden md:block" />
+
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-foreground whitespace-nowrap">Type:</label>
+            <select
+              value={filters.type}
+              onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+              className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary"
+            >
+              <option value="">All Types</option>
+              {absenceTypes.map(type => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 hidden md:block" />
+
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-foreground whitespace-nowrap">Status:</label>
+            <select
+              value={filters.isApproved}
+              onChange={(e) => setFilters({ ...filters, isApproved: e.target.value })}
+              className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary"
+            >
+              <option value="">All</option>
+              <option value="true">Approved</option>
+              <option value="false">Pending</option>
+            </select>
+          </div>
+
+          <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 hidden md:block" />
+
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-foreground whitespace-nowrap">Plan:</label>
+            <select
+              value={filters.isPlanned}
+              onChange={(e) => setFilters({ ...filters, isPlanned: e.target.value })}
+              className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary"
+            >
+              <option value="">All</option>
+              <option value="true">Planned</option>
+              <option value="false">Unplanned</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -457,20 +462,21 @@ const AbsenceManagement: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
+              <Button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                variant="primary"
               >
                 {submitting ? 'Saving...' : (editingAbsence ? 'Update Absence' : 'Add Absence')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                onClick={cancelEdit}
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
+                onClick={editingAbsence ? cancelEdit : () => setShowAddForm(false)}
+                variant="secondary"
+                className="ml-3"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -579,38 +585,46 @@ const AbsenceManagement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center space-x-2">
-                          <button
+                          <Button
                             onClick={() => startEdit(absence)}
-                            className="text-primary hover:text-primary/80 transition-colors"
+                            variant="ghost"
+                            size="sm"
+                            className="text-primary hover:text-primary/80"
                             title="Edit absence"
                           >
                             <PencilSquareIcon className="h-4 w-4" />
-                          </button>
+                          </Button>
                           {!absence.isApproved && (
-                            <button
+                            <Button
                               onClick={() => handleApproveAbsence(absence.id, true)}
-                              className="text-green-600 hover:text-green-800 transition-colors"
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-600 hover:text-green-800"
                               title="Approve absence"
                             >
                               <CheckCircleIcon className="h-4 w-4" />
-                            </button>
+                            </Button>
                           )}
                           {absence.isApproved && (
-                            <button
+                            <Button
                               onClick={() => handleApproveAbsence(absence.id, false)}
-                              className="text-yellow-600 hover:text-yellow-800 transition-colors"
+                              variant="ghost"
+                              size="sm"
+                              className="text-yellow-600 hover:text-yellow-800"
                               title="Revoke approval"
                             >
                               <XCircleIcon className="h-4 w-4" />
-                            </button>
+                            </Button>
                           )}
-                          <button
+                          <Button
                             onClick={() => handleDeleteAbsence(absence.id)}
-                            className="text-destructive hover:text-destructive/80 transition-colors"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive/80"
                             title="Delete absence"
                           >
                             <TrashIcon className="h-4 w-4" />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>

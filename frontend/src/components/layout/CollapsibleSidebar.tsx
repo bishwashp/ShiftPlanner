@@ -21,6 +21,8 @@ interface CollapsibleSidebarProps {
   activeView: View;
   activeAvailabilityTab?: 'holidays' | 'absences';
   onAvailabilityTabChange?: (tab: 'holidays' | 'absences') => void;
+  activeConflictTab?: 'critical' | 'recommended';
+  onConflictTabChange?: (tab: 'critical' | 'recommended') => void;
 }
 
 const ConstraintsIcon = ({ className }: { className?: string }) => (
@@ -62,7 +64,15 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
       label: 'Schedule',
       items: [
         { view: 'schedule', label: 'Calendar', icon: CalendarDaysIcon },
-        { view: 'conflicts', label: 'Conflicts', icon: ExclamationTriangleIcon },
+        {
+          view: 'conflicts',
+          label: 'Conflicts',
+          icon: ExclamationTriangleIcon,
+          subItems: [
+            { id: 'critical', label: 'Critical' },
+            { id: 'recommended', label: 'Recommended' }
+          ]
+        },
         { view: 'analytics', label: 'Analytics', icon: ChartBarIcon },
       ]
     },
@@ -173,11 +183,14 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
                                     e.stopPropagation();
                                     if (item.view === 'availability' && props.onAvailabilityTabChange) {
                                       props.onAvailabilityTabChange(subItem.id as 'holidays' | 'absences');
+                                    } else if (item.view === 'conflicts' && props.onConflictTabChange) {
+                                      props.onConflictTabChange(subItem.id as 'critical' | 'recommended');
                                     }
                                   }}
                                   className={`
                                     w-full flex items-center rounded-md text-sm transition-all duration-200 px-3 py-1.5
-                                    ${(item.view === 'availability' && props.activeAvailabilityTab === subItem.id)
+                                    ${(item.view === 'availability' && props.activeAvailabilityTab === subItem.id) ||
+                                      (item.view === 'conflicts' && props.activeConflictTab === subItem.id)
                                       ? 'text-primary font-medium bg-primary/5'
                                       : 'text-gray-700 dark:text-gray-200 hover:text-foreground hover:bg-muted/50'
                                     }

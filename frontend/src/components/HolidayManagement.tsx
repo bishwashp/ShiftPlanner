@@ -3,6 +3,9 @@ import { PlusIcon, CalendarIcon, TrashIcon, PencilSquareIcon, ExclamationTriangl
 import { apiService } from '../services/api';
 import moment from 'moment-timezone';
 import Checkbox from './ui/Checkbox';
+import HeaderActionPortal from './layout/HeaderActionPortal';
+import HeaderActionButton from './layout/HeaderActionButton';
+import Button from './ui/Button';
 
 interface Holiday {
   id: string;
@@ -210,39 +213,31 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
 
   return (
     <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Holiday Management</h2>
-          <p className="text-gray-700 dark:text-gray-200">
-            Manage company holidays that affect scheduling
-          </p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={initializeDefaultHolidays}
-            className="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
-          >
-            Initialize Default Holidays
-          </button>
-          <button
+      <HeaderActionPortal>
+        <div className="flex items-center space-x-2">
+          <HeaderActionButton
+            icon={PlusIcon}
+            label="Add New"
             onClick={() => setShowAddForm(true)}
-            className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors flex items-center space-x-2"
+          />
+          <Button
+            onClick={initializeDefaultHolidays}
+            variant="secondary"
+            size="sm"
           >
-            <PlusIcon className="h-4 w-4" />
-            <span>Add Holiday</span>
-          </button>
+            Initialize Defaults
+          </Button>
         </div>
-      </div>
+      </HeaderActionPortal>
 
       {/* Filters */}
-      <div className="mb-6 flex items-center space-x-4">
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Year</label>
+      <div className="mb-6 flex items-center space-x-4 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10">
+        <div className="flex items-center space-x-2">
+          <label className="text-sm font-medium text-foreground">Year:</label>
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
+            className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary"
           >
             {Array.from({ length: 5 }, (_, i) => {
               const year = new Date().getFullYear() + i;
@@ -254,8 +249,9 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
             })}
           </select>
         </div>
+        <div className="h-4 w-px bg-gray-300 dark:bg-gray-700" />
         <div className="text-sm text-gray-700 dark:text-gray-200">
-          <span>Timezone: </span>
+          <span className="opacity-70">Timezone: </span>
           <span className="font-medium">{timezone}</span>
         </div>
       </div>
@@ -351,20 +347,21 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <button
+              <Button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                variant="primary"
               >
                 {submitting ? 'Saving...' : (editingHoliday ? 'Update Holiday' : 'Add Holiday')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                onClick={cancelEdit}
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
+                onClick={editingHoliday ? cancelEdit : () => setShowAddForm(false)} // Changed handleCancelEdit to cancelEdit
+                variant="secondary"
+                className="ml-3"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -452,18 +449,21 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => startEdit(holiday)}
-                          className="text-primary hover:text-primary/80 transition-colors"
+                        <Button
+                          onClick={() => startEdit(holiday)} // Changed handleEditClick to startEdit
+                          variant="ghost"
+                          size="sm"
+                          className="mr-2"
                         >
-                          <PencilSquareIcon className="h-4 w-4" />
-                        </button>
-                        <button
+                          Edit
+                        </Button>
+                        <Button
                           onClick={() => handleDeleteHoliday(holiday.id)}
-                          className="text-destructive hover:text-destructive/80 transition-colors"
+                          variant="danger"
+                          size="sm"
                         >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
+                          Delete
+                        </Button>
                       </div>
                     </td>
                   </tr>

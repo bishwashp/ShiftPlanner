@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService, AlgorithmConfig } from '../services/api';
+import Button from './ui/Button';
 
 const AlgorithmManagement: React.FC = () => {
     const [algorithms, setAlgorithms] = useState<AlgorithmConfig[]>([]);
@@ -61,8 +62,10 @@ const AlgorithmManagement: React.FC = () => {
                             <h2 className="text-xl font-semibold text-foreground">{algo.name}</h2>
                             <p className="text-gray-700 dark:text-gray-200">{algo.description}</p>
                             <p className="text-gray-700 dark:text-gray-200">Status: {algo.isActive ? 'Active' : 'Inactive'}</p>
-                            <button onClick={() => handleEdit(algo)} className="px-4 py-2 mt-2 bg-muted text-gray-700 dark:text-gray-200 rounded hover:bg-muted/80">Edit Config</button>
-                            {!algo.isActive && <button onClick={() => handleActivate(algo.id)} className="px-4 py-2 mt-2 ml-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">Activate</button>}
+                            <div className="mt-2 flex space-x-2">
+                                <Button onClick={() => handleEdit(algo)} variant="secondary" size="sm">Edit Config</Button>
+                                {!algo.isActive && <Button onClick={() => handleActivate(algo.id)} variant="primary" size="sm">Activate</Button>}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -83,9 +86,9 @@ const AlgorithmManagement: React.FC = () => {
                                 }
                             }}
                         />
-                        <div className="mt-4">
-                            <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">Save</button>
-                            <button type="button" onClick={() => setEditingAlgorithm(null)} className="px-4 py-2 ml-2 bg-muted text-gray-700 dark:text-gray-200 rounded hover:bg-muted/80">Cancel</button>
+                        <div className="mt-4 flex space-x-2">
+                            <Button type="submit" variant="primary">Save</Button>
+                            <Button type="button" onClick={() => setEditingAlgorithm(null)} variant="secondary">Cancel</Button>
                         </div>
                     </form>
                 </div>

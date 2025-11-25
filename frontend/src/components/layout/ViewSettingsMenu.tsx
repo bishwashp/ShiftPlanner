@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Cog6ToothIcon, MoonIcon, SunIcon, QuestionMarkCircleIcon, FunnelIcon } from '@heroicons/react/24/outline';
 import { useTheme } from 'react18-themes';
 import TimezoneSelector from '../TimezoneSelector';
+import Button from '../ui/Button';
 
 interface ViewSettingsMenuProps {
     timezone: string;
@@ -53,13 +54,13 @@ const ViewSettingsMenu: React.FC<ViewSettingsMenuProps> = ({
 
     return (
         <div className="relative" ref={menuRef}>
-            <button
+            <Button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`p-2 rounded-md transition-colors ${isOpen ? 'bg-muted text-foreground' : 'text-gray-700 dark:text-gray-200 hover:bg-muted hover:text-foreground'}`}
-                title="View Settings"
-            >
-                <Cog6ToothIcon className="h-5 w-5" />
-            </button>
+                variant="secondary"
+                size="icon"
+                icon={Cog6ToothIcon}
+                className={`h-9 w-9 ${isOpen ? 'ring-2 ring-primary' : ''}`}
+            />
 
             {isOpen && (
                 <div className="absolute top-full right-0 mt-2 w-72 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95 duration-200">

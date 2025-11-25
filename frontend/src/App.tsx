@@ -253,6 +253,8 @@ function App() {
           activeView={activeView}
           activeAvailabilityTab={activeAvailabilityTab}
           onAvailabilityTabChange={setActiveAvailabilityTab}
+          activeConflictTab={activeConflictTab}
+          onConflictTabChange={setActiveConflictTab}
         />
         <div className="flex-1 flex flex-col">
           <AppHeader

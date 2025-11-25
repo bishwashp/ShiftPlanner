@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CalendarIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/outline';
 import moment from 'moment';
+import Button from './ui/Button';
 
 interface ScheduleGenerationFormProps {
   onGenerate: (startDate: string, endDate: string, algorithm: string) => void;
@@ -80,23 +81,16 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
         </div>
 
         {/* Generate Button */}
-        <button
+        <Button
           type="submit"
           disabled={isLoading || !startDate || !endDate}
-          className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+          isLoading={isLoading}
+          variant="primary"
+          className="w-full"
         >
-          {isLoading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>Generating...</span>
-            </>
-          ) : (
-            <>
-              <UsersIcon className="h-4 w-4" />
-              <span>Generate Schedule</span>
-            </>
-          )}
-        </button>
+          {!isLoading && <UsersIcon className="h-4 w-4 mr-2" />}
+          Generate Schedule
+        </Button>
       </form>
     </div>
   );

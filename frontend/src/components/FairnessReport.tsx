@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import apiService, { FairnessReport } from '../services/api';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import { apiService, FairnessReport } from '../services/api';
+import Button from './ui/Button';
 import moment from 'moment';
 
 interface FairnessReportModalProps {
@@ -63,12 +65,12 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
         <div className="glass-static p-8 max-w-md w-full mx-4">
           <h2 className="text-xl font-semibold text-foreground mb-4">Error</h2>
           <p className="text-gray-700 dark:text-gray-200 mb-4">{error}</p>
-          <button
+          <Button
             onClick={onClose}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90"
+            variant="primary"
           >
             Close
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -86,14 +88,14 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
               {moment(startDate).format('MMM D, YYYY')} - {moment(endDate).format('MMM D, YYYY')}
             </p>
           </div>
-          <button
+          <Button
             onClick={onClose}
+            variant="ghost"
+            size="icon"
             className="text-gray-700 dark:text-gray-200 hover:text-foreground"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+            <XMarkIcon className="w-6 h-6" />
+          </Button>
         </div>
 
         {/* Overall Score */}
@@ -169,18 +171,18 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
 
         {/* Actions */}
         <div className="flex justify-end mt-8 space-x-3">
-          <button
+          <Button
             onClick={onClose}
-            className="px-4 py-2 bg-muted text-gray-700 dark:text-gray-200 rounded hover:bg-muted/80"
+            variant="secondary"
           >
             Close
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => window.print()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90"
+            variant="primary"
           >
             Print Report
-          </button>
+          </Button>
         </div>
       </div>
     </div>

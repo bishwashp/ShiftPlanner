@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import moment from 'moment';
+import Button from './ui/Button';
 
 interface MonthlyTally {
   analystId: string;
@@ -370,12 +371,13 @@ const Analytics: React.FC = () => {
           </div>
         </div>
         <div className="flex space-x-3">
-          <button
+          <Button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 text-sm"
+            variant="primary"
+            size="sm"
           >
             🔄 Refresh
-          </button>
+          </Button>
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(Number(e.target.value))}
@@ -578,16 +580,15 @@ const Analytics: React.FC = () => {
                 { id: 'demand', label: 'Demand', icon: '📊' },
                 { id: 'conflicts', label: 'Conflicts', icon: '🚨' }
               ].map((tab) => (
-                <button
+                <Button
                   key={tab.id}
                   onClick={() => setActiveMLTab(tab.id as any)}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeMLTab === tab.id
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
-                    }`}
+                  variant={activeMLTab === tab.id ? 'primary' : 'ghost'}
+                  size="sm"
+                  className="flex-1"
                 >
                   {tab.icon} {tab.label}
-                </button>
+                </Button>
               ))}
             </div>
 

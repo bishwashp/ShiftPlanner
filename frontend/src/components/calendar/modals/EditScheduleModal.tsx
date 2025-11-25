@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Analyst, Schedule, apiService } from '../../../services/api';
 import moment from 'moment';
 import GlassCard from '../../common/GlassCard';
+import Button from '../../ui/Button';
 
 interface EditScheduleModalProps {
     isOpen: boolean;
@@ -169,20 +170,21 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                             Are you sure you want to delete this schedule? This action cannot be undone.
                         </p>
                         <div className="flex justify-end space-x-3">
-                            <button
+                            <Button
                                 onClick={() => setShowDeleteConfirm(false)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-foreground transition-colors"
+                                variant="secondary"
                                 disabled={deleteLoading}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 onClick={handleDelete}
-                                className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-md hover:bg-destructive/90 transition-colors"
+                                variant="danger"
+                                isLoading={deleteLoading}
                                 disabled={deleteLoading}
                             >
-                                {deleteLoading ? 'Deleting...' : 'Confirm Delete'}
-                            </button>
+                                Confirm Delete
+                            </Button>
                         </div>
                     </div>
                 ) : (
@@ -260,30 +262,31 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                         </div>
 
                         <div className="flex justify-between items-center mt-6 pt-4 border-t border-border">
-                            <button
+                            <Button
                                 type="button"
                                 onClick={() => setShowDeleteConfirm(true)}
-                                className="px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                                variant="danger"
                                 disabled={loading}
                             >
                                 Delete
-                            </button>
+                            </Button>
                             <div className="flex space-x-3">
-                                <button
+                                <Button
                                     type="button"
                                     onClick={onClose}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-foreground transition-colors"
+                                    variant="secondary"
                                     disabled={loading}
                                 >
                                     Cancel
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     type="submit"
-                                    className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                    variant="primary"
+                                    isLoading={loading}
                                     disabled={loading || validationViolations.some(v => v.type === 'HARD')}
                                 >
-                                    {loading ? 'Saving...' : 'Save Changes'}
-                                </button>
+                                    Save Changes
+                                </Button>
                             </div>
                         </div>
                     </form>

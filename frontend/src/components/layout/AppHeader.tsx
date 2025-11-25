@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { Bars3Icon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon, CheckCircleIcon, ArrowPathIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon, CheckCircleIcon, ArrowPathIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import Button from '../ui/Button';
 
 import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } from 'date-fns';
 import { View as SidebarView } from './CollapsibleSidebar';
 import ViewSettingsMenu from './ViewSettingsMenu';
 import ExportModal from '../modals/ExportModal';
+
+// Custom Export Icon requested by user
+// Custom Export Icon requested by user
+const ExportIcon = (props: React.ComponentProps<'svg'>) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" />
+  </svg>
+);
 
 interface AppHeaderProps {
   sidebarOpen: boolean;
@@ -75,7 +84,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       case 'analysts':
         return 'Analyst Management';
       case 'availability':
-        return 'Availability Management';
+        return activeAvailabilityTab === 'holidays' ? 'Holidays' : 'Absences';
       case 'conflicts':
         return 'Conflict Management';
       case 'analytics':
@@ -132,43 +141,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             </button>
           )}
 
-          {/* Tab Navigation - positioned next to title */}
-          {(() => {
-            // Availability tabs - Moved to Sidebar
-            if (activeView === 'availability') {
-              return null;
-            }
+          {/* Portal Target for Page Actions */}
+          <div id="app-header-actions" className="flex items-center space-x-2 ml-6" />
 
-            // Conflict tabs
-            if (activeView === 'conflicts' && activeConflictTab && onConflictTabChange) {
-              return (
-                <div className="flex items-center space-x-1 ml-4">
-                  <button
-                    onClick={() => onConflictTabChange('critical')}
-                    className={`flex items-center space-x-1 px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-medium transition-colors ${activeConflictTab === 'critical'
-                      ? 'bg-primary/30 text-primary-foreground shadow-lg'
-                      : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-white/5'
-                      }`}
-                  >
-                    <ExclamationTriangleIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    <span className="hidden sm:inline">Critical</span>
-                  </button>
-                  <button
-                    onClick={() => onConflictTabChange('recommended')}
-                    className={`flex items-center space-x-1 px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-medium transition-colors ${activeConflictTab === 'recommended'
-                      ? 'bg-primary/30 text-primary-foreground shadow-lg'
-                      : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-white/5'
-                      }`}
-                  >
-                    <CheckCircleIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    <span className="hidden sm:inline">Recommended</span>
-                  </button>
-                </div>
-              );
-            }
 
-            return null;
-          })()}
         </div>
 
         {/* Right Section */}
@@ -177,49 +153,60 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             <>
               {/* Navigation Controls */}
               <div className="flex items-center space-x-1">
-                <button
+                <Button
                   onClick={handlePrev}
-                  className="p-2 rounded-lg hover:bg-gray-200/50 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-900 dark:text-white transition-colors"
+                  variant="secondary"
+                  size="icon"
+                  className="h-9 w-9"
+                  icon={ChevronLeftIcon}
                   aria-label="Previous"
-                >
-                  <ChevronLeftIcon className="h-4.5 w-4.5" />
-                </button>
-                <button
+                />
+                <Button
                   onClick={handleNext}
-                  className="p-2 rounded-lg hover:bg-gray-200/50 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-900 dark:text-white transition-colors"
+                  variant="secondary"
+                  size="icon"
+                  className="h-9 w-9"
+                  icon={ChevronRightIcon}
                   aria-label="Next"
-                >
-                  <ChevronRightIcon className="h-4.5 w-4.5" />
-                </button>
+                />
               </div>
 
               {/* Today Button - Hide on very small screens */}
-              <button
-                onClick={handleToday}
-                className="px-3 py-2 text-sm font-medium rounded-lg border border-gray-300/50 dark:border-white/20 hover:bg-gray-200/50 dark:hover:bg-white/10 min-h-[44px] hidden xs:block text-gray-900 dark:text-white transition-colors"
-              >
-                Today
-              </button>
+              <div className="hidden xs:block">
+                <Button
+                  onClick={handleToday}
+                  variant="secondary"
+                  size="sm"
+                  className="h-9"
+                >
+                  Today
+                </Button>
+              </div>
 
               {/* View Selector */}
-              <select
-                value={view}
-                onChange={handleViewChange}
-                className="px-2 py-2 text-sm border border-gray-300/50 dark:border-white/20 rounded-lg bg-gray-100/50 dark:bg-white/10 text-gray-900 dark:text-white backdrop-blur-sm focus:ring-2 focus:ring-primary min-h-[44px] w-16 sm:w-auto"
-              >
-                <option value="day" className="bg-white dark:bg-gray-900">Day</option>
-                <option value="week" className="bg-white dark:bg-gray-900">Week</option>
-                <option value="month" className="bg-white dark:bg-gray-900">Month</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={view}
+                  onChange={handleViewChange}
+                  className="appearance-none h-9 pl-4 pr-9 py-1 text-sm font-medium rounded-full border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md text-gray-700 dark:text-gray-200 shadow-sm hover:shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-400 cursor-pointer"
+                >
+                  <option value="day" className="bg-white dark:bg-gray-900">Day</option>
+                  <option value="week" className="bg-white dark:bg-gray-900">Week</option>
+                  <option value="month" className="bg-white dark:bg-gray-900">Month</option>
+                </select>
+                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400 pointer-events-none" />
+              </div>
 
               {/* Export Button */}
-              <button
+              <Button
                 onClick={() => setIsExportModalOpen(true)}
-                className="flex items-center space-x-1 px-3 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors min-h-[44px] shadow-lg"
+                variant="primary"
+                icon={ExportIcon}
+                size="sm"
+                className="h-9"
               >
-                <ArrowDownTrayIcon className="h-4 w-4" />
                 <span className="hidden sm:inline">Export</span>
-              </button>
+              </Button>
             </>
           )}
 

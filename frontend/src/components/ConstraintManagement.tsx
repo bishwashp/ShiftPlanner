@@ -3,6 +3,10 @@ import { apiService, SchedulingConstraint, Analyst } from '../services/api';
 import moment from 'moment-timezone';
 import { formatDateTime } from '../utils/formatDateTime';
 import Checkbox from './ui/Checkbox';
+import HeaderActionPortal from './layout/HeaderActionPortal';
+import HeaderActionButton from './layout/HeaderActionButton';
+import Button from './ui/Button';
+import { PlusIcon } from '@heroicons/react/24/outline';
 
 interface ConstraintFormData {
     analystId?: string;
@@ -129,11 +133,13 @@ const ConstraintManagement: React.FC = () => {
                         {error}
                     </div>
                 )}
-                <div className="flex items-center justify-end mb-8">
-                    <button onClick={() => setShowAddForm(true)} className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">
-                        Add New Constraint
-                    </button>
-                </div>
+                <HeaderActionPortal>
+                    <HeaderActionButton
+                        icon={PlusIcon}
+                        label="Add New"
+                        onClick={() => setShowAddForm(true)}
+                    />
+                </HeaderActionPortal>
 
                 {(showAddForm || editingConstraint) && (
                     <div className="glass-static p-6 mb-8">
@@ -180,12 +186,12 @@ const ConstraintManagement: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex items-center space-x-4 mt-6">
-                                <button type="submit" disabled={submitting} className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50">
-                                    {submitting ? 'Saving...' : (editingConstraint ? 'Update' : 'Add')}
-                                </button>
-                                <button type="button" onClick={editingConstraint ? handleCancelEdit : () => setShowAddForm(false)} className="px-6 py-2 bg-muted text-gray-700 dark:text-gray-200 rounded-lg hover:bg-muted/80">
+                                <Button type="submit" disabled={submitting} variant="primary">
+                                    {editingConstraint ? 'Update Constraint' : 'Add Constraint'}
+                                </Button>
+                                <Button type="button" onClick={editingConstraint ? handleCancelEdit : () => setShowAddForm(false)} variant="secondary" className="ml-3">
                                     Cancel
-                                </button>
+                                </Button>
                             </div>
                         </form>
                     </div>
@@ -219,8 +225,8 @@ const ConstraintManagement: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                                             <div className="flex items-center space-x-2">
-                                                <button onClick={() => handleEditClick(c)} className="text-primary hover:text-primary/80">Edit</button>
-                                                <button onClick={() => handleDeleteConstraint(c.id)} className="text-destructive hover:text-destructive/80">Delete</button>
+                                                <Button onClick={() => handleEditClick(c)} variant="ghost" size="sm" className="mr-2">Edit</Button>
+                                                <Button onClick={() => handleDeleteConstraint(c.id)} variant="danger" size="sm">Delete</Button>
                                             </div>
                                         </td>
                                     </tr>

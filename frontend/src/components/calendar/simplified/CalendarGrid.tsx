@@ -275,7 +275,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                     relative border rounded-lg transition-all duration-200 cursor-pointer
                     backdrop-blur-sm
                     ${day.isCurrentMonth
-                      ? 'bg-white/60 dark:bg-gray-800/40 border-gray-300/50 dark:border-gray-600/40 hover:bg-white/80 dark:hover:bg-gray-800/60 focus-within:bg-white/80 dark:focus-within:bg-gray-800/60'
+                      ? 'bg-white/60 dark:bg-gray-800/40 border-gray-300/50 dark:border-gray-600/40 hover:bg-white/80 dark:hover:bg-gray-900/80 focus-within:bg-white/80 dark:focus-within:bg-gray-800/60'
                       : 'bg-gray-100/40 dark:bg-gray-900/20 border-gray-200/40 dark:border-gray-700/30 text-gray-500 dark:text-gray-400'
                     }
                     ${day.isToday
