@@ -195,21 +195,22 @@ export class IntelligentScheduler implements SchedulingStrategy {
     const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
     const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
 
-    const morningRotationPlans = await this.rotationManager.planRotation(
-      this.name, 'MORNING', startDate, endDate, morningAnalysts, existingSchedules
+    // Plan rotation for the unified pool (AM + PM)
+    // We use 'WEEKEND_ROTATION' as the shiftType key to store the single rotation state
+    const rotationPlans = await this.rotationManager.planRotation(
+      this.name, 'WEEKEND_ROTATION', startDate, endDate, analysts, existingSchedules
     );
 
-    const eveningRotationPlans = await this.rotationManager.planRotation(
-      this.name, 'EVENING', startDate, endDate, eveningAnalysts, existingSchedules
-    );
+    const currentMoment = moment.utc(startDate);
+    const endMoment = moment.utc(endDate);
 
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+    while (currentMoment.isSameOrBefore(endMoment, 'day')) {
+      const dateStr = currentMoment.format('YYYY-MM-DD');
+      const currentDate = currentMoment.toDate();
 
       const blackoutConstraint = globalConstraints.find(c =>
-        new Date((c as any).startDate) <= currentDate &&
-        new Date((c as any).endDate) >= currentDate &&
+        moment((c as any).startDate).isSameOrBefore(currentMoment, 'day') &&
+        moment((c as any).endDate).isSameOrAfter(currentMoment, 'day') &&
         (c as any).constraintType === 'BLACKOUT_DATE'
       );
 
@@ -219,14 +220,15 @@ export class IntelligentScheduler implements SchedulingStrategy {
           description: (blackoutConstraint as any).description || 'No scheduling allowed',
           severity: 'CRITICAL'
         });
-        currentDate.setDate(currentDate.getDate() + 1);
+        currentMoment.add(1, 'day');
         continue;
       }
 
       for (const analyst of morningAnalysts) {
-        const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, morningRotationPlans);
+        const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
         const onVacation = analyst.vacations?.some((v: any) =>
-          new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate
+          moment(v.startDate).isSameOrBefore(currentMoment, 'day') &&
+          moment(v.endDate).isSameOrAfter(currentMoment, 'day')
         ) || false;
 
         if (shouldWork && !onVacation) {
@@ -238,9 +240,10 @@ export class IntelligentScheduler implements SchedulingStrategy {
       }
 
       for (const analyst of eveningAnalysts) {
-        const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, eveningRotationPlans);
+        const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
         const onVacation = analyst.vacations?.some((v: any) =>
-          new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate
+          moment(v.startDate).isSameOrBefore(currentMoment, 'day') &&
+          moment(v.endDate).isSameOrAfter(currentMoment, 'day')
         ) || false;
 
         if (shouldWork && !onVacation) {
@@ -251,7 +254,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
         }
       }
 
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentMoment.add(1, 'day');
     }
 
     return result;
@@ -266,21 +269,33 @@ export class IntelligentScheduler implements SchedulingStrategy {
   ): Promise<{ proposedSchedules: any[]; conflicts: any[]; overwrites: any[] }> {
     const result = { proposedSchedules: [] as any[], conflicts: [] as any[], overwrites: [] as any[] };
 
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+    let morningScreenerIndex = 0;
+    let eveningScreenerIndex = 0;
+
+    const currentMoment = moment(startDate);
+    const endMoment = moment(endDate);
+
+    while (currentMoment.isSameOrBefore(endMoment, 'day')) {
+      const dateStr = currentMoment.format('YYYY-MM-DD');
       const daySchedules = baseSchedules.filter(s => s.date === dateStr);
       const morningSchedules = daySchedules.filter(s => s.shiftType === 'MORNING');
       const eveningSchedules = daySchedules.filter(s => s.shiftType === 'EVENING');
 
       if (morningSchedules.length > 0) {
-        result.proposedSchedules.push({ ...morningSchedules[0], isScreener: true });
-      }
-      if (eveningSchedules.length > 0) {
-        result.proposedSchedules.push({ ...eveningSchedules[0], isScreener: true });
+        // Round Robin selection for guaranteed fairness
+        const index = morningScreenerIndex % morningSchedules.length;
+        result.proposedSchedules.push({ ...morningSchedules[index], isScreener: true });
+        morningScreenerIndex++;
       }
 
-      currentDate.setDate(currentDate.getDate() + 1);
+      if (eveningSchedules.length > 0) {
+        // Round Robin selection
+        const index = eveningScreenerIndex % eveningSchedules.length;
+        result.proposedSchedules.push({ ...eveningSchedules[index], isScreener: true });
+        eveningScreenerIndex++;
+      }
+
+      currentMoment.add(1, 'day');
     }
 
     return result;

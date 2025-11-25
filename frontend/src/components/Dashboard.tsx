@@ -16,14 +16,14 @@ import ScheduleGenerationForm from './ScheduleGenerationForm';
 import ScheduleGenerationModal from './ScheduleGenerationModal';
 
 interface StatCardProps {
-    title: string;
-    value: number | string;
-    icon: React.ElementType;
-    color: string;
-    bgColor: string;
-    highlight?: string;
-    loading?: boolean;
-    onClick?: () => void;
+  title: string;
+  value: number | string;
+  icon: React.ElementType;
+  color: string;
+  bgColor: string;
+  highlight?: string;
+  loading?: boolean;
+  onClick?: () => void;
 }
 
 const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bgColor, highlight = '', loading = false, onClick }) => (
@@ -33,7 +33,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bg
       {loading ? (
         <div className="h-8 bg-muted rounded animate-pulse mt-1"></div>
       ) : (
-      <p className="text-3xl font-bold text-foreground">{value}</p>
+        <p className="text-3xl font-bold text-foreground">{value}</p>
       )}
     </div>
     <div className={`w-12 h-12 rounded-full flex items-center justify-center ${bgColor}`}>
@@ -43,13 +43,13 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bg
 );
 
 interface QuickActionButtonProps {
-    text: string;
-    icon: React.ElementType;
-    onClick?: () => void;
+  text: string;
+  icon: React.ElementType;
+  onClick?: () => void;
 }
 
 const QuickActionButton: React.FC<QuickActionButtonProps> = ({ text, icon: Icon, onClick }) => (
-  <button 
+  <button
     className="flex-1 flex items-center justify-center px-4 py-3 rounded-xl transition-all bg-primary/10 hover:bg-primary/20"
     onClick={onClick}
   >
@@ -58,7 +58,7 @@ const QuickActionButton: React.FC<QuickActionButtonProps> = ({ text, icon: Icon,
   </button>
 );
 
-interface DashboardProps { 
+interface DashboardProps {
   onViewChange: (view: View) => void;
   onError?: (error: string) => void;
   onSuccess?: (message: string) => void;
@@ -83,7 +83,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [showFairnessReport, setShowFairnessReport] = useState(false);
-  
+
   // Schedule generation state
   const [showGenerationForm, setShowGenerationForm] = useState(false);
   const [showGenerationModal, setShowGenerationModal] = useState(false);
@@ -102,25 +102,25 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
       // Fetch data sequentially to avoid rate limiting
       const stats = await apiService.getDashboardStats();
       setStats(stats);
-      
+
       // Add a small delay between requests
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       const conflictsData = await apiService.getAllConflicts(startDate, endDate);
       setConflicts(conflictsData);
-      
+
       // Add a small delay between requests
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       const activityData = await apiService.getRecentActivities(3);
       setRecentActivity(activityData);
-      
+
       // Also fetch all activities for the "All Activities" tab
       const allActivityData = await apiService.getActivities({ limit: 50 });
       setAllActivities(allActivityData);
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
-      
+
       // Handle rate limiting specifically
       if (err.response?.status === 429) {
         const retryAfter = err.response.data?.retryAfter || 60;
@@ -146,17 +146,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
 
   // Show action prompt for critical conflicts (but not for schedule existence conflicts)
   useEffect(() => {
-    const hasNoScheduleConflict = conflicts.critical.some(conflict => 
-      conflict.type === 'NO_SCHEDULE_EXISTS' || 
+    const hasNoScheduleConflict = conflicts.critical.some(conflict =>
+      conflict.type === 'NO_SCHEDULE_EXISTS' ||
       conflict.type === 'INCOMPLETE_SCHEDULES'
     );
     // Filter out NO_SCHEDULE_EXISTS and NO_ANALYST_ASSIGNED (which are essentially missing schedules)
-    const actualConflicts = conflicts.critical.filter(conflict => 
-      conflict.type !== 'NO_SCHEDULE_EXISTS' && 
+    const actualConflicts = conflicts.critical.filter(conflict =>
+      conflict.type !== 'NO_SCHEDULE_EXISTS' &&
       conflict.type !== 'NO_ANALYST_ASSIGNED' &&
       conflict.type !== 'INCOMPLETE_SCHEDULES'
     );
-    
+
     if (actualConflicts.length > 0 && !loading && !hasNoScheduleConflict) {
       showCriticalPrompt(
         'Critical Schedule Conflicts Detected',
@@ -182,10 +182,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
   }, [conflicts.critical.length, conflicts.critical, loading, showCriticalPrompt, onViewChange]);
 
   // Check if there's a "no schedule exists" or "incomplete schedules" conflict (now in recommended section)
-  const hasNoScheduleConflict = conflicts.recommended.some(conflict => 
+  const hasNoScheduleConflict = conflicts.recommended.some(conflict =>
     conflict.type === 'NO_SCHEDULE_EXISTS' || conflict.type === 'INCOMPLETE_SCHEDULES'
   );
-  
+
   const conflictCard = {
     title: 'Schedule Conflicts',
     value: conflicts.critical.length + conflicts.recommended.length,
@@ -206,7 +206,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
     { title: 'Scheduled Shifts', value: stats.scheduledShifts, icon: ScheduleIcon, color: 'text-purple-600', bgColor: 'bg-purple-600/10' },
     { ...conflictCard, onClick: handleNavigateToConflicts },
   ];
-  
+
   const getActivityColor = (activity: Activity): string => {
     switch (activity.impact) {
       case 'CRITICAL': return 'bg-red-500';
@@ -251,23 +251,25 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
     setIsGenerating(true);
     isLoading?.(true);
     try {
-      const result = await apiService.generateSchedulePreview({
+      // Use the robust generateSchedule endpoint instead of the legacy preview
+      const result = await apiService.generateSchedule({
         startDate,
         endDate,
-        algorithmType: algorithm
+        algorithm: 'INTELLIGENT'
       });
-      
-      setGeneratedSchedules(result.proposedSchedules);
+
+      setGeneratedSchedules(result.result.proposedSchedules);
       setGenerationSummary({
-        totalConflicts: result.conflicts.length,
-        criticalConflicts: result.conflicts.filter(c => c.type === 'CRITICAL').length,
-        assignmentsNeeded: result.proposedSchedules.length,
-        estimatedTime: 'Generated'
+        totalConflicts: result.result.conflicts.length,
+        criticalConflicts: result.result.conflicts.filter((c: any) => c.severity === 'CRITICAL').length,
+        assignmentsNeeded: result.result.proposedSchedules.length,
+        estimatedTime: 'Generated',
+        fairnessMetrics: result.result.fairnessMetrics
       });
       setShowGenerationForm(false);
       setShowGenerationModal(true);
-      
-      onSuccess?.(`Generated ${result.proposedSchedules.length} schedule assignments`);
+
+      onSuccess?.(`Generated ${result.result.proposedSchedules.length} schedule assignments`);
     } catch (err) {
       console.error('Error generating schedules:', err);
       onError?.('Failed to generate schedules. Please try again.');
@@ -280,7 +282,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
   const handleApplySchedules = async (schedulesToApply: any[]) => {
     try {
       console.log('Applying schedules:', schedulesToApply);
-      
+
       // Transform the schedules to the format expected by the API
       const assignments = schedulesToApply.map(schedule => ({
         date: schedule.date,
@@ -288,21 +290,21 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
         shiftType: schedule.shiftType,
         isScreener: schedule.isScreener
       }));
-      
+
       // Call the API to apply the schedules
       const result = await apiService.applyAutoFix({ assignments });
-      
+
       console.log('Schedules applied successfully:', result);
-      
+
       // Refresh the dashboard data to show updated stats
       await fetchDashboardData();
-      
+
       setShowGenerationModal(false);
-      
+
       // Handle success message with details
       const successCount = result.createdSchedules?.length || 0;
       const errorCount = result.errors?.length || 0;
-      
+
       if (errorCount > 0) {
         onSuccess?.(`Applied ${successCount} schedules successfully, ${errorCount} failed. Check console for details.`);
         console.warn('Some schedules failed to apply:', result.errors);
@@ -336,7 +338,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
             </button>
           </div>
         )}
-        
+
         <div className="flex items-center justify-end mb-4">
           <div className="text-sm text-muted-foreground">
             Last updated: {formatDateTime(lastUpdated, moment.tz.guess())}
@@ -400,21 +402,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
             <div className="flex space-x-1 bg-muted rounded-lg p-1">
               <button
                 onClick={() => setActiveActivityTab('recent')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  activeActivityTab === 'recent' 
-                    ? 'bg-background text-foreground shadow-sm' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeActivityTab === 'recent'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 Recent
               </button>
               <button
                 onClick={() => setActiveActivityTab('all')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  activeActivityTab === 'all' 
-                    ? 'bg-background text-foreground shadow-sm' 
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeActivityTab === 'all'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 All Activities
               </button>
@@ -435,7 +435,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
             ) : (() => {
               const currentActivities = activeActivityTab === 'recent' ? recentActivity : allActivities;
               const isEmpty = currentActivities.length === 0;
-              
+
               if (isEmpty) {
                 return (
                   <div className="text-center py-8">
@@ -443,7 +443,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
                       {activeActivityTab === 'recent' ? 'No recent activity' : 'No activities found'}
                     </p>
                     <p className="text-sm text-muted-foreground/70 mt-1">
-                      {activeActivityTab === 'recent' 
+                      {activeActivityTab === 'recent'
                         ? 'Activities will appear here as you use the system'
                         : 'Try adjusting your filters or check back later'
                       }
@@ -462,12 +462,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-medium text-foreground text-sm">{activity.title}</h3>
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                          activity.impact === 'CRITICAL' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${activity.impact === 'CRITICAL' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
                           activity.impact === 'HIGH' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                          activity.impact === 'MEDIUM' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                          'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        }`}>
+                            activity.impact === 'MEDIUM' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                              'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          }`}>
                           {activity.impact}
                         </span>
                         <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
@@ -484,7 +483,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
                   </div>
                   <div className="text-right ml-3 flex-shrink-0">
                     <p className="text-muted-foreground/50 text-xs">
-                      {activeActivityTab === 'recent' 
+                      {activeActivityTab === 'recent'
                         ? moment(activity.createdAt).fromNow()
                         : moment(activity.createdAt).format('MMM D, h:mm A')
                       }

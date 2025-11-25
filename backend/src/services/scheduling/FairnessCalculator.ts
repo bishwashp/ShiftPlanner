@@ -76,11 +76,14 @@ export class FairnessCalculator {
    * @param currentDate Current date for time-based calculations
    * @returns Map of analyst IDs to fairness scores (higher score = more fair to select)
    */
+  /**
+   * Calculate fairness scores and track last rotation dates
+   */
   calculateRotationFairnessScores(
     analysts: any[],
     historicalSchedules: any[],
     currentDate: Date
-  ): Map<string, number> {
+  ): { scores: Map<string, number>; lastRotationDates: Map<string, Date> } {
     // Load config before calculating
     this.loadConfig();
 
@@ -101,7 +104,7 @@ export class FairnessCalculator {
     // Calculate historical metrics
     historicalSchedules.forEach(schedule => {
       const scheduleDate = new Date(schedule.date);
-      const dayOfWeek = scheduleDate.getDay();
+      const dayOfWeek = scheduleDate.getUTCDay();
       const analystId = schedule.analystId;
 
       // Skip if analyst not in our list
@@ -159,20 +162,20 @@ export class FairnessCalculator {
       fairnessScores.set(analyst.id, score);
     });
 
-    return fairnessScores;
+    return { scores: fairnessScores, lastRotationDates: lastRotationDate };
   }
 
   /**
-   * Select the next analyst to enter rotation based on fairness scores
+   * Select the next analyst to enter rotation based on Strict LRU (Least Recently Used)
    * 
    * @param analysts Array of analysts
-   * @param fairnessScores Map of analyst IDs to fairness scores
+   * @param fairnessData Object containing scores and last rotation dates
    * @param unavailableAnalystIds Set of analyst IDs who are unavailable
    * @returns The selected analyst or null if none available
    */
   selectNextAnalystForRotation(
     analysts: any[],
-    fairnessScores: Map<string, number>,
+    fairnessData: { scores: Map<string, number>; lastRotationDates: Map<string, Date> },
     unavailableAnalystIds: Set<string> = new Set()
   ): any | null {
     // Filter out unavailable analysts
@@ -182,14 +185,23 @@ export class FairnessCalculator {
       return null;
     }
 
-    // Sort by fairness score (highest first)
+    // Sort by Last Rotation Date (Ascending - Oldest First)
+    // Tie-breaker: Fairness Score (Descending - Highest First)
     availableAnalysts.sort((a, b) => {
-      const scoreA = fairnessScores.get(a.id) || 0;
-      const scoreB = fairnessScores.get(b.id) || 0;
+      const dateA = fairnessData.lastRotationDates.get(a.id) || new Date(0);
+      const dateB = fairnessData.lastRotationDates.get(b.id) || new Date(0);
+
+      if (dateA.getTime() !== dateB.getTime()) {
+        return dateA.getTime() - dateB.getTime(); // Oldest date first
+      }
+
+      // Tie-breaker
+      const scoreA = fairnessData.scores.get(a.id) || 0;
+      const scoreB = fairnessData.scores.get(b.id) || 0;
       return scoreB - scoreA;
     });
 
-    // Return the analyst with the highest fairness score
+    // Return the analyst who rotated longest ago
     return availableAnalysts[0];
   }
 }

@@ -709,7 +709,7 @@ router.post('/generate-unified', async (req: Request, res: Response) => {
 });
 router.post('/generate', async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate, algorithm = 'WeekendRotationAlgorithm' } = req.body;
+    const { startDate, endDate, algorithm = 'INTELLIGENT' } = req.body;
 
     if (!startDate || !endDate) {
       return res.status(400).json({ error: 'startDate and endDate are required' });
@@ -753,7 +753,7 @@ router.post('/generate', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No evening shift analysts found. Please add evening shift analysts first.' });
     }
 
-    // Get existing schedules for the date range
+    // Get existing schedules and global constraints
     const existingSchedules = await prisma.schedule.findMany({
       where: {
         date: {
@@ -764,67 +764,38 @@ router.post('/generate', async (req: Request, res: Response) => {
       include: { analyst: true }
     });
 
-    // Use IntelligentScheduler for basic schedule generation
+    const globalConstraints = await prisma.schedulingConstraint.findMany({
+      where: {
+        OR: [
+          { constraintType: 'BLACKOUT_DATE' },
+          { constraintType: 'HOLIDAY' }
+        ]
+      }
+    });
+
+    // Use new comprehensive IntelligentScheduler
     const scheduler = new IntelligentScheduler(prisma);
 
-    // Generate all dates in range and identify missing shifts
-    const allDates: string[] = [];
-    const currentDate = new Date(start);
-    while (currentDate <= end) {
-      allDates.push(currentDate.toISOString().split('T')[0]);
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
+    const context = {
+      startDate: start,
+      endDate: end,
+      analysts,
+      existingSchedules,
+      globalConstraints
+    };
 
-    // Find conflicts (missing shifts)
-    const conflicts: Array<{ date: string; missingShifts: string[]; severity: string }> = [];
+    console.log(`🚀 Generating schedule with IntelligentScheduler for ${start.toISOString().split('T')[0]} to ${end.toISOString().split('T')[0]}`);
 
-    for (const dateStr of allDates) {
-      const daySchedules = existingSchedules.filter(s =>
-        s.date.toISOString().split('T')[0] === dateStr
-      );
-
-      const hasMorning = daySchedules.some(s => s.shiftType === 'MORNING');
-      const hasEvening = daySchedules.some(s => s.shiftType === 'EVENING');
-
-      const missingShifts: string[] = [];
-      if (!hasMorning) missingShifts.push('MORNING');
-      if (!hasEvening) missingShifts.push('EVENING');
-
-      if (missingShifts.length > 0) {
-        conflicts.push({
-          date: dateStr,
-          missingShifts,
-          severity: 'critical'
-        });
-      }
-    }
-
-    if (conflicts.length === 0) {
-      return res.json({
-        message: 'Schedule is already complete for the specified date range',
-        existingSchedules: existingSchedules.length,
-        dateRange: { startDate: startDate, endDate: endDate },
-        schedules: existingSchedules
-      });
-    }
-
-    console.log(`🚀 Generating schedule for ${conflicts.length} missing shifts`);
-
-    // Use IntelligentScheduler to resolve conflicts
-    const resolution = await scheduler.resolveConflicts(conflicts, startDate, endDate);
+    const result = await scheduler.generate(context);
 
     res.json({
-      message: `Schedule generation completed. Found ${resolution.summary.assignmentsNeeded} assignments for ${conflicts.length} conflicts.`,
-      summary: resolution.summary,
-      suggestedAssignments: resolution.suggestedAssignments,
-      dateRange: { startDate: startDate, endDate: endDate },
-      algorithm: algorithm,
-      existingSchedules: existingSchedules.length,
-      newAssignments: resolution.summary.assignmentsNeeded
+      message: `Schedule generated successfully using Intelligent Scheduler`,
+      algorithm: 'Intelligent Scheduler',
+      result
     });
   } catch (error) {
     console.error('Error generating schedule:', error);
-    res.status(500).json({ error: 'Failed to generate schedule' });
+    res.status(500).json({ error: 'Failed to generate schedule', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 

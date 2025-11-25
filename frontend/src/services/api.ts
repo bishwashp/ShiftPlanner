@@ -489,51 +489,45 @@ export const apiService = {
   // MVP Schedule Generation (New Implementation)
   generateSchedule: async (data: { startDate: string; endDate: string; algorithm?: string }): Promise<{
     message: string;
-    summary: {
-      totalConflicts: number;
-      criticalConflicts: number;
-      assignmentsNeeded: number;
-      estimatedTime: string;
-    };
-    suggestedAssignments: Array<{
-      date: string;
-      analystId: string;
-      analystName: string;
-      shiftType: 'MORNING' | 'EVENING';
-      isScreener: boolean;
-      strategy: string;
-    }>;
-    dateRange: {
-      startDate: string;
-      endDate: string;
-    };
-    existingSchedules: number;
-    newAssignments: number;
-  }> => {
-    const response = await apiClient.post('/schedules/generate', data);
-    return response.data as {
-      message: string;
-      summary: {
-        totalConflicts: number;
-        criticalConflicts: number;
-        assignmentsNeeded: number;
-        estimatedTime: string;
-      };
-      suggestedAssignments: Array<{
+    result: {
+      proposedSchedules: Array<{
         date: string;
         analystId: string;
         analystName: string;
         shiftType: 'MORNING' | 'EVENING';
         isScreener: boolean;
-        strategy: string;
+        type: 'NEW_SCHEDULE';
       }>;
-      dateRange: {
-        startDate: string;
-        endDate: string;
+      conflicts: Array<{
+        date: string;
+        type: string;
+        description: string;
+        severity: string;
+      }>;
+      fairnessMetrics: {
+        workloadDistribution: {
+          standardDeviation: number;
+          giniCoefficient: number;
+          maxMinRatio: number;
+        };
+        screenerDistribution: {
+          standardDeviation: number;
+          maxMinRatio: number;
+          fairnessScore: number;
+          recommendations: string[];
+        };
+        weekendDistribution: {
+          standardDeviation: number;
+          maxMinRatio: number;
+          fairnessScore: number;
+        };
+        overallFairnessScore: number;
+        recommendations: string[];
       };
-      existingSchedules: number;
-      newAssignments: number;
     };
+  }> => {
+    const response = await apiClient.post('/schedules/generate', data);
+    return response.data as any;
   },
 
   // Legacy Automated Scheduling (for compatibility)
