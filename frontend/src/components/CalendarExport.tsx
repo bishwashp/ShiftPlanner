@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiService, Schedule, Analyst } from '../services/api';
 import moment from 'moment-timezone';
-import Checkbox from './ui/Checkbox';
+
 
 interface CalendarExportProps {
   onError?: (error: string) => void;
@@ -100,16 +100,16 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
   const fetchData = useCallback(async () => {
     try {
       if (isLoading) isLoading(true);
-      
+
       const [schedulesData, analystsData] = await Promise.all([
         apiService.getSchedules(dateRange.start, dateRange.end),
         apiService.getAnalysts()
       ]);
-      
+
       setSchedules(schedulesData);
       setAnalysts(analystsData.filter(a => a.isActive));
       setSelectedAnalysts(analystsData.filter(a => a.isActive).map(a => a.id));
-      
+
     } catch (err) {
       console.error('Error fetching data:', err);
       if (onError) onError('Failed to load data for export');
@@ -127,7 +127,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       setIsExporting(true);
       if (isLoading) isLoading(true);
 
-      const filteredSchedules = schedules.filter(schedule => 
+      const filteredSchedules = schedules.filter(schedule =>
         selectedAnalysts.includes(schedule.analystId)
       );
 
@@ -143,8 +143,8 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       });
 
       // Create and download the file
-      const blob = new Blob([response.data], { 
-        type: format.id === 'ical' ? 'text/calendar' : 'application/json' 
+      const blob = new Blob([response.data], {
+        type: format.id === 'ical' ? 'text/calendar' : 'application/json'
       });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -156,7 +156,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       window.URL.revokeObjectURL(url);
 
       if (onSuccess) onSuccess(`Calendar exported successfully as ${format.name}`);
-      
+
     } catch (err) {
       console.error('Export error:', err);
       if (onError) onError('Failed to export calendar');
@@ -173,9 +173,9 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       // For now, we'll open the external calendar in a new tab
       // In a real implementation, you'd use the specific API for each calendar
       window.open(calendar.url, '_blank');
-      
+
       if (onSuccess) onSuccess(`Opening ${calendar.name} for manual import`);
-      
+
     } catch (err) {
       console.error('External calendar export error:', err);
       if (onError) onError(`Failed to export to ${calendar.name}`);
@@ -201,7 +201,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       });
 
       if (onSuccess) onSuccess('Webhook configured successfully');
-      
+
     } catch (err) {
       console.error('Webhook setup error:', err);
       if (onError) onError('Failed to configure webhook');
@@ -220,13 +220,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
 
   return (
     <div className="space-y-6 p-6 bg-background text-foreground">
-      {/* Header */}
-      <div className="border-b border-border pb-4">
-        <h2 className="text-2xl font-bold text-foreground">Calendar Export & Integration</h2>
-        <p className="text-muted-foreground mt-2">
-          Export schedules to various formats and integrate with external calendar systems
-        </p>
-      </div>
+      {/* Header removed - now in Modal */}
 
       {/* Date Range Selection */}
       <div className="bg-card border border-border rounded-lg p-4">
@@ -275,15 +269,17 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {analysts.map(analyst => (
             <div key={analyst.id} className="flex items-center space-x-2 cursor-pointer">
-              <Checkbox
+              <input
+                type="checkbox"
                 checked={selectedAnalysts.includes(analyst.id)}
-                onChange={(checked) => {
-                  if (checked) {
+                onChange={(e) => {
+                  if (e.target.checked) {
                     setSelectedAnalysts(prev => [...prev, analyst.id]);
                   } else {
                     setSelectedAnalysts(prev => prev.filter(id => id !== analyst.id));
                   }
                 }}
+                className="h-4 w-4 border-border rounded"
               />
               <span className="text-sm text-foreground">{analyst.name}</span>
             </div>
@@ -298,11 +294,10 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
           {exportFormats.map(format => (
             <label
               key={format.id}
-              className={`relative cursor-pointer border-2 rounded-lg p-4 transition-all ${
-                exportFormat === format.id
-                  ? 'border-primary bg-primary/10 dark:bg-primary/20'
-                  : 'border-border hover:border-primary/50 hover:bg-muted/50'
-              }`}
+              className={`relative cursor-pointer border-2 rounded-lg p-4 transition-all ${exportFormat === format.id
+                ? 'border-primary bg-primary/10 dark:bg-primary/20'
+                : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                }`}
             >
               <input
                 type="radio"
@@ -378,9 +373,11 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
             />
           </div>
           <div className="flex items-center space-x-2">
-            <Checkbox
+            <input
+              type="checkbox"
               checked={webhookEnabled}
-              onChange={(checked) => setWebhookEnabled(checked)}
+              onChange={(e) => setWebhookEnabled(e.target.checked)}
+              className="h-4 w-4 border-border rounded"
             />
             <span className="text-sm text-foreground">
               Enable webhook notifications for schedule changes

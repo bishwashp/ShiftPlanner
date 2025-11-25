@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   CalendarDays,
-  LayoutDashboard,
+
   Users,
   Clock,
   AlertTriangle,
   BarChart2,
   ListTodo,
-  Cpu,
-  Download
+  Cpu
 } from 'lucide-react';
 import BellIcon from '../icons/BellIcon';
 import NotificationCenter from '../NotificationCenter';
@@ -20,9 +19,11 @@ interface CollapsibleSidebarProps {
   isOpen: boolean;
   onViewChange: (view: View) => void;
   activeView: View;
+  activeAvailabilityTab?: 'holidays' | 'absences';
+  onAvailabilityTabChange?: (tab: 'holidays' | 'absences') => void;
 }
 
-const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewChange, activeView }) => {
+const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewChange, activeView, ...props }) => {
   const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -30,7 +31,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
     if (isOpen) {
       // Update unread count initially
       setUnreadCount(notificationService.getUnreadCount());
-      
+
       // Subscribe to notification changes
       const unsubscribe = notificationService.subscribe(() => {
         setUnreadCount(notificationService.getUnreadCount());
@@ -41,16 +42,41 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
   }, [isOpen]);
 
 
-  const navItems = [
-    { view: 'schedule', label: 'Schedule', icon: CalendarDays },
-    { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { view: 'analysts', label: 'Analysts', icon: Users },
-    { view: 'availability', label: 'Availability', icon: Clock },
-    { view: 'conflicts', label: 'Conflicts', icon: AlertTriangle },
-    { view: 'analytics', label: 'Analytics', icon: BarChart2 },
-    { view: 'constraints', label: 'Constraints', icon: ListTodo },
-    { view: 'algorithms', label: 'Algorithms', icon: Cpu },
-    { view: 'export', label: 'Export & Integration', icon: Download },
+  // Define navigation structure with groups
+  const navGroups = [
+    {
+      id: 'schedule_group',
+      label: 'Schedule',
+      items: [
+        { view: 'schedule', label: 'Calendar', icon: CalendarDays },
+        { view: 'conflicts', label: 'Conflicts', icon: AlertTriangle },
+        { view: 'analytics', label: 'Analytics', icon: BarChart2 },
+      ]
+    },
+    {
+      id: 'team_group',
+      label: 'Team',
+      items: [
+        { view: 'analysts', label: 'Analysts', icon: Users },
+        {
+          view: 'availability',
+          label: 'Availability',
+          icon: Clock,
+          subItems: [
+            { id: 'holidays', label: 'Holidays' },
+            { id: 'absences', label: 'Absences' }
+          ]
+        },
+      ]
+    },
+    {
+      id: 'config_group',
+      label: 'Configuration',
+      items: [
+        { view: 'constraints', label: 'Constraints', icon: ListTodo },
+        { view: 'algorithms', label: 'Algorithms', icon: Cpu },
+      ]
+    }
   ];
 
   return (
@@ -77,33 +103,85 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
             ShiftPlanner
           </h1>
         </div>
-        
+
         {/* Navigation */}
-        <nav className="flex-1 px-2">
-          <ul className="space-y-1">
-            {navItems.map(item => (
-              <li key={item.view}>
-                <button
-                  onClick={() => onViewChange(item.view as View)}
-                  className={`
-                    w-full flex items-center rounded-md text-sm font-medium transition-all duration-200
-                    ${isOpen ? 'space-x-3 px-3 py-2' : 'justify-center p-3'}
-                    ${activeView === item.view
-                      ? 'bg-primary/10 text-primary shadow-sm'
-                      : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:shadow-sm'
-                    }
-                    min-height-44px
-                  `}
-                  title={!isOpen ? item.label : ''}
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  <span className={`transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
-                    {item.label}
-                  </span>
-                </button>
-              </li>
+        <nav className="flex-1 px-2 overflow-y-auto">
+          <div className="space-y-6">
+            {navGroups.map((group, groupIndex) => (
+              <div key={group.id}>
+                {/* Group Label - Only show when open */}
+                <div className={`
+                  px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider transition-all duration-300
+                  ${isOpen ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}
+                `}>
+                  {group.label}
+                </div>
+
+                <ul className="space-y-1">
+                  {group.items.map(item => {
+                    const isActive = activeView === item.view;
+                    const hasSubItems = 'subItems' in item;
+                    const showSubItems = isOpen && isActive && hasSubItems;
+
+                    return (
+                      <li key={item.view}>
+                        <button
+                          onClick={() => onViewChange(item.view as View)}
+                          className={`
+                            w-full flex items-center rounded-md text-sm font-medium transition-all duration-200
+                            ${isOpen ? 'space-x-3 px-3 py-2' : 'justify-center p-3'}
+                            ${isActive
+                              ? 'bg-primary/10 text-primary shadow-sm'
+                              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:shadow-sm'
+                            }
+                            min-height-44px
+                          `}
+                          title={!isOpen ? item.label : ''}
+                        >
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          <span className={`transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'} flex-1 text-left`}>
+                            {item.label}
+                          </span>
+                        </button>
+
+                        {/* Sub-items */}
+                        {showSubItems && item.subItems && (
+                          <ul className="mt-1 ml-4 space-y-1 border-l-2 border-primary/20 pl-2 animate-in slide-in-from-top-2 duration-200">
+                            {item.subItems.map(subItem => (
+                              <li key={subItem.id}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (item.view === 'availability' && props.onAvailabilityTabChange) {
+                                      props.onAvailabilityTabChange(subItem.id as 'holidays' | 'absences');
+                                    }
+                                  }}
+                                  className={`
+                                    w-full flex items-center rounded-md text-sm transition-all duration-200 px-3 py-1.5
+                                    ${(item.view === 'availability' && props.activeAvailabilityTab === subItem.id)
+                                      ? 'text-primary font-medium bg-primary/5'
+                                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                    }
+                                  `}
+                                >
+                                  {subItem.label}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {/* Separator between groups (except last) */}
+                {groupIndex < navGroups.length - 1 && isOpen && (
+                  <div className="my-2 border-t border-border/50 mx-3" />
+                )}
+              </div>
             ))}
-          </ul>
+          </div>
         </nav>
 
         {/* Notification Bell - Bottom */}

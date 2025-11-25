@@ -79,6 +79,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  input[type="checkbox"] {
+    @apply text-[#0066CC] border-border rounded focus:ring-[#0066CC];
+    accent-color: #0066CC;
+  }
 }
 
 html,

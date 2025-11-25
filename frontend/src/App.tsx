@@ -11,7 +11,7 @@ import ConflictManagement from './components/ConflictManagement';
 import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
-import CalendarExport from './components/CalendarExport';
+
 // import ActivitiesView from './components/ActivitiesView'; // Now integrated into Dashboard
 import ActionPromptProvider from './contexts/ActionPromptContext';
 import moment from 'moment-timezone';
@@ -162,8 +162,7 @@ function App() {
         return <ConstraintManagement />;
       case 'algorithms':
         return <AlgorithmManagement />;
-      case 'export':
-        return <CalendarExport {...commonProps} />;
+
       case 'dashboard':
         return <Dashboard onViewChange={setActiveView} onError={handleError} onSuccess={handleSuccess} isLoading={handleLoading} onRefresh={handleRefresh} isRefreshing={isRefreshing} />;
       case 'schedule':
@@ -189,6 +188,8 @@ function App() {
           isOpen={sidebarOpen}
           onViewChange={handleViewChange}
           activeView={activeView}
+          activeAvailabilityTab={activeAvailabilityTab}
+          onAvailabilityTabChange={setActiveAvailabilityTab}
         />
         <div className="flex-1 flex flex-col">
           <AppHeader
