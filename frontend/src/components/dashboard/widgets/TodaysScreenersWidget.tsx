@@ -35,7 +35,7 @@ const TodaysScreenersWidget: React.FC = () => {
                 </h3>
             </div>
 
-            <div className="flex-1 p-2 overflow-y-auto flex flex-col justify-center">
+            <div className="flex-1 p-2 overflow-y-auto flex flex-col">
                 {loading ? (
                     <div className="space-y-2">
                         {[1, 2].map(i => (

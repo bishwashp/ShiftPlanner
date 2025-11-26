@@ -44,7 +44,7 @@ const UpcomingHolidaysWidget: React.FC = () => {
                 </h3>
             </div>
 
-            <div className="flex-1 p-2 overflow-y-auto flex flex-col justify-center">
+            <div className="flex-1 p-2 overflow-y-auto flex flex-col">
                 {loading ? (
                     <div className="space-y-2">
                         <div className="h-12 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />

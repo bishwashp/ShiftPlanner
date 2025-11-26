@@ -62,7 +62,7 @@ const CoverageWidget: React.FC = () => {
                 </h3>
             </div>
 
-            <div className="flex-1 p-2 overflow-y-auto space-y-2 flex flex-col justify-center">
+            <div className="flex-1 p-2 overflow-y-auto space-y-2 flex flex-col">
                 {loading ? (
                     <>
                         <div className="h-10 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
