@@ -55,67 +55,67 @@ const CoverageWidget: React.FC = () => {
 
     return (
         <GlassCard className="h-full flex flex-col">
-            <div className="p-2 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <ChartBar className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+            <div className="p-1.5 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
+                <h3 className="text-xs font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <ChartBar className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                     Today's Coverage
                 </h3>
             </div>
 
-            <div className="flex-1 p-2 overflow-y-auto space-y-1.5">
+            <div className="flex-1 p-1.5 overflow-y-auto space-y-1">
                 {loading ? (
                     <>
-                        <div className="h-8 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
-                        <div className="h-8 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
-                        <div className="h-8 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
+                        <div className="h-6 bg-gray-100 dark:bg-white/5 rounded-lg animate-pulse" />
+                        <div className="h-6 bg-gray-100 dark:bg-white/5 rounded-lg animate-pulse" />
+                        <div className="h-6 bg-gray-100 dark:bg-white/5 rounded-lg animate-pulse" />
                     </>
                 ) : (
                     <>
-                        {/* Morning & Evening - Combined Row */}
-                        <div className="flex items-center gap-2 p-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-500/10 dark:to-purple-500/10 border border-blue-100 dark:border-blue-500/10">
-                            <div className="flex items-center gap-1.5 flex-1">
-                                <Sun className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
-                                <span className="text-xs font-medium text-gray-900 dark:text-white">Morning</span>
+                        {/* Morning & Evening - Separate Side-by-Side Boxes */}
+                        <div className="grid grid-cols-2 gap-1.5">
+                            {/* Morning Box */}
+                            <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/10">
+                                <Sun className="w-3 h-3 text-blue-500 dark:text-blue-400 mb-0.5" />
+                                <span className="text-[10px] font-medium text-gray-900 dark:text-white mb-0.5">Morning</span>
+                                <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-blue-500 text-white text-xs font-bold">
+                                    {stats.morning}
+                                </span>
                             </div>
-                            <span className="flex items-center justify-center min-w-[24px] h-6 px-2 rounded-md bg-blue-500 text-white text-xs font-bold shadow-sm">
-                                {stats.morning}
-                            </span>
 
-                            <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-
-                            <div className="flex items-center gap-1.5 flex-1">
-                                <Moon className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
-                                <span className="text-xs font-medium text-gray-900 dark:text-white">Evening</span>
+                            {/* Evening Box */}
+                            <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 border border-purple-100 dark:border-purple-500/10">
+                                <Moon className="w-3 h-3 text-purple-500 dark:text-purple-400 mb-0.5" />
+                                <span className="text-[10px] font-medium text-gray-900 dark:text-white mb-0.5">Evening</span>
+                                <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-purple-500 text-white text-xs font-bold">
+                                    {stats.evening}
+                                </span>
                             </div>
-                            <span className="flex items-center justify-center min-w-[24px] h-6 px-2 rounded-md bg-purple-500 text-white text-xs font-bold shadow-sm">
-                                {stats.evening}
-                            </span>
                         </div>
 
-                        {/* Weekend Coverage - Compact */}
-                        <div className="p-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/10 space-y-1">
+                        {/* Weekend Coverage - Ultra Compact */}
+                        <div className="p-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/10 space-y-0.5">
                             {weekendDates && (
                                 <>
                                     {/* Saturday */}
                                     {getShiftsForDay(weekendDates.sat).length > 0 ? (
                                         getShiftsForDay(weekendDates.sat).map((s: any) => (
-                                            <div key={s.id} className="flex items-center gap-2 text-xs">
-                                                <span className="font-bold text-emerald-600 dark:text-emerald-400 w-5 text-right">
+                                            <div key={s.id} className="flex items-center gap-1.5 text-[10px]">
+                                                <span className="font-bold text-emerald-600 dark:text-emerald-400 w-4 text-right">
                                                     {moment(s.date).format('D')}
                                                 </span>
-                                                <span className="font-bold text-gray-500 dark:text-gray-400 text-[10px] tracking-wider w-7">SAT</span>
+                                                <span className="font-bold text-gray-500 dark:text-gray-400 text-[9px] tracking-wider w-6">SAT</span>
                                                 <span className="text-gray-900 dark:text-white truncate flex-1">
                                                     {s.analyst?.name || 'Unknown'}
                                                 </span>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="flex items-center gap-2 text-xs">
-                                            <span className="font-bold text-red-500 dark:text-red-400 w-5 text-right">
+                                        <div className="flex items-center gap-1.5 text-[10px]">
+                                            <span className="font-bold text-red-500 dark:text-red-400 w-4 text-right">
                                                 {moment(weekendDates.sat).format('D')}
                                             </span>
-                                            <span className="font-bold text-red-500 dark:text-red-400 text-[10px] tracking-wider w-7">SAT</span>
-                                            <span className="text-red-500/70 dark:text-red-400/70 italic text-[10px]">
+                                            <span className="font-bold text-red-500 dark:text-red-400 text-[9px] tracking-wider w-6">SAT</span>
+                                            <span className="text-red-500/70 dark:text-red-400/70 italic text-[9px]">
                                                 None assigned
                                             </span>
                                         </div>
@@ -124,23 +124,23 @@ const CoverageWidget: React.FC = () => {
                                     {/* Sunday */}
                                     {getShiftsForDay(weekendDates.sun).length > 0 ? (
                                         getShiftsForDay(weekendDates.sun).map((s: any) => (
-                                            <div key={s.id} className="flex items-center gap-2 text-xs">
-                                                <span className="font-bold text-emerald-600 dark:text-emerald-400 w-5 text-right">
+                                            <div key={s.id} className="flex items-center gap-1.5 text-[10px]">
+                                                <span className="font-bold text-emerald-600 dark:text-emerald-400 w-4 text-right">
                                                     {moment(s.date).format('D')}
                                                 </span>
-                                                <span className="font-bold text-gray-500 dark:text-gray-400 text-[10px] tracking-wider w-7">SUN</span>
+                                                <span className="font-bold text-gray-500 dark:text-gray-400 text-[9px] tracking-wider w-6">SUN</span>
                                                 <span className="text-gray-900 dark:text-white truncate flex-1">
                                                     {s.analyst?.name || 'Unknown'}
                                                 </span>
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="flex items-center gap-2 text-xs">
-                                            <span className="font-bold text-red-500 dark:text-red-400 w-5 text-right">
+                                        <div className="flex items-center gap-1.5 text-[10px]">
+                                            <span className="font-bold text-red-500 dark:text-red-400 w-4 text-right">
                                                 {moment(weekendDates.sun).format('D')}
                                             </span>
-                                            <span className="font-bold text-red-500 dark:text-red-400 text-[10px] tracking-wider w-7">SUN</span>
-                                            <span className="text-red-500/70 dark:text-red-400/70 italic text-[10px]">
+                                            <span className="font-bold text-red-500 dark:text-red-400 text-[9px] tracking-wider w-6">SUN</span>
+                                            <span className="text-red-500/70 dark:text-red-400/70 italic text-[9px]">
                                                 None assigned
                                             </span>
                                         </div>
