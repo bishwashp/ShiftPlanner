@@ -143,6 +143,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             name={event.title}
             shiftType={event.resource.shiftType}
             isScreener={event.resource.isScreener}
+            date={event.date}
             size={boxSize}
             onClick={() => {
               console.log('Name box clicked:', event.title, dayDate.format('YYYY-MM-DD'));

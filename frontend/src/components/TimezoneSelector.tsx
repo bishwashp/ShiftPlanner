@@ -40,7 +40,7 @@ const TimezoneSelector: React.FC<TimezoneSelectorProps> = ({ timezone, onTimezon
     <select
       value={timezone}
       onChange={(e) => onTimezoneChange(e.target.value)}
-      className="px-2 py-2 text-sm border border-border rounded-md glass-static text-card-foreground focus:ring-2 focus:ring-primary min-h-[44px] w-16 sm:w-auto"
+      className="px-2 py-2 text-sm border border-border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary min-h-[44px] w-16 sm:w-auto"
       title={`Current timezone: ${getFullLabel(timezone)}`}
     >
       {Object.entries(timezones).map(([region, zones]) => (

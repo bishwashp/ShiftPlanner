@@ -1,10 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import moment from 'moment';
 
 interface NameBoxProps {
   name: string;
   shiftType: string;
   isScreener: boolean;
+  date?: string; // YYYY-MM-DD format
   size?: 'small' | 'medium' | 'large';
   onClick?: () => void;
 }
@@ -13,14 +15,24 @@ export const NameBox: React.FC<NameBoxProps> = ({
   name,
   shiftType,
   isScreener,
+  date,
   size = 'medium',
   onClick
 }) => {
+  // Determine if this is a weekend shift based on the date
+  const isWeekendShift = date ? (() => {
+    const dayOfWeek = moment(date).day();
+    return dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+  })() : false;
+
   // Generate accessible descriptions
   const getAccessibleDescription = () => {
     let description = `${name} - ${shiftType} shift`;
     if (isScreener) {
       description += ', screener role';
+    }
+    if (isWeekendShift) {
+      description += ', weekend';
     }
     return description;
   };
@@ -35,7 +47,18 @@ export const NameBox: React.FC<NameBoxProps> = ({
   };
 
   // Glass-compatible color mapping with semi-transparent backgrounds
-  const getShiftColor = (type: string, screener: boolean) => {
+  const getShiftColor = (type: string, screener: boolean, isWeekend: boolean) => {
+    // Weekend shifts should always be green (per legend), regardless of screener status
+    if (isWeekend) {
+      return {
+        bg: 'bg-green-500/20',
+        text: 'text-green-800 dark:text-green-200',
+        border: 'border-green-400/30',
+        glow: 'hover:shadow-green-500/20'
+      };
+    }
+
+    // Screener takes priority for non-weekend shifts
     if (screener) {
       return {
         bg: 'bg-amber-500/20',
@@ -60,13 +83,6 @@ export const NameBox: React.FC<NameBoxProps> = ({
           border: 'border-purple-400/30',
           glow: 'hover:shadow-purple-500/20'
         };
-      case 'weekend':
-        return {
-          bg: 'bg-green-500/20',
-          text: 'text-green-800 dark:text-green-200',
-          border: 'border-green-400/30',
-          glow: 'hover:shadow-green-500/20'
-        };
       default:
         return {
           bg: 'bg-gray-500/20',
@@ -90,7 +106,7 @@ export const NameBox: React.FC<NameBoxProps> = ({
     }
   };
 
-  const colorScheme = getShiftColor(shiftType, isScreener);
+  const colorScheme = getShiftColor(shiftType, isScreener, isWeekendShift);
   const sizeClasses = getSizeClasses(size);
 
   const MotionDiv = onClick ? motion.div : 'div';
