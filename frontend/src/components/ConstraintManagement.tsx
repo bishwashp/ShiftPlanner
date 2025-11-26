@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { apiService, SchedulingConstraint, Analyst } from '../services/api';
 import moment from 'moment-timezone';
 import { formatDateTime } from '../utils/formatDateTime';
@@ -141,63 +142,68 @@ const ConstraintManagement: React.FC = () => {
                     />
                 </HeaderActionPortal>
 
-                {(showAddForm || editingConstraint) && (
-                    <div className="glass-static p-6 mb-8">
-                        <h2 className="text-xl font-semibold text-foreground mb-4">{editingConstraint ? 'Edit Constraint' : 'Add New Constraint'}</h2>
-                        <form onSubmit={editingConstraint ? handleUpdateConstraint : handleAddConstraint}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Analyst (optional)</label>
-                                    <select value={formData.analystId || ''} onChange={(e) => setFormData({ ...formData, analystId: e.target.value || undefined })} className="w-full input bg-input border-border text-foreground">
-                                        <option value="">Global Constraint</option>
-                                        {analysts.map(analyst => (
-                                            <option key={analyst.id} value={analyst.id}>{analyst.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Constraint Type</label>
-                                    <select value={formData.constraintType} onChange={(e) => setFormData({ ...formData, constraintType: e.target.value as any })} className="w-full input bg-input border-border text-foreground">
-                                        <option value="BLACKOUT_DATE">Blackout Date</option>
-                                        <option value="MAX_SCREENER_DAYS">Max Screener Days</option>
-                                        <option value="MIN_SCREENER_DAYS">Min Screener Days</option>
-                                        <option value="PREFERRED_SCREENER">Preferred Screener</option>
-                                        <option value="UNAVAILABLE_SCREENER">Unavailable Screener</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Start Date</label>
-                                    <input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} className="w-full input bg-input border-border text-foreground" required />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">End Date</label>
-                                    <input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} className="w-full input bg-input border-border text-foreground" required />
-                                </div>
-                                <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Description</label>
-                                    <textarea value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full input bg-input border-border text-foreground" rows={3}></textarea>
-                                </div>
-                                <div className="flex items-center">
-                                    <Checkbox
-                                        checked={formData.isActive}
-                                        onChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                                    />
-                                    <span className="ml-2 block text-sm text-gray-700 dark:text-gray-200">Active</span>
-                                </div>
+                {(showAddForm || editingConstraint) && ReactDOM.createPortal(
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                            <div className="p-6">
+                                <h2 className="text-xl font-semibold text-foreground mb-6">{editingConstraint ? 'Edit Constraint' : 'Add New Constraint'}</h2>
+                                <form onSubmit={editingConstraint ? handleUpdateConstraint : handleAddConstraint}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Analyst (optional)</label>
+                                            <select value={formData.analystId || ''} onChange={(e) => setFormData({ ...formData, analystId: e.target.value || undefined })} className="w-full input bg-input border-border text-foreground">
+                                                <option value="">Global Constraint</option>
+                                                {analysts.map(analyst => (
+                                                    <option key={analyst.id} value={analyst.id}>{analyst.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Constraint Type</label>
+                                            <select value={formData.constraintType} onChange={(e) => setFormData({ ...formData, constraintType: e.target.value as any })} className="w-full input bg-input border-border text-foreground">
+                                                <option value="BLACKOUT_DATE">Blackout Date</option>
+                                                <option value="MAX_SCREENER_DAYS">Max Screener Days</option>
+                                                <option value="MIN_SCREENER_DAYS">Min Screener Days</option>
+                                                <option value="PREFERRED_SCREENER">Preferred Screener</option>
+                                                <option value="UNAVAILABLE_SCREENER">Unavailable Screener</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Start Date</label>
+                                            <input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} className="w-full input bg-input border-border text-foreground" required />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">End Date</label>
+                                            <input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} className="w-full input bg-input border-border text-foreground" required />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Description</label>
+                                            <textarea value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full input bg-input border-border text-foreground" rows={3}></textarea>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <Checkbox
+                                                checked={formData.isActive}
+                                                onChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                                            />
+                                            <span className="ml-2 block text-sm text-gray-700 dark:text-gray-200">Active</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-end space-x-4 mt-8 pt-6 border-t border-border">
+                                        <Button type="button" onClick={editingConstraint ? handleCancelEdit : () => setShowAddForm(false)} variant="secondary">
+                                            Cancel
+                                        </Button>
+                                        <Button type="submit" disabled={submitting} variant="primary">
+                                            {editingConstraint ? 'Update Constraint' : 'Add Constraint'}
+                                        </Button>
+                                    </div>
+                                </form>
                             </div>
-                            <div className="flex items-center space-x-4 mt-6">
-                                <Button type="submit" disabled={submitting} variant="primary">
-                                    {editingConstraint ? 'Update Constraint' : 'Add Constraint'}
-                                </Button>
-                                <Button type="button" onClick={editingConstraint ? handleCancelEdit : () => setShowAddForm(false)} variant="secondary" className="ml-3">
-                                    Cancel
-                                </Button>
-                            </div>
-                        </form>
-                    </div>
+                        </div>
+                    </div>,
+                    document.body
                 )}
 
-                <div className="glass-static">
+                <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-border">
                         <h2 className="text-lg font-semibold text-foreground">Constraints ({constraints.length})</h2>
                     </div>

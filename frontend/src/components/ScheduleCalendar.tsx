@@ -402,7 +402,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
       {/* Filter toggle removed - moved to View Settings */}
 
       {/* Calendar Container - Adjust margin when filter panel is open */}
-      <div className={`h-full p-4 transition-all duration-300 ${filters.isOpen ? 'mr-80' : ''}`}>
+      <div className={`h-full p-4 ${filters.isOpen ? 'mr-80' : ''}`}>
         {/* Screen reader announcements */}
         <div
           id="calendar-announcements"

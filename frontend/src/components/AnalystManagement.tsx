@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { PencilSimple, Trash, UserPlus, UserMinus, Users } from '@phosphor-icons/react';
 import { apiService, Analyst } from '../services/api';
 import HeaderActionPortal from './layout/HeaderActionPortal';
@@ -162,113 +163,117 @@ const AnalystManagement: React.FC = () => {
           />
         </HeaderActionPortal>
 
-        {/* Add/Edit Form */}
-        {(showAddForm || editingAnalyst) && (
-          <div className="glass-static p-6 mb-8">
-            <h2 className="text-xl font-semibold text-foreground mb-4">
-              {editingAnalyst ? 'Edit Analyst' : 'Add New Analyst'}
-            </h2>
-            <form onSubmit={editingAnalyst ? handleUpdateAnalyst : handleAddAnalyst}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Shift Type
-                  </label>
-                  <select
-                    value={formData.shiftType}
-                    onChange={(e) => setFormData({ ...formData, shiftType: e.target.value as 'MORNING' | 'EVENING' })}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-                  >
-                    <option value="MORNING">Morning Shift (AM)</option>
-                    <option value="EVENING">Evening Shift (PM)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Employee Type
-                  </label>
-                  <select
-                    value={formData.employeeType}
-                    onChange={(e) => setFormData({ ...formData, employeeType: e.target.value as 'EMPLOYEE' | 'CONTRACTOR' })}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-                    required
-                  >
-                    <option value="EMPLOYEE">Employee</option>
-                    <option value="CONTRACTOR">Contractor</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Skills (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.skills}
-                    onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input"
-                    placeholder="e.g. advanced, screener-training"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                    Custom Attributes (JSON)
-                  </label>
-                  <textarea
-                    value={formData.customAttributes}
-                    onChange={(e) => setFormData({ ...formData, customAttributes: e.target.value })}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent font-mono"
-                    rows={4}
-                    placeholder='{ "skill": "advanced" }'
-                  />
-                </div>
+        {/* Add/Edit Modal */}
+        {(showAddForm || editingAnalyst) && ReactDOM.createPortal(
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <h2 className="text-xl font-semibold text-foreground mb-6">
+                  {editingAnalyst ? 'Edit Analyst' : 'Add New Analyst'}
+                </h2>
+                <form onSubmit={editingAnalyst ? handleUpdateAnalyst : handleAddAnalyst}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                        Name
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                        Shift Type
+                      </label>
+                      <select
+                        value={formData.shiftType}
+                        onChange={(e) => setFormData({ ...formData, shiftType: e.target.value as 'MORNING' | 'EVENING' })}
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
+                      >
+                        <option value="MORNING">Morning Shift (AM)</option>
+                        <option value="EVENING">Evening Shift (PM)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                        Employee Type
+                      </label>
+                      <select
+                        value={formData.employeeType}
+                        onChange={(e) => setFormData({ ...formData, employeeType: e.target.value as 'EMPLOYEE' | 'CONTRACTOR' })}
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
+                        required
+                      >
+                        <option value="EMPLOYEE">Employee</option>
+                        <option value="CONTRACTOR">Contractor</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                        Skills (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.skills}
+                        onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-input"
+                        placeholder="e.g. advanced, screener-training"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                        Custom Attributes (JSON)
+                      </label>
+                      <textarea
+                        value={formData.customAttributes}
+                        onChange={(e) => setFormData({ ...formData, customAttributes: e.target.value })}
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent font-mono"
+                        rows={4}
+                        placeholder='{ "skill": "advanced" }'
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end space-x-4 mt-8 pt-6 border-t border-border">
+                    <Button
+                      type="button"
+                      onClick={editingAnalyst ? handleCancelEdit : () => setShowAddForm(false)}
+                      variant="secondary"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={submitting}
+                      variant="primary"
+                    >
+                      {submitting ? 'Saving...' : (editingAnalyst ? 'Update Analyst' : 'Add Analyst')}
+                    </Button>
+                  </div>
+                </form>
               </div>
-              <div className="flex items-center space-x-4 mt-6">
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  variant="primary"
-                >
-                  {submitting ? 'Saving...' : (editingAnalyst ? 'Update Analyst' : 'Add Analyst')}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={editingAnalyst ? handleCancelEdit : () => setShowAddForm(false)}
-                  variant="secondary"
-                  className="ml-3"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
+            </div>
+          </div>,
+          document.body
         )}
 
         {/* Analysts List */}
-        <div className="relative overflow-hidden rounded-xl border bg-white/40 dark:bg-gray-800/50 border-gray-300/50 dark:border-white/10 backdrop-blur-xl shadow-xl shadow-black/5 dark:shadow-black/20">
+        <div className="relative overflow-hidden rounded-xl border bg-white/90 dark:bg-gray-900/90 border-gray-200 dark:border-gray-700 backdrop-blur-xl shadow-sm">
           <div className="px-6 py-4 border-b border-gray-200/50 dark:border-white/10">
             <h2 className="text-lg font-semibold text-foreground">Analysts ({analysts.length})</h2>
           </div>

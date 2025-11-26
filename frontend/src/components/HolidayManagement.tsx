@@ -408,7 +408,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-foreground">{holiday.name}</div>
-                        {holiday.description && (
+                        {holiday.description && holiday.description !== holiday.name && (
                           <div className="text-sm text-gray-700 dark:text-gray-200">{holiday.description}</div>
                         )}
                       </div>

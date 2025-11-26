@@ -28,31 +28,31 @@ const TodaysScreenersWidget: React.FC = () => {
 
     return (
         <GlassCard className="h-full flex flex-col">
-            <div className="p-5 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
+            <div className="p-4 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <User className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                    <User className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     Today's Screeners
                 </h3>
             </div>
 
-            <div className="flex-1 p-5 overflow-y-auto">
+            <div className="flex-1 p-4 overflow-y-auto">
                 {loading ? (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         {[1, 2].map(i => (
-                            <div key={i} className="h-14 bg-gray-100 dark:bg-white/5 rounded-2xl animate-pulse" />
+                            <div key={i} className="h-12 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
                         ))}
                     </div>
                 ) : screeners.length > 0 ? (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         {screeners.map((screener, index) => (
                             <div
                                 key={screener.id || index}
-                                className={`flex items-center p-3 rounded-2xl border transition-colors ${screener.shiftType === 'MORNING'
+                                className={`flex items-center p-2 rounded-xl border transition-colors ${screener.shiftType === 'MORNING'
                                     ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-100 dark:border-blue-500/10'
                                     : 'bg-purple-50 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/10'
                                     }`}
                             >
-                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm mr-3 shadow-sm ${screener.shiftType === 'MORNING'
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs mr-3 shadow-sm ${screener.shiftType === 'MORNING'
                                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
                                     : 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300'
                                     }`}>

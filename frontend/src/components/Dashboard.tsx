@@ -58,7 +58,6 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bg
       </div>
 
       <motion.div
-        whileHover={{ rotate: 15, scale: 1.1 }}
         className={`w-12 h-12 rounded-xl flex items-center justify-center ${bgColor} shadow-inner ml-4 flex-shrink-0`}
       >
         <Icon className={`w-6 h-6 ${color}`} weight="duotone" />
