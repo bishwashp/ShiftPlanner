@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import moment from 'moment-timezone';
 import { apiService, Schedule, Analyst } from '../../../services/api';
-import { CaretLeft, CaretRight, CalendarBlank, Clock, Warning } from '@phosphor-icons/react';
+import { Clock, Warning } from '@phosphor-icons/react';
 
 interface CalendarEvent {
   id: string;
@@ -208,15 +208,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
     }
   }, [draggedSchedule, events, onScheduleUpdate]);
 
-  const handlePrevWeek = useCallback(() => {
-    const newDate = weekStart.clone().subtract(1, 'week').toDate();
-    onDateChange(newDate);
-  }, [weekStart, onDateChange]);
 
-  const handleNextWeek = useCallback(() => {
-    const newDate = weekStart.clone().add(1, 'week').toDate();
-    onDateChange(newDate);
-  }, [weekStart, onDateChange]);
 
   const isClickedDay = useCallback((dayDate: moment.Moment) => {
     return clickedDay && moment(clickedDay).tz(timezone).isSame(dayDate, 'day');
@@ -224,154 +216,121 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
 
   return (
     <div className="flex flex-col h-full relative z-10">
-      {/* Week Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={onReturnToMonth}
-            className="flex items-center space-x-2 px-3 py-2 text-sm font-medium rounded-md border border-border hover:bg-muted"
-          >
-            <CalendarBlank className="h-4 w-4" />
-            <span>Month View</span>
-          </button>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handlePrevWeek}
-              className="p-2 rounded-md hover:bg-muted"
-            >
-              <CaretLeft className="h-4 w-4" />
-            </button>
-
-            <h2 className="text-lg font-semibold min-w-[200px] text-center">
-              {weekStart.format('MMM D')} - {weekStart.clone().add(6, 'days').format('MMM D, YYYY')}
-            </h2>
-
-            <button
-              onClick={handleNextWeek}
-              className="p-2 rounded-md hover:bg-muted"
-            >
-              <CaretRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="text-sm text-gray-700 dark:text-gray-200">
-          {weekDays.reduce((total, day) => total + day.schedules.length, 0)} total assignments
-        </div>
-      </div>
-
       {/* Week Grid - Desktop: 7 columns, Mobile: Vertical stack */}
       <div className="flex-1 overflow-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 p-4">
-          {weekDays.map((day) => (
-            <div
-              key={day.date.format('YYYY-MM-DD')}
-              className={`
-                glass-static p-3 min-h-[200px] text-card-foreground
-                ${isClickedDay(day.date) ? 'ring-2 ring-primary bg-primary/5' : ''}
-                ${dragOverDay === day.date.format('YYYY-MM-DD') ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/20' : ''}
-                ${day.conflicts.length > 0 ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/20' : ''}
-              `}
-              onDragOver={(e) => handleDragOver(e, day.date.format('YYYY-MM-DD'))}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, day.date)}
-            >
-              {/* Day Header */}
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="font-semibold text-sm text-gray-700 dark:text-gray-200">
+        <div className="grid grid-cols-1 lg:grid-cols-7 h-full divide-x divide-gray-200 dark:divide-gray-700 border-x border-gray-200 dark:border-gray-700">
+          {weekDays.map((day) => {
+            const isToday = day.date.isSame(moment(), 'day');
+            return (
+              <div
+                key={day.date.format('YYYY-MM-DD')}
+                className={`
+                  p-3 min-h-[200px] text-card-foreground
+                  ${isClickedDay(day.date) ? 'bg-primary/5' : ''}
+                  ${dragOverDay === day.date.format('YYYY-MM-DD') ? 'bg-blue-50 dark:bg-blue-950/20' : ''}
+                  ${day.conflicts.length > 0 ? 'bg-red-50 dark:bg-red-950/20' : ''}
+                `}
+                onDragOver={(e) => handleDragOver(e, day.date.format('YYYY-MM-DD'))}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, day.date)}
+              >
+                {/* Day Header */}
+                <div className="flex flex-col items-center justify-center mb-4 pt-2">
+                  <div className="font-medium text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">
                     {day.date.format('ddd')}
                   </div>
-                  <div className="text-lg font-bold text-foreground">
+                  <div className={`
+                    text-lg font-semibold w-8 h-8 flex items-center justify-center rounded-full
+                    ${isToday ? 'bg-[#F00046] text-white shadow-sm' : 'text-foreground'}
+                  `}>
                     {day.date.format('D')}
+                  </div>
+
+                  {day.conflicts.length > 0 && (
+                    <Warning className="h-4 w-4 text-red-500 mt-1" />
+                  )}
+                </div>
+
+                {/* Morning Shift */}
+                <div className="mb-3">
+                  <div className="flex items-center space-x-1 mb-2">
+                    <Clock className="h-3 w-3 text-blue-500" />
+                    <span className="text-xs font-medium text-blue-700">Morning</span>
+                  </div>
+                  <div className="space-y-1">
+                    {day.morningSchedules.map((schedule) => (
+                      <div
+                        key={schedule.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, schedule)}
+                        onClick={() => onScheduleClick?.(schedule)}
+                        className={`
+                          p-2 rounded text-xs cursor-move transition-colors
+                          ${schedule.isScreener
+                            ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
+                            : 'bg-blue-100 text-blue-800 border border-blue-200'
+                          }
+                          ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
+                          hover:opacity-80
+                        `}
+                      >
+                        <div className="font-medium">
+                          {getAnalystName(schedule.analystId)}
+                        </div>
+                        {schedule.isScreener && (
+                          <div className="text-xs opacity-75">Screener</div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
+                {/* Evening Shift */}
+                <div>
+                  <div className="flex items-center space-x-1 mb-2">
+                    <Clock className="h-3 w-3 text-purple-500" />
+                    <span className="text-xs font-medium text-purple-700">Evening</span>
+                  </div>
+                  <div className="space-y-1">
+                    {day.eveningSchedules.map((schedule) => (
+                      <div
+                        key={schedule.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, schedule)}
+                        onClick={() => onScheduleClick?.(schedule)}
+                        className={`
+                          p-2 rounded text-xs cursor-move transition-colors
+                          ${schedule.isScreener
+                            ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
+                            : 'bg-purple-100 text-purple-800 border border-purple-200'
+                          }
+                          ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
+                          hover:opacity-80
+                        `}
+                      >
+                        <div className="font-medium">
+                          {getAnalystName(schedule.analystId)}
+                        </div>
+                        {schedule.isScreener && (
+                          <div className="text-xs opacity-75">Screener</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Conflicts Display */}
                 {day.conflicts.length > 0 && (
-                  <Warning className="h-4 w-4 text-red-500" />
+                  <div className="mt-3 p-2 bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-700 rounded text-xs">
+                    <div className="font-medium text-red-800 dark:text-red-200 mb-1">Conflicts:</div>
+                    {day.conflicts.map((conflict, index) => (
+                      <div key={index} className="text-red-700 dark:text-red-300">• {conflict}</div>
+                    ))}
+                  </div>
                 )}
               </div>
-
-              {/* Morning Shift */}
-              <div className="mb-3">
-                <div className="flex items-center space-x-1 mb-2">
-                  <Clock className="h-3 w-3 text-blue-500" />
-                  <span className="text-xs font-medium text-blue-700">Morning</span>
-                </div>
-                <div className="space-y-1">
-                  {day.morningSchedules.map((schedule) => (
-                    <div
-                      key={schedule.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, schedule)}
-                      onClick={() => onScheduleClick?.(schedule)}
-                      className={`
-                        p-2 rounded text-xs cursor-move transition-colors
-                        ${schedule.isScreener
-                          ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
-                          : 'bg-blue-100 text-blue-800 border border-blue-200'
-                        }
-                        ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
-                        hover:opacity-80
-                      `}
-                    >
-                      <div className="font-medium">
-                        {getAnalystName(schedule.analystId)}
-                      </div>
-                      {schedule.isScreener && (
-                        <div className="text-xs opacity-75">Screener</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Evening Shift */}
-              <div>
-                <div className="flex items-center space-x-1 mb-2">
-                  <Clock className="h-3 w-3 text-purple-500" />
-                  <span className="text-xs font-medium text-purple-700">Evening</span>
-                </div>
-                <div className="space-y-1">
-                  {day.eveningSchedules.map((schedule) => (
-                    <div
-                      key={schedule.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, schedule)}
-                      onClick={() => onScheduleClick?.(schedule)}
-                      className={`
-                        p-2 rounded text-xs cursor-move transition-colors
-                        ${schedule.isScreener
-                          ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
-                          : 'bg-purple-100 text-purple-800 border border-purple-200'
-                        }
-                        ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
-                        hover:opacity-80
-                      `}
-                    >
-                      <div className="font-medium">
-                        {getAnalystName(schedule.analystId)}
-                      </div>
-                      {schedule.isScreener && (
-                        <div className="text-xs opacity-75">Screener</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Conflicts Display */}
-              {day.conflicts.length > 0 && (
-                <div className="mt-3 p-2 bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-700 rounded text-xs">
-                  <div className="font-medium text-red-800 dark:text-red-200 mb-1">Conflicts:</div>
-                  {day.conflicts.map((conflict, index) => (
-                    <div key={index} className="text-red-700 dark:text-red-300">• {conflict}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

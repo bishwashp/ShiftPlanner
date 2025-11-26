@@ -76,6 +76,12 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const getTitle = () => {
     switch (activeView) {
       case 'schedule':
+        if (view === 'week') {
+          const startOfWeek = format(subDays(date, date.getDay()), 'MMM d');
+          const endOfWeek = format(addDays(date, 6 - date.getDay()), 'MMM d, yyyy');
+          const weekNumber = format(date, 'w');
+          return `W${weekNumber} | ${startOfWeek} - ${endOfWeek}`;
+        }
         if (view === 'day') return format(date, 'MMMM d, yyyy');
         return format(date, 'MMMM yyyy');
       case 'dashboard':
@@ -190,7 +196,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   onChange={handleViewChange}
                   className="appearance-none h-9 pl-4 pr-9 py-1 text-sm font-medium rounded-full border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md text-gray-700 dark:text-gray-200 shadow-sm hover:shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-400 cursor-pointer"
                 >
-                  <option value="day" className="bg-white dark:bg-gray-900">Day</option>
+
                   <option value="week" className="bg-white dark:bg-gray-900">Week</option>
                   <option value="month" className="bg-white dark:bg-gray-900">Month</option>
                 </select>
