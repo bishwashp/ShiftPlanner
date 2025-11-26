@@ -55,14 +55,14 @@ const CoverageWidget: React.FC = () => {
 
     return (
         <GlassCard className="h-full flex flex-col">
-            <div className="px-3 py-2 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
+            <div className="px-3 py-1.5 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <ChartBar className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
                     Today's Coverage
                 </h3>
             </div>
 
-            <div className="flex-1 p-2 overflow-y-auto space-y-2">
+            <div className="flex-1 p-2 overflow-y-auto space-y-2 flex flex-col justify-center">
                 {loading ? (
                     <>
                         <div className="h-10 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />

@@ -398,7 +398,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
           ))}
         </div>
         {/* New Widgets Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 h-64">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 h-56">
           <TodaysScreenersWidget />
           <UpcomingHolidaysWidget />
           <CoverageWidget />
