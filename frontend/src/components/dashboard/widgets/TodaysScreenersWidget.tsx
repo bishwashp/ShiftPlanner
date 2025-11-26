@@ -28,14 +28,14 @@ const TodaysScreenersWidget: React.FC = () => {
 
     return (
         <GlassCard className="h-full flex flex-col">
-            <div className="p-3 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
+            <div className="px-3 py-2 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <User className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     Today's Screeners
                 </h3>
             </div>
 
-            <div className="flex-1 p-3 overflow-y-auto">
+            <div className="flex-1 p-2 overflow-y-auto">
                 {loading ? (
                     <div className="space-y-2">
                         {[1, 2].map(i => (

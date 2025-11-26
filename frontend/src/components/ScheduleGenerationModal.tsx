@@ -139,7 +139,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] min-h-[60vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b border-border">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
           <div className="flex items-center space-x-3">
             <CalendarBlank className="h-6 w-6 text-primary" />
             <div>
@@ -191,7 +191,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-3">
+            <div className="flex-1 overflow-y-auto p-2">
               {viewMode === 'SUMMARY' ? (
                 <div className="space-y-6">
                   {/* Fairness Analysis Card */}
@@ -333,7 +333,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-border bg-background">
+        <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-background">
           <div className="text-sm text-gray-700 dark:text-gray-200">
             {summary.assignmentsNeeded} assignments generated
           </div>
