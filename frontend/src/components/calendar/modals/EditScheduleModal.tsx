@@ -33,7 +33,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
 
     useEffect(() => {
         if (isOpen && schedule) {
-            setDate(moment(schedule.date).format('YYYY-MM-DD'));
+            setDate(moment.utc(schedule.date).format('YYYY-MM-DD'));
             setAnalystId(schedule.analystId);
             setShiftType(schedule.shiftType);
             setIsScreener(schedule.isScreener);
@@ -76,6 +76,14 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
         e.preventDefault();
         if (!schedule || !analystId) return;
 
+        console.log('Submitting schedule update:', {
+            id: schedule.id,
+            analystId,
+            date,
+            shiftType,
+            isScreener
+        });
+
         // Block if there are hard violations
         const hasHardViolations = validationViolations.some(v => v.type === 'HARD');
         if (hasHardViolations) {
@@ -97,7 +105,22 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
             onClose();
         } catch (err: any) {
             console.error('Error updating schedule:', err);
-            setError(err.response?.data?.message || 'Failed to update schedule');
+            const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Failed to update schedule';
+
+            // Check if it's a conflict error that should be shown as a validation flag
+            if (errorMessage.includes('already a screener') || errorMessage.includes('conflict') || errorMessage.includes('already has a schedule')) {
+                setValidationViolations(prev => [
+                    ...prev,
+                    {
+                        type: 'HARD',
+                        description: errorMessage,
+                        suggestedFix: 'Check other schedules for this date/shift.'
+                    }
+                ]);
+                // Don't set generic error if we're showing it as a violation
+            } else {
+                setError(errorMessage);
+            }
         } finally {
             setLoading(false);
         }
@@ -124,8 +147,8 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
     if (!isOpen || !schedule) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
-            <GlassCard className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" enableRefraction>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <GlassCard className="w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto bg-white/90 dark:bg-gray-900/90 shadow-2xl" interactive={false}>
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Schedule</h2>
                     <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
@@ -134,8 +157,9 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                 </div>
 
                 {error && (
-                    <div className="bg-destructive/10 text-destructive p-3 rounded-md mb-4 text-sm">
-                        {error}
+                    <div className="bg-red-100 dark:bg-red-900/50 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 p-4 rounded-md mb-4 text-sm font-medium flex items-start gap-2">
+                        <span className="text-lg">⚠️</span>
+                        <span>{error}</span>
                     </div>
                 )}
 

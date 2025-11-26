@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { X } from '@phosphor-icons/react';
 import { apiService, FairnessReport } from '../services/api';
 import Button from './ui/Button';
 import moment from 'moment';
@@ -44,8 +44,8 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="glass-static p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
           <div className="animate-pulse">
             <div className="h-8 bg-muted rounded w-1/3 mb-4"></div>
             <div className="space-y-3">
@@ -61,8 +61,8 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
 
   if (error) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="glass-static p-8 max-w-md w-full mx-4">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-8 max-w-md w-full mx-4">
           <h2 className="text-xl font-semibold text-foreground mb-4">Error</h2>
           <p className="text-gray-700 dark:text-gray-200 mb-4">{error}</p>
           <Button
@@ -79,8 +79,8 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
   if (!report) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="glass-static p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-start mb-6">
           <div>
             <h2 className="text-2xl font-semibold text-foreground">Fairness Report</h2>
@@ -94,7 +94,7 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
             size="icon"
             className="text-gray-700 dark:text-gray-200 hover:text-foreground"
           >
-            <XMarkIcon className="w-6 h-6" />
+            <X className="w-6 h-6" />
           </Button>
         </div>
 

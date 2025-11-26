@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PencilSquareIcon, TrashIcon, UserPlusIcon, UserMinusIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { PencilSimple, Trash, UserPlus, UserMinus, Users } from '@phosphor-icons/react';
 import { apiService, Analyst } from '../services/api';
 import HeaderActionPortal from './layout/HeaderActionPortal';
 import HeaderActionButton from './layout/HeaderActionButton';
@@ -156,7 +156,7 @@ const AnalystManagement: React.FC = () => {
         )}
         <HeaderActionPortal>
           <HeaderActionButton
-            icon={UserPlusIcon}
+            icon={UserPlus}
             label="Add New"
             onClick={() => setShowAddForm(true)}
           />
@@ -332,8 +332,8 @@ const AnalystManagement: React.FC = () => {
                         value={analyst.isActive ? 'active' : 'inactive'}
                         onChange={(e) => handleStatusChange(analyst, e.target.value === 'active')}
                         className={`text-xs font-semibold rounded-full px-2 py-1 border-none focus:ring-2 focus:ring-offset-1 cursor-pointer ${analyst.isActive
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 focus:ring-green-500'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 focus:ring-red-500'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 focus:ring-green-500'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 focus:ring-red-500'
                           }`}
                       >
                         <option value="active">Active</option>
@@ -373,7 +373,7 @@ const AnalystManagement: React.FC = () => {
             </table>
             {analysts.length === 0 && (
               <div className="px-6 py-12 text-center text-gray-700 dark:text-gray-200">
-                <UsersIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No analysts found</p>
                 <p className="text-sm">Click "Add New Analyst" to create your first analyst record</p>
               </div>

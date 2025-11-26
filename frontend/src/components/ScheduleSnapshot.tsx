@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
-import { UsersIcon, CalendarIcon, ChartBarIcon, SunIcon, MoonIcon, BoltIcon } from '@heroicons/react/24/outline';
+import { Users, CalendarBlank, ChartBar, Sun, Moon, Lightning } from '@phosphor-icons/react';
 
 interface ScheduleSnapshotData {
   todaysScreeners: {
@@ -54,7 +54,7 @@ const ScheduleSnapshot: React.FC = () => {
     switch (shiftType) {
       case 'MORNING':
         return {
-          icon: SunIcon,
+          icon: Sun,
           color: 'text-blue-500',
           bgColor: 'bg-blue-500/10',
           borderColor: 'border-blue-500/20',
@@ -62,7 +62,7 @@ const ScheduleSnapshot: React.FC = () => {
         };
       case 'EVENING':
         return {
-          icon: MoonIcon,
+          icon: Moon,
           color: 'text-purple-500',
           bgColor: 'bg-purple-500/10',
           borderColor: 'border-purple-500/20',
@@ -70,7 +70,7 @@ const ScheduleSnapshot: React.FC = () => {
         };
       case 'WEEKEND':
         return {
-          icon: BoltIcon,
+          icon: Lightning,
           color: 'text-green-500',
           bgColor: 'bg-green-500/10',
           borderColor: 'border-green-500/20',
@@ -78,7 +78,7 @@ const ScheduleSnapshot: React.FC = () => {
         };
       default:
         return {
-          icon: SunIcon,
+          icon: Sun,
           color: 'text-gray-500',
           bgColor: 'bg-gray-500/10',
           borderColor: 'border-gray-500/20',
@@ -149,7 +149,7 @@ const ScheduleSnapshot: React.FC = () => {
         <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 rounded-xl p-4 border border-blue-200/50 dark:border-blue-800/30 backdrop-blur-sm">
           <div className="flex items-center mb-3">
             <div className="p-1.5 bg-blue-500/10 rounded-lg mr-2">
-              <UsersIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </div>
             <h3 className="font-semibold text-sm text-blue-900 dark:text-blue-100">Today's Screeners</h3>
           </div>
@@ -178,7 +178,7 @@ const ScheduleSnapshot: React.FC = () => {
         <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/30 dark:to-purple-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-800/30 backdrop-blur-sm">
           <div className="flex items-center mb-3">
             <div className="p-1.5 bg-purple-500/10 rounded-lg mr-2">
-              <CalendarIcon className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <CalendarBlank className="w-4 h-4 text-purple-600 dark:text-purple-400" />
             </div>
             <h3 className="font-semibold text-sm text-purple-900 dark:text-purple-100">Upcoming Holiday</h3>
           </div>
@@ -206,7 +206,7 @@ const ScheduleSnapshot: React.FC = () => {
         <div className="bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/30 dark:to-green-900/20 rounded-xl p-4 border border-green-200/50 dark:border-green-800/30 backdrop-blur-sm">
           <div className="flex items-center mb-3">
             <div className="p-1.5 bg-green-500/10 rounded-lg mr-2">
-              <ChartBarIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
+              <ChartBar className="w-4 h-4 text-green-600 dark:text-green-400" />
             </div>
             <h3 className="font-semibold text-sm text-green-900 dark:text-green-100">Today's Coverage</h3>
           </div>

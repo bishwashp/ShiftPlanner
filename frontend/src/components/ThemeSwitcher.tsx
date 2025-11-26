@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useTheme } from 'react18-themes';
-import { MoonIcon, SunIcon } from '@heroicons/react/24/outline';
+import { Moon, Sun } from '@phosphor-icons/react';
 
 export function ThemeSwitcher() {
   const { theme, setTheme } = useTheme();
@@ -17,7 +17,7 @@ export function ThemeSwitcher() {
       onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
       className="p-2 rounded-md bg-transparent text-foreground hover:bg-muted"
     >
-      {theme === 'light' ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
+      {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
     </button>
   );
 } 

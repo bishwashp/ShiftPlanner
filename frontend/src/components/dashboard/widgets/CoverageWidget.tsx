@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChartBarIcon, SunIcon, MoonIcon } from '@heroicons/react/24/outline';
+import { ChartBar, Sun, Moon } from '@phosphor-icons/react';
 import { apiService } from '../../../services/api';
 import moment from 'moment';
 
@@ -57,7 +57,7 @@ const CoverageWidget: React.FC = () => {
         <GlassCard className="h-full flex flex-col">
             <div className="p-5 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <ChartBarIcon className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
+                    <ChartBar className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
                     Today's Coverage
                 </h3>
             </div>
@@ -74,7 +74,7 @@ const CoverageWidget: React.FC = () => {
                         {/* Morning Count */}
                         <div className="flex items-center justify-between p-3 rounded-2xl bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/10">
                             <div className="flex items-center gap-3">
-                                <SunIcon className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                                <Sun className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                                 <span className="text-sm font-medium text-gray-900 dark:text-white">Morning</span>
                             </div>
                             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 text-xs font-bold">
@@ -85,7 +85,7 @@ const CoverageWidget: React.FC = () => {
                         {/* Evening Count */}
                         <div className="flex items-center justify-between p-3 rounded-2xl bg-purple-50 dark:bg-purple-500/10 border border-purple-100 dark:border-purple-500/10">
                             <div className="flex items-center gap-3">
-                                <MoonIcon className="w-5 h-5 text-purple-500 dark:text-purple-400" />
+                                <Moon className="w-5 h-5 text-purple-500 dark:text-purple-400" />
                                 <span className="text-sm font-medium text-gray-900 dark:text-white">Evening</span>
                             </div>
                             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs font-bold">

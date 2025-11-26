@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import { Question } from '@phosphor-icons/react';
 
 const LegendItem: React.FC<{ color: string, label: string }> = ({ color, label }) => (
   <div className="flex items-center space-x-2">
@@ -18,7 +18,7 @@ const CalendarLegend: React.FC = () => {
         onBlur={() => setIsOpen(false)}
         className="p-2 rounded-md hover:bg-muted"
       >
-        <QuestionMarkCircleIcon className="h-5 w-5" />
+        <Question className="h-5 w-5" />
       </button>
       {isOpen && (
         <div

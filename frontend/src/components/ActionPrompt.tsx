@@ -1,5 +1,5 @@
 import React from 'react';
-import { XMarkIcon, ExclamationTriangleIcon, InformationCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { X, Warning, Info, Clock } from '@phosphor-icons/react';
 import Button from './ui/Button';
 
 export type ActionPromptType = 'critical' | 'important' | 'optional';
@@ -40,13 +40,13 @@ const ActionPromptComponent: React.FC<ActionPromptProps> = ({ prompt, onDismiss,
   const getIcon = () => {
     switch (prompt.type) {
       case 'critical':
-        return <ExclamationTriangleIcon className="w-6 h-6 text-red-500" />;
+        return <Warning className="w-6 h-6 text-red-500" />;
       case 'important':
-        return <ClockIcon className="w-6 h-6 text-yellow-500" />;
+        return <Clock className="w-6 h-6 text-yellow-500" />;
       case 'optional':
-        return <InformationCircleIcon className="w-6 h-6 text-blue-500" />;
+        return <Info className="w-6 h-6 text-blue-500" />;
       default:
-        return <InformationCircleIcon className="w-6 h-6 text-gray-500" />;
+        return <Info className="w-6 h-6 text-gray-500" />;
     }
   };
 
@@ -99,7 +99,7 @@ const ActionPromptComponent: React.FC<ActionPromptProps> = ({ prompt, onDismiss,
             className="text-gray-700 dark:text-gray-200 hover:text-foreground"
             title={prompt.type === 'critical' ? 'Dismiss (conflicts will still be visible in Conflict Management)' : 'Dismiss'}
           >
-            <XMarkIcon className="w-5 h-5" />
+            <X className="w-5 h-5" />
           </Button>
         </div>
 

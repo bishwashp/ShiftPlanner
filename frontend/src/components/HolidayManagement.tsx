@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusIcon, CalendarIcon, TrashIcon, PencilSquareIcon, ExclamationTriangleIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { Plus, CalendarBlank, Trash, PencilSimple, Warning, CheckCircle, XCircle } from '@phosphor-icons/react';
 import { apiService } from '../services/api';
 import moment from 'moment-timezone';
 import Checkbox from './ui/Checkbox';
@@ -216,7 +216,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
       <HeaderActionPortal>
         <div className="flex items-center space-x-2">
           <HeaderActionButton
-            icon={PlusIcon}
+            icon={Plus}
             label="Add New"
             onClick={() => setShowAddForm(true)}
           />
@@ -260,7 +260,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
       {error && (
         <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
           <div className="flex items-center space-x-2">
-            <ExclamationTriangleIcon className="h-5 w-5 text-destructive" />
+            <Warning className="h-5 w-5 text-destructive" />
             <span className="text-destructive">{error}</span>
           </div>
         </div>
@@ -397,7 +397,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
               {holidays.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-700 dark:text-gray-200">
-                    <CalendarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <CalendarBlank className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No holidays found for {selectedYear}</p>
                     <p className="text-sm">Click "Add Holiday" to create your first holiday</p>
                   </td>
@@ -436,12 +436,12 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                         }`}>
                         {holiday.isActive ? (
                           <>
-                            <CheckCircleIcon className="h-3 w-3 mr-1" />
+                            <CheckCircle className="h-3 w-3 mr-1" />
                             Active
                           </>
                         ) : (
                           <>
-                            <XCircleIcon className="h-3 w-3 mr-1" />
+                            <XCircle className="h-3 w-3 mr-1" />
                             Inactive
                           </>
                         )}

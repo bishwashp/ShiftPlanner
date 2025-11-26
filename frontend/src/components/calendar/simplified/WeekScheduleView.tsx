@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import moment from 'moment-timezone';
 import { apiService, Schedule, Analyst } from '../../../services/api';
-import { ChevronLeftIcon, ChevronRightIcon, CalendarIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { CaretLeft, CaretRight, CalendarBlank, Clock, Warning } from '@phosphor-icons/react';
 
 interface CalendarEvent {
   id: string;
@@ -231,7 +231,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
             onClick={onReturnToMonth}
             className="flex items-center space-x-2 px-3 py-2 text-sm font-medium rounded-md border border-border hover:bg-muted"
           >
-            <CalendarIcon className="h-4 w-4" />
+            <CalendarBlank className="h-4 w-4" />
             <span>Month View</span>
           </button>
 
@@ -240,7 +240,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
               onClick={handlePrevWeek}
               className="p-2 rounded-md hover:bg-muted"
             >
-              <ChevronLeftIcon className="h-4 w-4" />
+              <CaretLeft className="h-4 w-4" />
             </button>
 
             <h2 className="text-lg font-semibold min-w-[200px] text-center">
@@ -251,7 +251,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
               onClick={handleNextWeek}
               className="p-2 rounded-md hover:bg-muted"
             >
-              <ChevronRightIcon className="h-4 w-4" />
+              <CaretRight className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -289,14 +289,14 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
                 </div>
 
                 {day.conflicts.length > 0 && (
-                  <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />
+                  <Warning className="h-4 w-4 text-red-500" />
                 )}
               </div>
 
               {/* Morning Shift */}
               <div className="mb-3">
                 <div className="flex items-center space-x-1 mb-2">
-                  <ClockIcon className="h-3 w-3 text-blue-500" />
+                  <Clock className="h-3 w-3 text-blue-500" />
                   <span className="text-xs font-medium text-blue-700">Morning</span>
                 </div>
                 <div className="space-y-1">
@@ -330,7 +330,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
               {/* Evening Shift */}
               <div>
                 <div className="flex items-center space-x-1 mb-2">
-                  <ClockIcon className="h-3 w-3 text-purple-500" />
+                  <Clock className="h-3 w-3 text-purple-500" />
                   <span className="text-xs font-medium text-purple-700">Evening</span>
                 </div>
                 <div className="space-y-1">

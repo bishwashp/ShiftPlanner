@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
-import { Bars3Icon, ChevronLeftIcon, ChevronRightIcon, ExclamationTriangleIcon, CheckCircleIcon, ArrowPathIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import {
+  List,
+  CaretLeft,
+  CaretRight,
+  ArrowsClockwise,
+  CaretDown,
+  Export
+} from '@phosphor-icons/react';
 import Button from '../ui/Button';
 
 import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } from 'date-fns';
 import { View as SidebarView } from './CollapsibleSidebar';
 import ViewSettingsMenu from './ViewSettingsMenu';
 import ExportModal from '../modals/ExportModal';
-
-// Custom Export Icon requested by user
-// Custom Export Icon requested by user
-const ExportIcon = (props: React.ComponentProps<'svg'>) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
-    <path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" />
-  </svg>
-);
 
 interface AppHeaderProps {
   sidebarOpen: boolean;
@@ -118,7 +117,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             className="p-2 rounded-lg hover:bg-gray-200/50 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-900 dark:text-white transition-colors"
             aria-label="Toggle sidebar"
           >
-            <Bars3Icon className="h-5 w-5" />
+            <List className="h-5 w-5" weight="bold" />
           </button>
           <h1 className="text-lg font-semibold truncate hidden sm:block text-gray-900 dark:text-white">
             {getTitle()}
@@ -135,8 +134,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               className="p-2 rounded-lg hover:bg-gray-200/50 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 dark:text-white transition-colors"
               aria-label="Refresh dashboard data"
             >
-              <ArrowPathIcon
+              <ArrowsClockwise
                 className={`h-4.5 w-4.5 ${isRefreshing ? 'animate-spin' : ''}`}
+                weight="bold"
               />
             </button>
           )}
@@ -158,7 +158,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   variant="secondary"
                   size="icon"
                   className="h-9 w-9"
-                  icon={ChevronLeftIcon}
+                  leftIcon={CaretLeft}
                   aria-label="Previous"
                 />
                 <Button
@@ -166,7 +166,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   variant="secondary"
                   size="icon"
                   className="h-9 w-9"
-                  icon={ChevronRightIcon}
+                  leftIcon={CaretRight}
                   aria-label="Next"
                 />
               </div>
@@ -194,14 +194,14 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   <option value="week" className="bg-white dark:bg-gray-900">Week</option>
                   <option value="month" className="bg-white dark:bg-gray-900">Month</option>
                 </select>
-                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400 pointer-events-none" />
+                <CaretDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400 pointer-events-none" weight="bold" />
               </div>
 
               {/* Export Button */}
               <Button
                 onClick={() => setIsExportModalOpen(true)}
                 variant="primary"
-                icon={ExportIcon}
+                leftIcon={Export}
                 size="sm"
                 className="h-9"
               >

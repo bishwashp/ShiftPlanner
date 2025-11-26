@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CalendarIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { CalendarBlank, Clock, Users } from '@phosphor-icons/react';
 import moment from 'moment';
 import Button from './ui/Button';
 
@@ -27,7 +27,7 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
   return (
     <div className="glass-static p-6">
       <div className="flex items-center space-x-3 mb-6">
-        <CalendarIcon className="h-6 w-6 text-primary" />
+        <CalendarBlank className="h-6 w-6 text-primary" />
         <div>
           <h3 className="text-lg font-semibold">Generate Schedule</h3>
           <p className="text-sm text-gray-700 dark:text-gray-200">
@@ -70,7 +70,7 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
         {/* Preview Info */}
         <div className="bg-muted/50 rounded-lg p-4">
           <div className="flex items-center space-x-2 mb-2">
-            <ClockIcon className="h-4 w-4 text-gray-700 dark:text-gray-200" />
+            <Clock className="h-4 w-4 text-gray-700 dark:text-gray-200" />
             <span className="text-sm font-medium">Preview</span>
           </div>
           <div className="text-sm text-gray-700 dark:text-gray-200">
@@ -88,7 +88,7 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
           variant="primary"
           className="w-full"
         >
-          {!isLoading && <UsersIcon className="h-4 w-4 mr-2" />}
+          {!isLoading && <Users className="h-4 w-4 mr-2" />}
           Generate Schedule
         </Button>
       </form>

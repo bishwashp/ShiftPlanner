@@ -234,20 +234,43 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 
     // If making this a screener assignment, check for conflicts
-    if (isScreener && !currentSchedule.isScreener) {
-      const existingScreener = await prisma.schedule.findFirst({
-        where: {
-          date: new Date(date || currentSchedule.date),
-          shiftType: shiftType || currentSchedule.shiftType,
-          isScreener: true,
-          id: { not: id } // Exclude current schedule
-        }
-      });
+    // Check if we need to validate screener uniqueness:
+    // 1. If we are setting isScreener=true
+    // 2. AND (it wasn't a screener before OR we are changing date/shift)
+    {
+      const targetDate = date ? new Date(date) : currentSchedule.date;
+      const targetShift = shiftType || currentSchedule.shiftType;
 
-      if (existingScreener) {
-        return res.status(400).json({
-          error: `There is already a screener assigned for this shift and date`
+      // Check if date changed (compare timestamps to avoid object reference issues)
+      const dateChanged = date && new Date(date).getTime() !== currentSchedule.date.getTime();
+      const shiftChanged = shiftType && shiftType !== currentSchedule.shiftType;
+      const becomingScreener = isScreener === true;
+      const wasScreener = currentSchedule.isScreener;
+
+      if (becomingScreener && (!wasScreener || dateChanged || shiftChanged)) {
+        console.log(`Checking screener conflict for ${targetDate.toISOString()} ${targetShift}`);
+
+        const existingScreener = await prisma.schedule.findFirst({
+          where: {
+            date: targetDate,
+            shiftType: targetShift,
+            isScreener: true,
+            id: { not: id } // Exclude current schedule
+          },
+          include: { analyst: true }
         });
+
+        if (existingScreener) {
+          console.log('Found conflicting screener:', {
+            id: existingScreener.id,
+            analyst: existingScreener.analyst.name,
+            date: existingScreener.date,
+            shift: existingScreener.shiftType
+          });
+          return res.status(400).json({
+            error: `There is already a screener assigned for this shift and date: ${existingScreener.analyst.name}`
+          });
+        }
       }
     }
 

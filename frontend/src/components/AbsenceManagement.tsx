@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusIcon, UsersIcon, TrashIcon, PencilSquareIcon, ExclamationTriangleIcon, CheckCircleIcon, XCircleIcon, ClockIcon, UserIcon } from '@heroicons/react/24/outline';
+import { Plus, Users, Trash, PencilSimple, Warning, CheckCircle, XCircle, Clock, User } from '@phosphor-icons/react';
 import { apiService } from '../services/api';
 import moment from 'moment-timezone';
 import Checkbox from './ui/Checkbox';
@@ -280,7 +280,7 @@ const AbsenceManagement: React.FC = () => {
     <div className="p-6">
       <HeaderActionPortal>
         <HeaderActionButton
-          icon={PlusIcon}
+          icon={Plus}
           label="Add New"
           onClick={() => setShowAddForm(true)}
         />
@@ -359,7 +359,7 @@ const AbsenceManagement: React.FC = () => {
       {error && (
         <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
           <div className="flex items-center space-x-2">
-            <ExclamationTriangleIcon className="h-5 w-5 text-destructive" />
+            <Warning className="h-5 w-5 text-destructive" />
             <span className="text-destructive">{error}</span>
           </div>
         </div>
@@ -512,7 +512,7 @@ const AbsenceManagement: React.FC = () => {
               {absences.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-700 dark:text-gray-200">
-                    <UsersIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No absences found</p>
                     <p className="text-sm">Click "Add Absence" to create your first absence record</p>
                   </td>
@@ -528,7 +528,7 @@ const AbsenceManagement: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="p-2 bg-primary/10 rounded-full mr-3">
-                            <UserIcon className="h-4 w-4 text-primary" />
+                            <User className="h-4 w-4 text-primary" />
                           </div>
                           <div>
                             <div className="text-sm font-medium text-foreground">{absence.analyst.name}</div>
@@ -553,7 +553,7 @@ const AbsenceManagement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-foreground">
-                          <ClockIcon className="h-4 w-4 mr-1" />
+                          <Clock className="h-4 w-4 mr-1" />
                           {duration} day{duration !== 1 ? 's' : ''}
                         </div>
                       </td>
@@ -565,12 +565,12 @@ const AbsenceManagement: React.FC = () => {
                             }`}>
                             {absence.isApproved ? (
                               <>
-                                <CheckCircleIcon className="h-3 w-3 mr-1" />
+                                <CheckCircle className="h-3 w-3 mr-1" />
                                 Approved
                               </>
                             ) : (
                               <>
-                                <ClockIcon className="h-3 w-3 mr-1" />
+                                <Clock className="h-3 w-3 mr-1" />
                                 Pending
                               </>
                             )}
@@ -592,7 +592,7 @@ const AbsenceManagement: React.FC = () => {
                             className="text-primary hover:text-primary/80"
                             title="Edit absence"
                           >
-                            <PencilSquareIcon className="h-4 w-4" />
+                            <PencilSimple className="h-4 w-4" />
                           </Button>
                           {!absence.isApproved && (
                             <Button
@@ -602,7 +602,7 @@ const AbsenceManagement: React.FC = () => {
                               className="text-green-600 hover:text-green-800"
                               title="Approve absence"
                             >
-                              <CheckCircleIcon className="h-4 w-4" />
+                              <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
                           {absence.isApproved && (
@@ -613,7 +613,7 @@ const AbsenceManagement: React.FC = () => {
                               className="text-yellow-600 hover:text-yellow-800"
                               title="Revoke approval"
                             >
-                              <XCircleIcon className="h-4 w-4" />
+                              <XCircle className="h-4 w-4" />
                             </Button>
                           )}
                           <Button
@@ -623,7 +623,7 @@ const AbsenceManagement: React.FC = () => {
                             className="text-destructive hover:text-destructive/80"
                             title="Delete absence"
                           >
-                            <TrashIcon className="h-4 w-4" />
+                            <Trash className="h-4 w-4" />
                           </Button>
                         </div>
                       </td>

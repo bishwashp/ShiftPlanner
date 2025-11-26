@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { notificationService, Notification, NotificationType } from '../services/notificationService';
-import { XMarkIcon, CheckIcon, ExclamationTriangleIcon, CalendarIcon, Cog6ToothIcon, CheckCircleIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { X, Check, Warning, CalendarBlank, Gear, CheckCircle, ChartBar } from '@phosphor-icons/react';
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -31,17 +31,17 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
 
     switch (type) {
       case 'recommendation':
-        return <ExclamationTriangleIcon {...iconProps} className="text-blue-500" />;
+        return <Warning {...iconProps} className="text-blue-500" />;
       case 'history':
-        return <CalendarIcon {...iconProps} className="text-gray-500" />;
+        return <CalendarBlank {...iconProps} className="text-gray-500" />;
       case 'system':
-        return <Cog6ToothIcon {...iconProps} />;
+        return <Gear {...iconProps} />;
       case 'success':
-        return <CheckCircleIcon {...iconProps} className="text-green-500" />;
+        return <CheckCircle {...iconProps} className="text-green-500" />;
       case 'analytics':
-        return <ChartBarIcon {...iconProps} className="text-purple-500" />;
+        return <ChartBar {...iconProps} className="text-purple-500" />;
       default:
-        return <Cog6ToothIcon {...iconProps} />;
+        return <Gear {...iconProps} />;
     }
   };
 
@@ -85,7 +85,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
       const handleClickOutside = (event: MouseEvent) => {
         // If the click is on the backdrop or outside the notification panel
         const target = event.target as HTMLElement;
-        if (target.closest('.glass-static') === null && !target.closest('button[title="Notifications"]')) {
+        if (target.closest('.notification-panel') === null && !target.closest('button[title="Notifications"]')) {
           onClose();
         }
       };
@@ -108,7 +108,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
       />
 
       {/* Notification Panel - Absolute relative to Sidebar Wrapper */}
-      <div className="absolute bottom-14 left-4 z-50 w-80 sm:w-96 max-w-[calc(100vw-2rem)] glass-static animate-in slide-in-from-bottom-2 duration-200 shadow-2xl border border-white/20">
+      <div className="notification-panel absolute bottom-14 left-4 z-50 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl animate-in slide-in-from-bottom-2 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
@@ -123,7 +123,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
             onClick={onClose}
             className="p-1 hover:bg-muted rounded-md transition-colors"
           >
-            <XMarkIcon className="h-4 w-4" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -174,7 +174,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
           {filteredNotifications.length === 0 ? (
             <div className="p-6 text-center text-gray-700 dark:text-gray-200">
               <div className="mb-2">
-                <CheckIcon className="h-8 w-8 mx-auto text-gray-700 dark:text-gray-200/50" />
+                <Check className="h-8 w-8 mx-auto text-gray-700 dark:text-gray-200/50" />
               </div>
               <p className="text-sm">
                 {filter === 'unread' ? 'No unread notifications' : 'No notifications'}
@@ -215,7 +215,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                               className="p-1 hover:bg-muted rounded transition-colors"
                               title="Mark as read"
                             >
-                              <CheckIcon className="h-3 w-3" />
+                              <Check className="h-3 w-3" />
                             </button>
                           )}
                           <button
@@ -223,7 +223,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                             className="p-1 hover:bg-muted rounded transition-colors"
                             title="Remove"
                           >
-                            <XMarkIcon className="h-3 w-3" />
+                            <X className="h-3 w-3" />
                           </button>
                         </div>
                       </div>

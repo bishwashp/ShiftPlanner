@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { XMarkIcon, CalendarIcon, ExclamationTriangleIcon, InformationCircleIcon, ListBulletIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { X, CalendarBlank, Warning, Info, ListBullets, ChartBar } from '@phosphor-icons/react';
 import moment from 'moment';
 import Checkbox from './ui/Checkbox';
 import Button from './ui/Button';
@@ -135,12 +135,12 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background border border-border rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] min-h-[60vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] min-h-[60vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center space-x-3">
-            <CalendarIcon className="h-6 w-6 text-primary" />
+            <CalendarBlank className="h-6 w-6 text-primary" />
             <div>
               <h2 className="text-xl font-semibold">Schedule Preview</h2>
               <p className="text-sm text-gray-700 dark:text-gray-200">
@@ -157,7 +157,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
                   : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
                   }`}
               >
-                <ChartBarIcon className="h-4 w-4" />
+                <ChartBar className="h-4 w-4" />
                 <span>Summary</span>
               </button>
               <button
@@ -167,7 +167,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
                   : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
                   }`}
               >
-                <ListBulletIcon className="h-4 w-4" />
+                <ListBullets className="h-4 w-4" />
                 <span>Details</span>
               </button>
             </div>
@@ -175,7 +175,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
               onClick={onClose}
               className="p-2 hover:bg-muted rounded-md transition-colors ml-2"
             >
-              <XMarkIcon className="h-5 w-5" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -195,9 +195,9 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
                 <div className="space-y-6">
                   {/* Fairness Analysis Card */}
                   {summary.fairnessMetrics && (
-                    <div className="glass-static p-5">
+                    <div className="bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
                       <div className="flex items-center space-x-2 mb-4">
-                        <InformationCircleIcon className="h-5 w-5 text-blue-500" />
+                        <Info className="h-5 w-5 text-blue-500" />
                         <h3 className="font-semibold text-lg">Fairness Analysis</h3>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -228,7 +228,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
                   )}
 
                   {/* Workload Summary Table */}
-                  <div className="glass-static">
+                  <div className="bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div className="px-6 py-4 border-b border-border flex justify-between items-center">
                       <h3 className="font-semibold">Analyst Workload Summary</h3>
                       <span className="text-sm text-gray-700 dark:text-gray-200">{analystStats.length} Analysts</span>
@@ -258,7 +258,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
                               <td className="px-6 py-4 text-center">
                                 {stat.maxStreak > 5 ? (
                                   <span className="text-red-500 font-bold flex items-center justify-center space-x-1">
-                                    <ExclamationTriangleIcon className="h-3 w-3" />
+                                    <Warning className="h-3 w-3" />
                                     <span>{stat.maxStreak}</span>
                                   </span>
                                 ) : (
@@ -296,7 +296,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
                           className={`p-4 border rounded-lg transition-all ${isSelected
                             ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/50'
-                            } glass-static`}
+                            } bg-white/50 dark:bg-gray-800/50`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">

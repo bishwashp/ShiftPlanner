@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserIcon, ExclamationCircleIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { User, WarningCircle, Plus } from '@phosphor-icons/react';
 import { apiService } from '../../../services/api';
 import moment from 'moment';
 
@@ -30,7 +30,7 @@ const TodaysScreenersWidget: React.FC = () => {
         <GlassCard className="h-full flex flex-col">
             <div className="p-5 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <UserIcon className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+                    <User className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                     Today's Screeners
                 </h3>
             </div>
@@ -68,11 +68,11 @@ const TodaysScreenersWidget: React.FC = () => {
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center text-center p-4">
                         <div className="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center mb-3">
-                            <ExclamationCircleIcon className="w-6 h-6 text-indigo-500 dark:text-indigo-400" />
+                            <WarningCircle className="w-6 h-6 text-indigo-500 dark:text-indigo-400" />
                         </div>
                         <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">No Screeners</p>
                         <button className="text-xs flex items-center gap-1 text-indigo-500 dark:text-indigo-400 hover:opacity-80 transition-opacity">
-                            <PlusIcon className="w-3 h-3" /> Assign
+                            <Plus className="w-3 h-3" /> Assign
                         </button>
                     </div>
                 )}

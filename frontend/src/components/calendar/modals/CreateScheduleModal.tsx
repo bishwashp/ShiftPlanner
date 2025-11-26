@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Analyst, apiService } from '../../../services/api';
 import moment from 'moment';
-import GlassCard from '../../common/GlassCard';
+
 import Button from '../../ui/Button';
 
 interface CreateScheduleModalProps {
@@ -104,8 +104,8 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md">
-            <GlassCard className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" enableRefraction>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Create Schedule</h2>
                     <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
@@ -236,7 +236,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                         </Button>
                     </div>
                 </form>
-            </GlassCard>
+            </div>
         </div>
     );
 };

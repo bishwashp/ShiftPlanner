@@ -4,7 +4,7 @@ import { apiService, Schedule, Analyst } from '../services/api';
 import { View as AppView } from './layout/CollapsibleSidebar';
 import { useTheme } from 'react18-themes';
 import { useActionPrompts } from '../contexts/ActionPromptContext';
-import { FunnelIcon, ExclamationCircleIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
+import { Funnel, WarningCircle, CalendarBlank } from '@phosphor-icons/react';
 
 // Simplified calendar imports
 import { CalendarGrid } from './calendar/simplified/CalendarGrid';
@@ -339,7 +339,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="text-red-500 mb-4">
-            <ExclamationCircleIcon className="w-12 h-12 mx-auto" />
+            <WarningCircle className="w-12 h-12 mx-auto" />
           </div>
           <p className="text-destructive mb-4">{error}</p>
           <button
@@ -433,7 +433,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <div className="text-gray-700 dark:text-gray-200 mb-4">
-                <CalendarDaysIcon className="w-16 h-16 mx-auto" />
+                <CalendarBlank className="w-16 h-16 mx-auto" />
               </div>
               <h3 className="text-lg font-medium mb-2">{view.charAt(0).toUpperCase() + view.slice(1)} View</h3>
               <p className="text-gray-700 dark:text-gray-200 mb-4">Coming in Phase 2.2 - Enhanced Views</p>

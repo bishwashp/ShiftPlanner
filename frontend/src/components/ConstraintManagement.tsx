@@ -6,7 +6,7 @@ import Checkbox from './ui/Checkbox';
 import HeaderActionPortal from './layout/HeaderActionPortal';
 import HeaderActionButton from './layout/HeaderActionButton';
 import Button from './ui/Button';
-import { PlusIcon } from '@heroicons/react/24/outline';
+import { Plus } from '@phosphor-icons/react';
 
 interface ConstraintFormData {
     analystId?: string;
@@ -135,7 +135,7 @@ const ConstraintManagement: React.FC = () => {
                 )}
                 <HeaderActionPortal>
                     <HeaderActionButton
-                        icon={PlusIcon}
+                        icon={Plus}
                         label="Add New"
                         onClick={() => setShowAddForm(true)}
                     />

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Cog6ToothIcon, MoonIcon, SunIcon, QuestionMarkCircleIcon, FunnelIcon } from '@heroicons/react/24/outline';
+import { Gear, Moon, Sun, Question, Funnel } from '@phosphor-icons/react';
 import { useTheme } from 'react18-themes';
 import TimezoneSelector from '../TimezoneSelector';
 import Button from '../ui/Button';
@@ -58,7 +58,7 @@ const ViewSettingsMenu: React.FC<ViewSettingsMenuProps> = ({
                 onClick={() => setIsOpen(!isOpen)}
                 variant="secondary"
                 size="icon"
-                icon={Cog6ToothIcon}
+                icon={Gear}
                 className={`h-9 w-9 ${isOpen ? 'ring-2 ring-primary' : ''}`}
             />
 
@@ -76,14 +76,14 @@ const ViewSettingsMenu: React.FC<ViewSettingsMenuProps> = ({
                                     className={`p-1.5 rounded-sm transition-all ${theme === 'light' ? 'bg-background shadow-sm text-foreground' : 'text-gray-700 dark:text-gray-200'}`}
                                     title="Light Mode"
                                 >
-                                    <SunIcon className="h-4 w-4" />
+                                    <Sun className="h-4 w-4" />
                                 </button>
                                 <button
                                     onClick={() => setTheme('dark')}
                                     className={`p-1.5 rounded-sm transition-all ${theme === 'dark' ? 'bg-background shadow-sm text-foreground' : 'text-gray-700 dark:text-gray-200'}`}
                                     title="Dark Mode"
                                 >
-                                    <MoonIcon className="h-4 w-4" />
+                                    <Moon className="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
@@ -100,7 +100,7 @@ const ViewSettingsMenu: React.FC<ViewSettingsMenuProps> = ({
                                     className={`p-1.5 rounded-sm transition-all ${filterHook.filters.isOpen ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-gray-700 dark:text-gray-200'}`}
                                     title="Toggle Filters"
                                 >
-                                    <FunnelIcon className="h-4 w-4" />
+                                    <Funnel className="h-4 w-4" />
                                 </button>
                             </div>
                         )}
@@ -117,7 +117,7 @@ const ViewSettingsMenu: React.FC<ViewSettingsMenuProps> = ({
                         {showLegend && (
                             <div className="space-y-2 pt-2 border-t border-border">
                                 <div className="flex items-center space-x-2 text-sm font-medium">
-                                    <QuestionMarkCircleIcon className="h-3.5 w-3.5" />
+                                    <Question className="h-3.5 w-3.5" />
                                     <span>Legend</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">

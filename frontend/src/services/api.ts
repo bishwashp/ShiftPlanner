@@ -451,12 +451,17 @@ export const apiService = {
   },
 
   updateSchedule: async (id: string, data: { analystId?: string; date?: string; shiftType?: 'MORNING' | 'EVENING'; isScreener?: boolean }): Promise<Schedule> => {
-    const response = await apiClient.put(`/schedules/${id}`, data);
+    // Fix for potential ID corruption (e.g. :1 suffix)
+    const cleanId = id.includes(':') ? id.split(':')[0] : id;
+    console.log(`apiService.updateSchedule called with id: ${id} -> cleaned to ${cleanId}`, data);
+    const response = await apiClient.put(`/schedules/${cleanId}`, data);
     return response.data as Schedule;
   },
 
   deleteSchedule: async (id: string): Promise<void> => {
-    await apiClient.delete(`/schedules/${id}`);
+    const cleanId = id.includes(':') ? id.split(':')[0] : id;
+    console.log(`apiService.deleteSchedule called with id: ${id} -> cleaned to ${cleanId}`);
+    await apiClient.delete(`/schedules/${cleanId}`);
   },
 
   validateSchedule: async (data: { analystId: string; date: string; shiftType: 'MORNING' | 'EVENING'; isScreener?: boolean; scheduleId?: string }): Promise<{ isValid: boolean; violations: any[] }> => {

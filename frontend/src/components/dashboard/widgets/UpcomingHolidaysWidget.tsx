@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CalendarDaysIcon } from '@heroicons/react/24/outline';
+import { CalendarBlank } from '@phosphor-icons/react';
 import { apiService } from '../../../services/api';
 import moment from 'moment';
 
@@ -39,7 +39,7 @@ const UpcomingHolidaysWidget: React.FC = () => {
         <GlassCard className="h-full flex flex-col">
             <div className="p-5 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <CalendarDaysIcon className="w-5 h-5 text-purple-500 dark:text-purple-400" />
+                    <CalendarBlank className="w-5 h-5 text-purple-500 dark:text-purple-400" />
                     Upcoming Holiday
                 </h3>
             </div>
@@ -67,7 +67,7 @@ const UpcomingHolidaysWidget: React.FC = () => {
                     </div>
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center text-center p-4 text-gray-500 dark:text-gray-400">
-                        <CalendarDaysIcon className="w-8 h-8 mb-2 opacity-50" />
+                        <CalendarBlank className="w-8 h-8 mb-2 opacity-50" />
                         <p className="text-sm">No upcoming holidays</p>
                     </div>
                 )}

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { SunIcon, MoonIcon } from '@heroicons/react/24/outline';
+import { Sun, Moon, Umbrella } from '@phosphor-icons/react';
 import { apiService } from '../../../services/api';
 import moment from 'moment';
 import GlassCard from '../../common/GlassCard';
@@ -68,9 +67,9 @@ const WeekendShiftWidget: React.FC = () => {
                                     <span className="font-medium text-gray-900 dark:text-white">{shift.analyst?.name || 'Unknown Analyst'}</span>
                                 </div>
                                 {shift.shiftType === 'MORNING' ? (
-                                    <SunIcon className="w-4 h-4 text-orange-400" />
+                                    <Sun className="w-4 h-4 text-orange-400" />
                                 ) : (
-                                    <MoonIcon className="w-4 h-4 text-indigo-400" />
+                                    <Moon className="w-4 h-4 text-indigo-400" />
                                 )}
                             </div>
                         ))}
@@ -88,7 +87,7 @@ const WeekendShiftWidget: React.FC = () => {
         <GlassCard className="h-full flex flex-col">
             <div className="p-4 border-b border-white/10 flex justify-between items-center">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <span className="text-xl">🏖️</span>
+                    <Umbrella className="w-5 h-5 text-blue-500" />
                     Weekend Coverage
                 </h3>
             </div>

@@ -2,6 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import moment from 'moment';
 import Button from './ui/Button';
+import {
+  ArrowsClockwise,
+  ChartBar,
+  Warning,
+  TrendUp,
+  TrendDown,
+  ArrowRight,
+  Lightbulb,
+  Robot,
+  Users,
+  Siren,
+  CheckCircle,
+  Info
+} from '@phosphor-icons/react';
 
 interface MonthlyTally {
   analystId: string;
@@ -352,13 +366,15 @@ const Analytics: React.FC = () => {
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
-      case 'INCREASING': return '📈';
-      case 'DECREASING': return '📉';
-      default: return '➡️';
+      case 'INCREASING': return <TrendUp className="h-6 w-6" />;
+      case 'DECREASING': return <TrendDown className="h-6 w-6" />;
+      default: return <ArrowRight className="h-6 w-6" />;
     }
   };
 
   const maxWorkload = Math.max(...tallyData.map(t => t.totalWorkDays), 1);
+
+  const cardClass = "bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6";
 
   return (
     <div className="space-y-6 text-foreground p-6 relative z-10">
@@ -375,8 +391,9 @@ const Analytics: React.FC = () => {
             onClick={() => window.location.reload()}
             variant="primary"
             size="sm"
+            icon={ArrowsClockwise}
           >
-            🔄 Refresh
+            Refresh
           </Button>
           <select
             value={selectedMonth}
@@ -409,7 +426,7 @@ const Analytics: React.FC = () => {
         </div>
       ) : tallyData.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">📊</div>
+          <ChartBar className="h-16 w-16 mx-auto mb-4 text-gray-400" />
           <h3 className="text-xl font-semibold text-foreground mb-2">No Schedule Data Found</h3>
           <p className="text-gray-700 dark:text-gray-200 mb-4">
             No schedule data found for {selectedMonth}/{selectedYear}.
@@ -422,7 +439,7 @@ const Analytics: React.FC = () => {
       ) : (
         <>
           {/* 1. Fairness Score */}
-          <div className="glass-static p-6">
+          <div className={cardClass}>
             <h3 className="text-lg font-semibold text-foreground mb-4">Overall Fairness Score</h3>
             {fairnessData ? (
               <div className="flex items-center space-x-4">
@@ -449,8 +466,11 @@ const Analytics: React.FC = () => {
 
           {/* 2. Alerts */}
           {alerts.length > 0 && (
-            <div className="glass-static p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">⚠️ Upcoming Issues</h3>
+            <div className={cardClass}>
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Warning className="h-5 w-5 text-yellow-500" />
+                Upcoming Issues
+              </h3>
               <div className="space-y-3">
                 {alerts.map((alert) => (
                   <div key={alert.id} className={`p-3 rounded-lg border-l-4 ${getAlertColor(alert.severity)}`}>
@@ -463,7 +483,7 @@ const Analytics: React.FC = () => {
           )}
 
           {/* 3. Workload Balance Dashboard */}
-          <div className="glass-static p-6">
+          <div className={cardClass}>
             <h3 className="text-lg font-semibold text-foreground mb-4">Workload Balance</h3>
             <div className="space-y-4">
               {tallyData.map((analyst) => (
@@ -490,7 +510,7 @@ const Analytics: React.FC = () => {
           </div>
 
           {/* 4. Analyst Performance Summary */}
-          <div className="glass-static p-6">
+          <div className={cardClass}>
             <h3 className="text-lg font-semibold text-foreground mb-4">Analyst Performance Summary</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -524,8 +544,11 @@ const Analytics: React.FC = () => {
 
           {/* 5. Monthly Trends */}
           {trendsData.length > 0 && (
-            <div className="glass-static p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">📈 Monthly Trends (Last 6 Months)</h3>
+            <div className={cardClass}>
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <TrendUp className="h-5 w-5 text-blue-500" />
+                Monthly Trends (Last 6 Months)
+              </h3>
               <div className="space-y-4">
                 {trendsData.map((trend, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -550,8 +573,11 @@ const Analytics: React.FC = () => {
 
           {/* 6. Recommendations */}
           {fairnessData && fairnessData.recommendations.length > 0 && (
-            <div className="glass-static p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">💡 Recommendations</h3>
+            <div className={cardClass}>
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-yellow-500" />
+                Recommendations
+              </h3>
               <ul className="space-y-2">
                 {fairnessData.recommendations.map((recommendation, index) => (
                   <li key={index} className="flex items-start space-x-2">
@@ -564,9 +590,12 @@ const Analytics: React.FC = () => {
           )}
 
           {/* 7. ML Insights */}
-          <div className="glass-static p-6">
+          <div className={cardClass}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">🤖 ML Insights</h3>
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Robot className="h-5 w-5 text-purple-500" />
+                ML Insights
+              </h3>
               <div className="text-sm text-gray-700 dark:text-gray-200">
                 Powered by simple algorithms
               </div>
@@ -575,17 +604,17 @@ const Analytics: React.FC = () => {
             {/* ML Tab Navigation */}
             <div className="flex space-x-1 bg-muted p-1 rounded-lg mb-6">
               {[
-                { id: 'burnout', label: 'Burnout Risk', icon: '⚠️' },
-                { id: 'workload', label: 'Workload', icon: '👥' },
-                { id: 'demand', label: 'Demand', icon: '📊' },
-                { id: 'conflicts', label: 'Conflicts', icon: '🚨' }
+                { id: 'burnout', label: 'Burnout Risk', icon: <Warning className="h-4 w-4" /> },
+                { id: 'workload', label: 'Workload', icon: <Users className="h-4 w-4" /> },
+                { id: 'demand', label: 'Demand', icon: <ChartBar className="h-4 w-4" /> },
+                { id: 'conflicts', label: 'Conflicts', icon: <Siren className="h-4 w-4" /> }
               ].map((tab) => (
                 <Button
                   key={tab.id}
                   onClick={() => setActiveMLTab(tab.id as any)}
                   variant={activeMLTab === tab.id ? 'primary' : 'ghost'}
                   size="sm"
-                  className="flex-1"
+                  className="flex-1 flex items-center justify-center gap-2"
                 >
                   {tab.icon} {tab.label}
                 </Button>
@@ -616,7 +645,7 @@ const Analytics: React.FC = () => {
                   ))}
                 {burnoutRisks.filter(risk => risk.riskLevel !== 'LOW').length === 0 && (
                   <div className="text-center text-gray-700 dark:text-gray-200 py-8">
-                    <div className="text-4xl mb-2">✅</div>
+                    <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
                     <div>No high-risk burnout cases detected</div>
                     <div className="text-sm">All analysts have balanced workloads</div>
                   </div>
@@ -658,7 +687,7 @@ const Analytics: React.FC = () => {
                   <div className="text-sm text-gray-700 dark:text-gray-200">predicted demand</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl mb-1">{getTrendIcon(demandForecast.trend)}</div>
+                  <div className="text-2xl mb-1 flex justify-end">{getTrendIcon(demandForecast.trend)}</div>
                   <div className="text-sm font-medium text-foreground capitalize">
                     {demandForecast.trend.toLowerCase()}
                   </div>
@@ -694,7 +723,7 @@ const Analytics: React.FC = () => {
                   ))}
                 {conflictPredictions.length === 0 && (
                   <div className="text-center text-gray-700 dark:text-gray-200 py-8">
-                    <div className="text-4xl mb-2">✅</div>
+                    <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
                     <div>No conflicts predicted for the next 7 days</div>
                     <div className="text-sm">Schedule looks good!</div>
                   </div>
