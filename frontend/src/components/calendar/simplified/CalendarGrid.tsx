@@ -332,20 +332,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                     `}>
                       <span>{day.date.date()}</span>
                     </div>
-                    {day.events.length > 0 && (
-                      <span
-                        className={`
-                          rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold
-                          ${day.events.length > config.maxVisible
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-primary/20 text-primary'
-                          }
-                        `}
-                        title={`${day.events.length} shift${day.events.length > 1 ? 's' : ''}`}
-                      >
-                        {day.events.length}
-                      </span>
-                    )}
+
                   </div>
 
                   {/* Smart name box stacking */}
@@ -379,15 +366,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         ))}
       </div>
 
-      {/* Month indicator at bottom */}
-      <div
-        className="text-center mt-4 text-sm text-gray-700 dark:text-gray-200"
-        role="status"
-        aria-live="polite"
-        aria-label={`Currently viewing ${moment(date).tz(timezone).format('MMMM YYYY')}`}
-      >
-        {moment(date).tz(timezone).format('MMMM YYYY')}
-      </div>
+
 
       {/* Screen reader instructions */}
       <div className="sr-only" role="region" aria-label="Calendar navigation instructions">
