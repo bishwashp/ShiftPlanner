@@ -95,12 +95,17 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
 
         // Only show coverage conflicts if there are existing schedules for this date
         // This prevents showing conflicts when no schedules should exist
+        // Only show coverage conflicts if there are existing schedules for this date
+        // This prevents showing conflicts when no schedules should exist
         if (daySchedules.length > 0) {
-          if (morningSchedules.length === 0) {
-            conflicts.push('No morning coverage');
-          }
-          if (eveningSchedules.length === 0) {
-            conflicts.push('No evening coverage');
+          // Skip coverage checks on weekends as per business rules
+          if (!isWeekend) {
+            if (morningSchedules.length === 0) {
+              conflicts.push('No morning coverage');
+            }
+            if (eveningSchedules.length === 0) {
+              conflicts.push('No evening coverage');
+            }
           }
 
           // Check for missing screeners on weekdays (only if there are schedules)
