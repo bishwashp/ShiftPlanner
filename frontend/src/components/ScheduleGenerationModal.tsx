@@ -139,12 +139,12 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] min-h-[60vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-          <div className="flex items-center space-x-3">
-            <CalendarBlank className="h-6 w-6 text-primary" />
+        <div className="flex items-center justify-between p-2.5 border-b border-border">
+          <div className="flex items-center space-x-2.5">
+            <CalendarBlank className="h-5 w-5 text-primary" />
             <div>
-              <h2 className="text-xl font-semibold">Schedule Preview</h2>
-              <p className="text-sm text-gray-700 dark:text-gray-200">
+              <h2 className="text-lg font-semibold">Schedule Preview</h2>
+              <p className="text-xs text-gray-700 dark:text-gray-200">
                 Review generated schedules before applying
               </p>
             </div>
@@ -191,17 +191,17 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto p-2.5">
               {viewMode === 'SUMMARY' ? (
-                <div className="space-y-6">
+                <div className="space-y-3">
                   {/* Fairness Analysis Card */}
                   {summary.fairnessMetrics && (
-                    <div className="bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                      <div className="flex items-center space-x-2 mb-4">
-                        <Info className="h-5 w-5 text-blue-500" />
-                        <h3 className="font-semibold text-lg">Fairness Analysis</h3>
+                    <div className="bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Info className="h-4 w-4 text-blue-500" />
+                        <h3 className="font-semibold text-base">Fairness Analysis</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-1">
                           <div className="text-sm text-gray-700 dark:text-gray-200">Fairness Score</div>
                           <div className="text-2xl font-bold">
@@ -230,33 +230,33 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
 
                   {/* Workload Summary Table */}
                   <div className="bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div className="p-4 border-t border-border flex justify-end space-x-3 bg-white/50 dark:bg-gray-900/50">
-                      <h3 className="font-semibold">Analyst Workload Summary</h3>
-                      <span className="text-sm text-gray-700 dark:text-gray-200">{analystStats.length} Analysts</span>
+                    <div className="p-2.5 border-t border-border flex justify-between items-center bg-white/50 dark:bg-gray-900/50">
+                      <h3 className="font-semibold text-base">Analyst Workload Summary</h3>
+                      <span className="text-xs text-gray-700 dark:text-gray-200">{analystStats.length} Analysts</span>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm text-left">
-                        <thead className="bg-muted/50 text-gray-700 dark:text-gray-200 font-medium">
+                        <thead className="bg-muted/50 text-gray-700 dark:text-gray-200 font-medium text-xs">
                           <tr>
-                            <th className="px-6 py-3">Analyst</th>
-                            <th className="px-6 py-3 text-center">Total Shifts</th>
-                            <th className="px-6 py-3 text-center">Weekend Days</th>
-                            <th className="px-6 py-3 text-center">Screener Days</th>
-                            <th className="px-6 py-3 text-center">Max Streak</th>
+                            <th className="px-4 py-2">Analyst</th>
+                            <th className="px-4 py-2 text-center">Total Shifts</th>
+                            <th className="px-4 py-2 text-center">Weekend Days</th>
+                            <th className="px-4 py-2 text-center">Screener Days</th>
+                            <th className="px-4 py-2 text-center">Max Streak</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                           {analystStats.map((stat) => (
-                            <tr key={stat.name} className="hover:bg-muted/50 transition-colors">
-                              <td className="px-6 py-4 font-medium">{stat.name}</td>
-                              <td className="px-6 py-4 text-center">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            <tr key={stat.name} className="hover:bg-muted/50 transition-colors text-xs">
+                              <td className="px-4 py-2.5 font-medium">{stat.name}</td>
+                              <td className="px-4 py-2.5 text-center">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                                   {stat.total}
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-center">{stat.weekend}</td>
-                              <td className="px-6 py-4 text-center">{stat.screener}</td>
-                              <td className="px-6 py-4 text-center">
+                              <td className="px-4 py-2.5 text-center">{stat.weekend}</td>
+                              <td className="px-4 py-2.5 text-center">{stat.screener}</td>
+                              <td className="px-4 py-2.5 text-center">
                                 {stat.maxStreak > 5 ? (
                                   <span className="text-red-500 font-bold flex items-center justify-center space-x-1">
                                     <Warning className="h-3 w-3" />
@@ -274,19 +274,19 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center mb-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center mb-2">
                     <button
                       onClick={handleSelectAll}
-                      className="text-sm text-primary hover:underline font-medium"
+                      className="text-xs text-primary hover:underline font-medium"
                     >
                       {selectedSchedules.size === generatedSchedules.length ? 'Deselect All' : 'Select All'}
                     </button>
-                    <span className="text-sm text-gray-700 dark:text-gray-200">
+                    <span className="text-xs text-gray-700 dark:text-gray-200">
                       {selectedSchedules.size} selected
                     </span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {generatedSchedules.map((schedule) => {
                       const scheduleKey = `${schedule.date}-${schedule.analystId}`;
                       const isSelected = selectedSchedules.has(scheduleKey);
@@ -294,21 +294,21 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
                       return (
                         <div
                           key={scheduleKey}
-                          className={`p-4 border rounded-lg transition-all ${isSelected
+                          className={`p-2.5 border rounded-lg transition-all ${isSelected
                             ? 'border-primary bg-primary/5'
                             : 'border-border hover:border-primary/50'
                             } bg-white/50 dark:bg-gray-800/50`}
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-3">
                               <Checkbox
                                 checked={isSelected}
                                 onChange={() => handleSelectSchedule(scheduleKey)}
                               />
 
                               <div>
-                                <div className="font-medium">{schedule.analystName}</div>
-                                <div className="text-sm text-gray-700 dark:text-gray-200">
+                                <div className="text-sm font-medium">{schedule.analystName}</div>
+                                <div className="text-xs text-gray-700 dark:text-gray-200">
                                   {moment(schedule.date).format('ddd, MMM D')} • {schedule.shiftType}
                                 </div>
                               </div>
@@ -316,7 +316,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
 
                             <div className="flex items-center space-x-2">
                               {schedule.isScreener && (
-                                <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                <span className="px-2 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 font-medium">
                                   Screener
                                 </span>
                               )}
@@ -333,8 +333,8 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-background">
-          <div className="text-sm text-gray-700 dark:text-gray-200">
+        <div className="flex items-center justify-between p-3 border-t border-border bg-background">
+          <div className="text-xs text-gray-700 dark:text-gray-200">
             {summary.assignmentsNeeded} assignments generated
           </div>
 
