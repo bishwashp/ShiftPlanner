@@ -37,14 +37,14 @@ const UpcomingHolidaysWidget: React.FC = () => {
 
     return (
         <GlassCard className="h-full flex flex-col">
-            <div className="p-4 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
+            <div className="p-3 flex justify-between items-center border-b border-gray-200/50 dark:border-white/10">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <CalendarBlank className="w-4 h-4 text-purple-500 dark:text-purple-400" />
                     Upcoming Holiday
                 </h3>
             </div>
 
-            <div className="flex-1 p-4 overflow-y-auto">
+            <div className="flex-1 p-3 overflow-y-auto">
                 {loading ? (
                     <div className="space-y-2">
                         <div className="h-12 bg-gray-100 dark:bg-white/5 rounded-xl animate-pulse" />
