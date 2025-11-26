@@ -9,6 +9,9 @@ export interface Notification {
   message: string;
   timestamp: Date;
   isRead: boolean;
+  importanceScore: number; // 1-10 scale (10 = most important)
+  requiresAction: boolean; // Whether this notification requires user action
+  autoExpire?: number; // Auto-expire after this many milliseconds
   metadata?: {
     relatedView?: string;
     analystId?: string;
@@ -26,6 +29,7 @@ class NotificationService {
 
   constructor() {
     this.loadFromStorage();
+    this.startAutoExpiration();
   }
 
   // Add a new notification (for recommendations, history, system status)
@@ -36,6 +40,8 @@ class NotificationService {
       id,
       timestamp: new Date(),
       isRead: false,
+      importanceScore: notification.importanceScore || this.calculateImportanceScore(notification),
+      requiresAction: notification.requiresAction || false,
     };
 
     // Store all notifications (recommendations, history, system status)
@@ -129,12 +135,107 @@ class NotificationService {
         this.notifications = parsed.map((n: any) => ({
           ...n,
           timestamp: new Date(n.timestamp),
+          importanceScore: n.importanceScore || 5, // Default importance score
+          requiresAction: n.requiresAction || false,
         }));
       }
     } catch (error) {
       console.warn('Failed to load notifications from storage:', error);
       this.notifications = [];
     }
+  }
+
+  // Calculate importance score based on notification type and content
+  private calculateImportanceScore(notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>): number {
+    let score = 5; // Base score
+    
+    // Adjust based on type
+    switch (notification.type) {
+      case 'system':
+        score = notification.priority === 'high' ? 8 : 6;
+        break;
+      case 'recommendation':
+        score = 7;
+        break;
+      case 'success':
+        score = 3;
+        break;
+      case 'history':
+        score = 2;
+        break;
+      case 'analytics':
+        score = 4;
+        break;
+    }
+    
+    // Adjust based on priority
+    switch (notification.priority) {
+      case 'high':
+        score += 2;
+        break;
+      case 'medium':
+        score += 1;
+        break;
+      case 'low':
+        score -= 1;
+        break;
+    }
+    
+    // Adjust based on content keywords
+    const content = (notification.title + ' ' + notification.message).toLowerCase();
+    if (content.includes('error') || content.includes('critical') || content.includes('failed')) {
+      score += 2;
+    }
+    if (content.includes('success') || content.includes('completed')) {
+      score -= 1;
+    }
+    
+    return Math.max(1, Math.min(10, score));
+  }
+
+  // Start auto-expiration for notifications
+  private startAutoExpiration(): void {
+    setInterval(() => {
+      const now = Date.now();
+      const initialCount = this.notifications.length;
+      
+      this.notifications = this.notifications.filter(notification => {
+        // Don't expire high-importance notifications
+        if (notification.importanceScore >= 8) {
+          return true;
+        }
+        
+        // Don't expire unread notifications that require action
+        if (!notification.isRead && notification.requiresAction) {
+          return true;
+        }
+        
+        // Check auto-expiration
+        if (notification.autoExpire) {
+          const age = now - notification.timestamp.getTime();
+          return age < notification.autoExpire;
+        }
+        
+        // Auto-expire low-importance notifications after 24 hours
+        if (notification.importanceScore <= 3) {
+          const age = now - notification.timestamp.getTime();
+          return age < 24 * 60 * 60 * 1000; // 24 hours
+        }
+        
+        // Auto-expire medium-importance notifications after 7 days
+        if (notification.importanceScore <= 6) {
+          const age = now - notification.timestamp.getTime();
+          return age < 7 * 24 * 60 * 60 * 1000; // 7 days
+        }
+        
+        return true;
+      });
+      
+      if (this.notifications.length !== initialCount) {
+        this.saveToStorage();
+        this.notifyListeners();
+      }
+    }, 60000); // Check every minute
   }
 
   // Smart notification methods for recommendations, history, and system status
@@ -145,6 +246,8 @@ class NotificationService {
       title,
       message,
       metadata,
+      importanceScore: 7, // Recommendations are important
+      requiresAction: false, // Recommendations don't require immediate action
     });
   }
 
@@ -155,6 +258,8 @@ class NotificationService {
       title,
       message,
       metadata,
+      importanceScore: 2, // History notifications are low importance
+      requiresAction: false, // History doesn't require action
     });
   }
 
@@ -164,6 +269,8 @@ class NotificationService {
       priority,
       title,
       message,
+      importanceScore: priority === 'high' ? 8 : 6, // System notifications vary by priority
+      requiresAction: priority === 'high', // High priority system notifications may require action
     });
   }
 
@@ -174,6 +281,8 @@ class NotificationService {
       title,
       message,
       metadata,
+      importanceScore: 3, // Success notifications are low importance
+      requiresAction: false, // Success doesn't require action
     });
   }
 }

@@ -1,9 +1,12 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import moment from 'moment';
 
 interface NameBoxProps {
   name: string;
   shiftType: string;
   isScreener: boolean;
+  date?: string; // YYYY-MM-DD format
   size?: 'small' | 'medium' | 'large';
   onClick?: () => void;
 }
@@ -12,14 +15,24 @@ export const NameBox: React.FC<NameBoxProps> = ({
   name,
   shiftType,
   isScreener,
+  date,
   size = 'medium',
   onClick
 }) => {
+  // Determine if this is a weekend shift based on the date
+  const isWeekendShift = date ? (() => {
+    const dayOfWeek = moment(date).day();
+    return dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+  })() : false;
+
   // Generate accessible descriptions
   const getAccessibleDescription = () => {
     let description = `${name} - ${shiftType} shift`;
     if (isScreener) {
       description += ', screener role';
+    }
+    if (isWeekendShift) {
+      description += ', weekend';
     }
     return description;
   };
@@ -32,21 +45,51 @@ export const NameBox: React.FC<NameBoxProps> = ({
     }
     return baseLabel;
   };
-  // Color mapping based on shift type (matching existing system)
-  const getShiftColor = (type: string, screener: boolean) => {
-    if (screener) {
-      return 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-700';
+
+  // Glass-compatible color mapping with semi-transparent backgrounds
+  const getShiftColor = (type: string, screener: boolean, isWeekend: boolean) => {
+    // Weekend shifts should always be green (per legend), regardless of screener status
+    if (isWeekend) {
+      return {
+        bg: 'bg-green-500/20',
+        text: 'text-green-800 dark:text-green-200',
+        border: 'border-green-400/30',
+        glow: 'hover:shadow-green-500/20'
+      };
     }
-    
+
+    // Screener takes priority for non-weekend shifts
+    if (screener) {
+      return {
+        bg: 'bg-amber-500/20',
+        text: 'text-amber-800 dark:text-amber-200',
+        border: 'border-amber-400/30',
+        glow: 'hover:shadow-amber-500/20'
+      };
+    }
+
     switch (type.toLowerCase()) {
       case 'morning':
-        return 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-200 dark:border-blue-700';
+        return {
+          bg: 'bg-blue-500/20',
+          text: 'text-blue-800 dark:text-blue-200',
+          border: 'border-blue-400/30',
+          glow: 'hover:shadow-blue-500/20'
+        };
       case 'evening':
-        return 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-200 dark:border-purple-700';
-      case 'weekend':
-        return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-200 dark:border-green-700';
+        return {
+          bg: 'bg-purple-500/20',
+          text: 'text-purple-800 dark:text-purple-200',
+          border: 'border-purple-400/30',
+          glow: 'hover:shadow-purple-500/20'
+        };
       default:
-        return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700';
+        return {
+          bg: 'bg-gray-500/20',
+          text: 'text-gray-800 dark:text-gray-200',
+          border: 'border-gray-400/30',
+          glow: 'hover:shadow-gray-500/20'
+        };
     }
   };
 
@@ -63,21 +106,31 @@ export const NameBox: React.FC<NameBoxProps> = ({
     }
   };
 
-  const colorClasses = getShiftColor(shiftType, isScreener);
+  const colorScheme = getShiftColor(shiftType, isScreener, isWeekendShift);
   const sizeClasses = getSizeClasses(size);
 
+  const MotionDiv = onClick ? motion.div : 'div';
+  const motionProps = onClick ? {
+    whileHover: { scale: 1.05, y: -1 },
+    whileTap: { scale: 0.98 },
+    transition: { type: 'spring', stiffness: 400, damping: 20 }
+  } : {};
+
   return (
-    <div
+    <MotionDiv
       className={`
-        ${colorClasses}
+        ${colorScheme.bg}
+        ${colorScheme.text}
+        ${colorScheme.border}
         ${sizeClasses}
         border rounded-md truncate font-medium
+        backdrop-blur-sm
         transition-all duration-200
         flex items-center justify-center relative
-        ${onClick ? 'cursor-pointer hover:opacity-80 hover:shadow-sm hover:scale-105 focus:scale-105 focus:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1' : ''}
+        ${onClick ? `cursor-pointer ${colorScheme.glow} hover:shadow-md focus:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1` : ''}
       `}
       onClick={onClick}
-      onKeyDown={(e) => {
+      onKeyDown={(e: React.KeyboardEvent) => {
         if (onClick && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
           onClick();
@@ -88,6 +141,7 @@ export const NameBox: React.FC<NameBoxProps> = ({
       role={onClick ? 'button' : 'text'}
       tabIndex={onClick ? 0 : -1}
       aria-describedby={isScreener ? `screener-${name.replace(/\s+/g, '-').toLowerCase()}` : undefined}
+      {...(motionProps as any)}
     >
       {/* Hidden description for screen readers */}
       {isScreener && (
@@ -98,10 +152,10 @@ export const NameBox: React.FC<NameBoxProps> = ({
           This person has screener responsibilities for this shift
         </span>
       )}
-      <span className="truncate text-center leading-tight" aria-hidden="true">
+      <span className="truncate text-center leading-tight font-semibold" aria-hidden="true">
         {name}
       </span>
-      
+
       {/* Screener indicator */}
       {isScreener && size !== 'small' && (
         <span
@@ -112,13 +166,13 @@ export const NameBox: React.FC<NameBoxProps> = ({
           📋
         </span>
       )}
-      
+
       {/* Accessibility enhancements for small size screeners */}
       {isScreener && size === 'small' && (
         <span className="sr-only">
           (Screener)
         </span>
       )}
-    </div>
+    </MotionDiv>
   );
 };

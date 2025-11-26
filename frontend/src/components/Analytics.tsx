@@ -1,6 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import moment from 'moment';
+import Button from './ui/Button';
+import {
+  ArrowsClockwise,
+  ChartBar,
+  Warning,
+  TrendUp,
+  TrendDown,
+  ArrowRight,
+  Lightbulb,
+  Robot,
+  Users,
+  Siren,
+  CheckCircle,
+  Info
+} from '@phosphor-icons/react';
 
 interface MonthlyTally {
   analystId: string;
@@ -71,12 +86,14 @@ const Analytics: React.FC = () => {
   const [tallyData, setTallyData] = useState<MonthlyTally[]>([]);
   const [fairnessData, setFairnessData] = useState<FairnessReport | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [trendsData, setTrendsData] = useState<Array<{month: string, fairness: number, avgWorkload: number}>>([]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // Current month
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear()); // Current year
+  const [trendsData, setTrendsData] = useState<Array<{ month: string, fairness: number, avgWorkload: number }>>([]);
+  // Current month/year for default view
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
+
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  
+
   // ML Insights state
   const [burnoutRisks, setBurnoutRisks] = useState<BurnoutRisk[]>([]);
   const [workloadPredictions, setWorkloadPredictions] = useState<WorkloadPrediction[]>([]);
@@ -88,15 +105,15 @@ const Analytics: React.FC = () => {
     const fetchAnalyticsData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch current month data
-        const currentData = await apiService.getWorkDayTally(selectedMonth, selectedYear);
+        const currentData = await apiService.getWorkDayTally(currentMonth, currentYear);
         setTallyData(currentData);
 
         // Fetch fairness report for current month
         const startOfMonth = moment().startOf('month').format('YYYY-MM-DD');
         const endOfMonth = moment().endOf('month').format('YYYY-MM-DD');
-        
+
         try {
           const fairnessReport = await apiService.getFairnessReport(startOfMonth, endOfMonth);
           setFairnessData(fairnessReport);
@@ -137,17 +154,17 @@ const Analytics: React.FC = () => {
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [selectedMonth, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateAlerts = (tallyData: MonthlyTally[], fairnessData: FairnessReport | null) => {
     const newAlerts: Alert[] = [];
-    
+
     // Check for workload imbalances
     const workloads = tallyData.map(t => t.totalWorkDays);
     const avgWorkload = workloads.reduce((a, b) => a + b, 0) / workloads.length;
     const maxWorkload = Math.max(...workloads);
     const minWorkload = Math.min(...workloads);
-    
+
     if (maxWorkload - minWorkload > avgWorkload * 0.4) {
       newAlerts.push({
         id: 'workload-imbalance',
@@ -195,23 +212,23 @@ const Analytics: React.FC = () => {
     const avgWorkload = workloads.reduce((a, b) => a + b, 0) / workloads.length;
     const maxWorkload = Math.max(...workloads);
     const minWorkload = Math.min(...workloads);
-    
+
     // Simple fairness score based on workload variance
     const variance = workloads.reduce((sum, w) => sum + Math.pow(w - avgWorkload, 2), 0) / workloads.length;
     const standardDeviation = Math.sqrt(variance);
-    
+
     // Convert to 0-1 scale (lower variance = higher fairness)
     const workloadFairness = Math.max(0, 1 - (standardDeviation / avgWorkload));
-    
+
     // Calculate screener distribution fairness
     const screenerCounts = tallyData.map(t => t.screenerDays);
     const avgScreeners = screenerCounts.reduce((a, b) => a + b, 0) / screenerCounts.length;
     const screenerVariance = screenerCounts.reduce((sum, s) => sum + Math.pow(s - avgScreeners, 2), 0) / screenerCounts.length;
     const screenerFairness = avgScreeners > 0 ? Math.max(0, 1 - (Math.sqrt(screenerVariance) / avgScreeners)) : 1;
-    
+
     // Overall fairness score (weighted average)
     const overallScore = (workloadFairness * 0.7) + (screenerFairness * 0.3);
-    
+
     // Generate individual scores
     const individualScores = tallyData.map(analyst => ({
       analystName: analyst.analystName,
@@ -220,7 +237,7 @@ const Analytics: React.FC = () => {
       screenerDays: analyst.screenerDays,
       weekendDays: analyst.weekendDays
     }));
-    
+
     // Generate recommendations
     const recommendations: string[] = [];
     if (overallScore < 0.8) {
@@ -235,7 +252,7 @@ const Analytics: React.FC = () => {
     if (recommendations.length === 0) {
       recommendations.push('Schedule fairness is good - keep current approach');
     }
-    
+
     return {
       overallFairnessScore: overallScore,
       individualScores,
@@ -245,25 +262,25 @@ const Analytics: React.FC = () => {
 
   const generateTrendsData = async () => {
     const trends = [];
-    
+
     // Get data for last 6 months from current month
     for (let i = 5; i >= 0; i--) {
       const targetDate = moment().subtract(i, 'months');
       const month = targetDate.month() + 1;
       const year = targetDate.year();
-      
+
       try {
         const monthlyData = await apiService.getWorkDayTally(month, year);
         if (monthlyData.length > 0) {
           const avgWorkload = monthlyData.reduce((sum, analyst) => sum + analyst.totalWorkDays, 0) / monthlyData.length;
-          
+
           // Calculate actual fairness score from the data
           const workloads = monthlyData.map(t => t.totalWorkDays);
           const avgWorkloadForFairness = workloads.reduce((a, b) => a + b, 0) / workloads.length;
           const variance = workloads.reduce((sum, w) => sum + Math.pow(w - avgWorkloadForFairness, 2), 0) / workloads.length;
           const standardDeviation = Math.sqrt(variance);
           const fairness = avgWorkloadForFairness > 0 ? Math.max(0, 1 - (standardDeviation / avgWorkloadForFairness)) : 1;
-          
+
           trends.push({
             month: targetDate.format('MMM YYYY'),
             fairness: fairness,
@@ -274,7 +291,7 @@ const Analytics: React.FC = () => {
         console.warn(`Could not fetch data for ${month}/${year}`);
       }
     }
-    
+
     setTrendsData(trends);
   };
 
@@ -351,76 +368,36 @@ const Analytics: React.FC = () => {
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
-      case 'INCREASING': return '📈';
-      case 'DECREASING': return '📉';
-      default: return '➡️';
+      case 'INCREASING': return <TrendUp className="h-6 w-6" />;
+      case 'DECREASING': return <TrendDown className="h-6 w-6" />;
+      default: return <ArrowRight className="h-6 w-6" />;
     }
   };
 
   const maxWorkload = Math.max(...tallyData.map(t => t.totalWorkDays), 1);
 
+  const cardClass = "bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6";
+
   return (
-    <div className="space-y-6 bg-background text-foreground p-6">
-      {/* Header with date selection */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics Dashboard</h1>
-          <div className="text-sm text-muted-foreground">
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </div>
-        </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 text-sm"
-          >
-            🔄 Refresh
-          </button>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="px-3 py-2 border border-border rounded-lg bg-input focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {new Date(2024, i).toLocaleDateString('en-US', { month: 'long' })}
-              </option>
-            ))}
-          </select>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="px-3 py-2 border border-border rounded-lg bg-input focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {Array.from({ length: 6 }, (_, i) => (
-              <option key={2025 - i} value={2025 - i}>
-                {2025 - i}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+    <div className="space-y-6 text-foreground p-6 relative z-10">
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="text-muted-foreground">Loading analytics data...</div>
+          <div className="text-gray-700 dark:text-gray-200">Loading analytics data...</div>
         </div>
       ) : tallyData.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">📊</div>
+          <ChartBar className="h-16 w-16 mx-auto mb-4 text-gray-400" />
           <h3 className="text-xl font-semibold text-foreground mb-2">No Schedule Data Found</h3>
-          <p className="text-muted-foreground mb-4">
-            No schedule data found for {selectedMonth}/{selectedYear}. 
-            Try selecting a different month or generate some schedules first.
+          <p className="text-gray-700 dark:text-gray-200 mb-4">
+            No schedule data found for the current month.
+            Try generating some schedules first.
           </p>
-          <div className="text-sm text-muted-foreground">
-            Try selecting a different month or generate schedules for the current period
-          </div>
         </div>
       ) : (
         <>
           {/* 1. Fairness Score */}
-          <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-6">
+          <div className={cardClass}>
             <h3 className="text-lg font-semibold text-foreground mb-4">Overall Fairness Score</h3>
             {fairnessData ? (
               <div className="flex items-center space-x-4">
@@ -428,17 +405,17 @@ const Analytics: React.FC = () => {
                   {(fairnessData.overallFairnessScore * 100).toFixed(1)}%
                 </div>
                 <div>
-                  <div className="text-sm text-muted-foreground">
-                    {fairnessData.overallFairnessScore >= 0.8 ? 'Excellent' : 
-                     fairnessData.overallFairnessScore >= 0.6 ? 'Good' : 'Needs Improvement'}
+                  <div className="text-sm text-gray-700 dark:text-gray-200">
+                    {fairnessData.overallFairnessScore >= 0.8 ? 'Excellent' :
+                      fairnessData.overallFairnessScore >= 0.6 ? 'Good' : 'Needs Improvement'}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-gray-700 dark:text-gray-200">
                     Based on workload distribution for {moment().format('MMMM YYYY')}
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="text-center text-muted-foreground">
+              <div className="text-center text-gray-700 dark:text-gray-200">
                 <div className="text-2xl font-bold">N/A</div>
                 <div className="text-sm">No data available for fairness calculation</div>
               </div>
@@ -447,8 +424,11 @@ const Analytics: React.FC = () => {
 
           {/* 2. Alerts */}
           {alerts.length > 0 && (
-            <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">⚠️ Upcoming Issues</h3>
+            <div className={cardClass}>
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Warning className="h-5 w-5 text-yellow-500" />
+                Upcoming Issues
+              </h3>
               <div className="space-y-3">
                 {alerts.map((alert) => (
                   <div key={alert.id} className={`p-3 rounded-lg border-l-4 ${getAlertColor(alert.severity)}`}>
@@ -461,7 +441,7 @@ const Analytics: React.FC = () => {
           )}
 
           {/* 3. Workload Balance Dashboard */}
-          <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-6">
+          <div className={cardClass}>
             <h3 className="text-lg font-semibold text-foreground mb-4">Workload Balance</h3>
             <div className="space-y-4">
               {tallyData.map((analyst) => (
@@ -470,7 +450,7 @@ const Analytics: React.FC = () => {
                     {analyst.analystName}
                   </div>
                   <div className="flex-1 bg-muted rounded-full h-6 relative">
-                    <div 
+                    <div
                       className="bg-primary h-6 rounded-full flex items-center justify-end pr-2"
                       style={{ width: `${(analyst.totalWorkDays / maxWorkload) * 100}%` }}
                     >
@@ -479,7 +459,7 @@ const Analytics: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-gray-700 dark:text-gray-200">
                     {analyst.totalWorkDays} days
                   </div>
                 </div>
@@ -488,7 +468,7 @@ const Analytics: React.FC = () => {
           </div>
 
           {/* 4. Analyst Performance Summary */}
-          <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-6">
+          <div className={cardClass}>
             <h3 className="text-lg font-semibold text-foreground mb-4">Analyst Performance Summary</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -506,10 +486,10 @@ const Analytics: React.FC = () => {
                   {tallyData.map((analyst) => (
                     <tr key={analyst.analystId} className="border-b border-border">
                       <td className="py-2 font-medium text-foreground">{analyst.analystName}</td>
-                      <td className="py-2 text-muted-foreground">{analyst.totalWorkDays}</td>
-                      <td className="py-2 text-muted-foreground">{analyst.weekendDays}</td>
-                      <td className="py-2 text-muted-foreground">{analyst.screenerDays}</td>
-                      <td className="py-2 text-muted-foreground">{analyst.consecutiveWorkDayStreaks}</td>
+                      <td className="py-2 text-gray-700 dark:text-gray-200">{analyst.totalWorkDays}</td>
+                      <td className="py-2 text-gray-700 dark:text-gray-200">{analyst.weekendDays}</td>
+                      <td className="py-2 text-gray-700 dark:text-gray-200">{analyst.screenerDays}</td>
+                      <td className="py-2 text-gray-700 dark:text-gray-200">{analyst.consecutiveWorkDayStreaks}</td>
                       <td className={`py-2 font-medium ${getFairnessColor(analyst.fairnessScore)}`}>
                         {(analyst.fairnessScore * 100).toFixed(0)}%
                       </td>
@@ -522,8 +502,11 @@ const Analytics: React.FC = () => {
 
           {/* 5. Monthly Trends */}
           {trendsData.length > 0 && (
-            <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">📈 Monthly Trends (Last 6 Months)</h3>
+            <div className={cardClass}>
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <TrendUp className="h-5 w-5 text-blue-500" />
+                Monthly Trends (Last 6 Months)
+              </h3>
               <div className="space-y-4">
                 {trendsData.map((trend, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -533,11 +516,11 @@ const Analytics: React.FC = () => {
                         <div className={`text-sm font-medium ${getFairnessColor(trend.fairness)}`}>
                           {(trend.fairness * 100).toFixed(0)}%
                         </div>
-                        <div className="text-xs text-muted-foreground">Fairness</div>
+                        <div className="text-xs text-gray-700 dark:text-gray-200">Fairness</div>
                       </div>
                       <div className="text-center">
                         <div className="text-sm font-medium text-foreground">{trend.avgWorkload}</div>
-                        <div className="text-xs text-muted-foreground">Avg Days</div>
+                        <div className="text-xs text-gray-700 dark:text-gray-200">Avg Days</div>
                       </div>
                     </div>
                   </div>
@@ -548,13 +531,16 @@ const Analytics: React.FC = () => {
 
           {/* 6. Recommendations */}
           {fairnessData && fairnessData.recommendations.length > 0 && (
-            <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">💡 Recommendations</h3>
+            <div className={cardClass}>
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-yellow-500" />
+                Recommendations
+              </h3>
               <ul className="space-y-2">
                 {fairnessData.recommendations.map((recommendation, index) => (
                   <li key={index} className="flex items-start space-x-2">
                     <span className="text-primary mt-1">•</span>
-                    <span className="text-muted-foreground">{recommendation}</span>
+                    <span className="text-gray-700 dark:text-gray-200">{recommendation}</span>
                   </li>
                 ))}
               </ul>
@@ -562,10 +548,13 @@ const Analytics: React.FC = () => {
           )}
 
           {/* 7. ML Insights */}
-          <div className="bg-card text-card-foreground rounded-xl shadow-sm border border-border p-6">
+          <div className={cardClass}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">🤖 ML Insights</h3>
-              <div className="text-sm text-muted-foreground">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <Robot className="h-5 w-5 text-purple-500" />
+                ML Insights
+              </h3>
+              <div className="text-sm text-gray-700 dark:text-gray-200">
                 Powered by simple algorithms
               </div>
             </div>
@@ -573,22 +562,20 @@ const Analytics: React.FC = () => {
             {/* ML Tab Navigation */}
             <div className="flex space-x-1 bg-muted p-1 rounded-lg mb-6">
               {[
-                { id: 'burnout', label: 'Burnout Risk', icon: '⚠️' },
-                { id: 'workload', label: 'Workload', icon: '👥' },
-                { id: 'demand', label: 'Demand', icon: '📊' },
-                { id: 'conflicts', label: 'Conflicts', icon: '🚨' }
+                { id: 'burnout', label: 'Burnout Risk', icon: <Warning className="h-4 w-4" /> },
+                { id: 'workload', label: 'Workload', icon: <Users className="h-4 w-4" /> },
+                { id: 'demand', label: 'Demand', icon: <ChartBar className="h-4 w-4" /> },
+                { id: 'conflicts', label: 'Conflicts', icon: <Siren className="h-4 w-4" /> }
               ].map((tab) => (
-                <button
+                <Button
                   key={tab.id}
                   onClick={() => setActiveMLTab(tab.id as any)}
-                  className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeMLTab === tab.id
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  variant={activeMLTab === tab.id ? 'primary' : 'ghost'}
+                  size="sm"
+                  className="flex-1 flex items-center justify-center gap-2"
                 >
                   {tab.icon} {tab.label}
-                </button>
+                </Button>
               ))}
             </div>
 
@@ -606,17 +593,17 @@ const Analytics: React.FC = () => {
                           {risk.riskLevel} ({risk.riskScore}%)
                         </div>
                       </div>
-                      <div className="text-sm text-muted-foreground mb-2">
+                      <div className="text-sm text-gray-700 dark:text-gray-200 mb-2">
                         <strong>Risk Factors:</strong> {risk.factors.join(', ')}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-gray-700 dark:text-gray-200">
                         <strong>Recommendations:</strong> {risk.recommendations.join(', ')}
                       </div>
                     </div>
                   ))}
                 {burnoutRisks.filter(risk => risk.riskLevel !== 'LOW').length === 0 && (
-                  <div className="text-center text-muted-foreground py-8">
-                    <div className="text-4xl mb-2">✅</div>
+                  <div className="text-center text-gray-700 dark:text-gray-200 py-8">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
                     <div>No high-risk burnout cases detected</div>
                     <div className="text-sm">All analysts have balanced workloads</div>
                   </div>
@@ -633,7 +620,7 @@ const Analytics: React.FC = () => {
                       <div className="font-medium text-foreground">
                         {moment(prediction.date).format('dddd, MMM D')}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-gray-700 dark:text-gray-200">
                         Confidence: {(prediction.confidence * 100).toFixed(0)}%
                       </div>
                     </div>
@@ -641,7 +628,7 @@ const Analytics: React.FC = () => {
                       <div className="text-2xl font-bold text-primary">
                         {prediction.predictedRequiredStaff}
                       </div>
-                      <div className="text-sm text-muted-foreground">analysts needed</div>
+                      <div className="text-sm text-gray-700 dark:text-gray-200">analysts needed</div>
                     </div>
                   </div>
                 ))}
@@ -655,14 +642,14 @@ const Analytics: React.FC = () => {
                   <div className="text-3xl font-bold text-primary">
                     {demandForecast.predictedDemand}
                   </div>
-                  <div className="text-sm text-muted-foreground">predicted demand</div>
+                  <div className="text-sm text-gray-700 dark:text-gray-200">predicted demand</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl mb-1">{getTrendIcon(demandForecast.trend)}</div>
+                  <div className="text-2xl mb-1 flex justify-end">{getTrendIcon(demandForecast.trend)}</div>
                   <div className="text-sm font-medium text-foreground capitalize">
                     {demandForecast.trend.toLowerCase()}
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-gray-700 dark:text-gray-200">
                     {(demandForecast.confidence * 100).toFixed(0)}% confidence
                   </div>
                 </div>
@@ -684,17 +671,17 @@ const Analytics: React.FC = () => {
                           {(conflict.probability * 100).toFixed(0)}% probability
                         </div>
                       </div>
-                      <div className="text-sm text-muted-foreground mb-2">
+                      <div className="text-sm text-gray-700 dark:text-gray-200 mb-2">
                         <strong>{conflict.conflictType}:</strong> {conflict.description}
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-gray-700 dark:text-gray-200">
                         <strong>Preventive Actions:</strong> {conflict.preventiveActions.join(', ')}
                       </div>
                     </div>
                   ))}
                 {conflictPredictions.length === 0 && (
-                  <div className="text-center text-muted-foreground py-8">
-                    <div className="text-4xl mb-2">✅</div>
+                  <div className="text-center text-gray-700 dark:text-gray-200 py-8">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
                     <div>No conflicts predicted for the next 7 days</div>
                     <div className="text-sm">Schedule looks good!</div>
                   </div>

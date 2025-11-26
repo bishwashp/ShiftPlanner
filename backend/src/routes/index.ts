@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import analystsRouter from './analysts';
 import schedulesRouter from './schedules';
+import holidaysRouter from './holidays';
+import absencesRouter from './absences';
 
 const router = Router();
 
 // Register all route modules
 router.use('/analysts', analystsRouter);
 router.use('/schedules', schedulesRouter);
+router.use('/holidays', holidaysRouter);
+router.use('/absences', absencesRouter);
 
 // API info endpoint
 router.get('/', (req, res) => {
@@ -35,6 +39,29 @@ router.get('/', (req, res) => {
           'POST /api/schedules/apply-auto-fix': 'Apply auto-fix assignments',
           'GET /api/schedules/test-scheduler': 'Test scheduler availability'
         }
+      },
+      holidays: {
+        description: 'Holiday management operations',
+        routes: {
+          'GET /api/holidays': 'Get all holidays',
+          'POST /api/holidays': 'Create new holiday',
+          'GET /api/holidays/:id': 'Get holiday by ID',
+          'PUT /api/holidays/:id': 'Update holiday',
+          'DELETE /api/holidays/:id': 'Delete holiday',
+          'GET /api/holidays/year/:year': 'Get holidays for specific year'
+        }
+      },
+      absences: {
+        description: 'Absence management operations',
+        routes: {
+          'GET /api/absences': 'Get all absences',
+          'POST /api/absences': 'Create new absence',
+          'GET /api/absences/:id': 'Get absence by ID',
+          'PUT /api/absences/:id': 'Update absence',
+          'DELETE /api/absences/:id': 'Delete absence',
+          'GET /api/absences/analyst/:analystId': 'Get absences for specific analyst',
+          'PATCH /api/absences/:id/approve': 'Approve/reject absence'
+        }
       }
     },
     features: [
@@ -42,6 +69,8 @@ router.get('/', (req, res) => {
       'Schedule Generation (MVP)',
       'Conflict Detection',
       'Auto-fix Scheduling',
+      'Holiday Management',
+      'Absence Management',
       'SQLite Database',
       'In-memory Cache Fallback'
     ]

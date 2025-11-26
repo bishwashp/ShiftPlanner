@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Calendar, Clock, Users } from 'lucide-react';
+import { CalendarBlank, Clock, Users } from '@phosphor-icons/react';
 import moment from 'moment';
+import Button from './ui/Button';
 
 interface ScheduleGenerationFormProps {
   onGenerate: (startDate: string, endDate: string, algorithm: string) => void;
@@ -13,26 +14,23 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
 }) => {
   const [startDate, setStartDate] = useState(moment().format('YYYY-MM-DD'));
   const [endDate, setEndDate] = useState(moment().add(7, 'days').format('YYYY-MM-DD'));
-  const [algorithm, setAlgorithm] = useState('WeekendRotationAlgorithm');
+  // Single algorithm: IntelligentScheduler
+  const algorithm = 'INTELLIGENT';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onGenerate(startDate, endDate, algorithm);
   };
 
-  const algorithms = [
-    { value: 'WeekendRotationAlgorithm', label: 'Weekend Rotation' },
-    { value: 'FairnessAlgorithm', label: 'Fairness Based' },
-    { value: 'ConstraintBasedAlgorithm', label: 'Constraint Based' }
-  ];
+  // Removed algorithm selection - using single IntelligentScheduler
 
   return (
-    <div className="bg-card text-card-foreground rounded-lg border border-border p-6">
+    <div className="glass-static p-6">
       <div className="flex items-center space-x-3 mb-6">
-        <Calendar className="h-6 w-6 text-primary" />
+        <CalendarBlank className="h-6 w-6 text-primary" />
         <div>
           <h3 className="text-lg font-semibold">Generate Schedule</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-700 dark:text-gray-200">
             Create schedules for your analysts
           </p>
         </div>
@@ -67,55 +65,32 @@ const ScheduleGenerationForm: React.FC<ScheduleGenerationFormProps> = ({
           </div>
         </div>
 
-        {/* Algorithm Selection */}
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Algorithm
-          </label>
-          <select
-            value={algorithm}
-            onChange={(e) => setAlgorithm(e.target.value)}
-            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-transparent"
-          >
-            {algorithms.map((alg) => (
-              <option key={alg.value} value={alg.value}>
-                {alg.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Algorithm selection removed - using single IntelligentScheduler */}
 
         {/* Preview Info */}
         <div className="bg-muted/50 rounded-lg p-4">
           <div className="flex items-center space-x-2 mb-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="h-4 w-4 text-gray-700 dark:text-gray-200" />
             <span className="text-sm font-medium">Preview</span>
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-gray-700 dark:text-gray-200">
             <p>• Duration: {moment(endDate).diff(moment(startDate), 'days') + 1} days</p>
-            <p>• Algorithm: {algorithms.find(a => a.value === algorithm)?.label}</p>
+            <p>• Using: Intelligent Scheduling (rotation + fairness)</p>
             <p>• This will generate schedules for all active analysts</p>
           </div>
         </div>
 
         {/* Generate Button */}
-        <button
+        <Button
           type="submit"
           disabled={isLoading || !startDate || !endDate}
-          className="w-full px-4 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+          isLoading={isLoading}
+          variant="primary"
+          className="w-full"
         >
-          {isLoading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>Generating...</span>
-            </>
-          ) : (
-            <>
-              <Users className="h-4 w-4" />
-              <span>Generate Schedule</span>
-            </>
-          )}
-        </button>
+          {!isLoading && <Users className="h-4 w-4 mr-2" />}
+          Generate Schedule
+        </Button>
       </form>
     </div>
   );

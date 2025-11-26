@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService, AlgorithmConfig } from '../services/api';
+import Button from './ui/Button';
 
 const AlgorithmManagement: React.FC = () => {
     const [algorithms, setAlgorithms] = useState<AlgorithmConfig[]>([]);
@@ -41,7 +42,7 @@ const AlgorithmManagement: React.FC = () => {
             setError('Failed to save algorithm configuration.');
         }
     };
-    
+
     const handleActivate = async (id: string) => {
         try {
             await apiService.activateAlgorithm(id);
@@ -52,17 +53,19 @@ const AlgorithmManagement: React.FC = () => {
     };
 
     return (
-        <div className="bg-background text-foreground p-6">
+        <div className="text-foreground p-6 relative z-10">
             {error && <p className="text-destructive">{error}</p>}
-            {loading ? <p className="text-muted-foreground">Loading algorithms...</p> : (
+            {loading ? <p className="text-gray-700 dark:text-gray-200">Loading algorithms...</p> : (
                 <div className="space-y-4">
                     {algorithms.map(algo => (
-                        <div key={algo.id} className="p-4 border border-border rounded bg-card">
+                        <div key={algo.id} className="p-4 glass-static">
                             <h2 className="text-xl font-semibold text-foreground">{algo.name}</h2>
-                            <p className="text-muted-foreground">{algo.description}</p>
-                            <p className="text-muted-foreground">Status: {algo.isActive ? 'Active' : 'Inactive'}</p>
-                            <button onClick={() => handleEdit(algo)} className="px-4 py-2 mt-2 bg-muted text-muted-foreground rounded hover:bg-muted/80">Edit Config</button>
-                            {!algo.isActive && <button onClick={() => handleActivate(algo.id)} className="px-4 py-2 mt-2 ml-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">Activate</button>}
+                            <p className="text-gray-700 dark:text-gray-200">{algo.description}</p>
+                            <p className="text-gray-700 dark:text-gray-200">Status: {algo.isActive ? 'Active' : 'Inactive'}</p>
+                            <div className="mt-2 flex space-x-2">
+                                <Button onClick={() => handleEdit(algo)} variant="secondary" size="sm">Edit Config</Button>
+                                {!algo.isActive && <Button onClick={() => handleActivate(algo.id)} variant="primary" size="sm">Activate</Button>}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -72,7 +75,7 @@ const AlgorithmManagement: React.FC = () => {
                 <div className="mt-8">
                     <h2 className="text-xl font-bold mb-4 text-foreground">Edit Configuration for {editingAlgorithm.name}</h2>
                     <form onSubmit={handleSave}>
-                        <textarea 
+                        <textarea
                             className="w-full h-64 p-2 border border-border rounded font-mono bg-input"
                             value={JSON.stringify(formData, null, 2)}
                             onChange={e => {
@@ -83,9 +86,9 @@ const AlgorithmManagement: React.FC = () => {
                                 }
                             }}
                         />
-                        <div className="mt-4">
-                            <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90">Save</button>
-                            <button type="button" onClick={() => setEditingAlgorithm(null)} className="px-4 py-2 ml-2 bg-muted text-muted-foreground rounded hover:bg-muted/80">Cancel</button>
+                        <div className="mt-4 flex space-x-2">
+                            <Button type="submit" variant="primary">Save</Button>
+                            <Button type="button" onClick={() => setEditingAlgorithm(null)} variant="secondary">Cancel</Button>
                         </div>
                     </form>
                 </div>

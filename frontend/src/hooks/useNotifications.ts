@@ -50,11 +50,12 @@ export const useNotifications = () => {
       { category: 'scheduling', tags: ['generation', 'success'] }
     );
 
-    notificationService.addSystemNotification(
-      'System Update Available',
-      'ShiftPlanner v0.7.2 is available with enhanced analytics features.',
-      'low'
-    );
+    // This should be an action prompt, not a notification
+    // notificationService.addSystemNotification(
+    //   'System Update Available',
+    //   'ShiftPlanner v0.7.2 is available with enhanced analytics features.',
+    //   'low'
+    // );
 
     notificationService.addSuccessNotification(
       'Conflicts Resolved',

@@ -19,6 +19,7 @@ model Analyst {
   name        String
   email       String   @unique
   shiftType   String   // AM or PM shift assignment (MORNING, EVENING, WEEKEND)
+  employeeType String  @default("employee") // EMPLOYEE, CONTRACTOR
   isActive    Boolean  @default(true)
   customAttributes String? // JSON as string for SQLite compatibility
   skills      String?  // Comma-separated skills for SQLite compatibility
@@ -30,9 +31,12 @@ model Analyst {
   schedules   Schedule[]
   vacations   Vacation[]
   constraints SchedulingConstraint[]
+  patternContinuity PatternContinuity[]
+  absences    Absence[]
   
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
+  @@index([employeeType, isActive]) // For filtering by employee type
   @@index([email]) // Already unique, but explicit for performance
   @@index([createdAt]) // For sorting and date-based queries
   @@map("analysts")
@@ -136,8 +140,135 @@ model AlgorithmConfig {
   @@map("algorithm_configs")
 }
 
+model ScheduleGenerationLog {
+  id                String   @id @default(cuid())
+  generatedBy       String   @default("admin") // User who generated the schedule
+  algorithmType     String   // Algorithm used for generation
+  startDate         DateTime // Start date of the generated schedule range
+  endDate           DateTime // End date of the generated schedule range
+  schedulesGenerated Int     // Number of schedules generated
+  conflictsDetected Int     @default(0) // Number of conflicts detected
+  fairnessScore     Float?   // Overall fairness score from the generation
+  executionTime     Int?     // Execution time in milliseconds
+  status            String   @default("SUCCESS") // SUCCESS, FAILED, PARTIAL
+  errorMessage      String?  // Error message if generation failed
+  metadata          String?  // Additional JSON metadata for future extensibility
+  createdAt         DateTime @default(now())
+  
+  // Performance indexes for dashboard queries
+  @@index([createdAt]) // For recent activity queries (most important)
+  @@index([generatedBy, createdAt]) // For user-specific activity
+  @@index([algorithmType, createdAt]) // For algorithm-specific queries
+  @@index([status, createdAt]) // For filtering by success/failure
+  @@map("schedule_generation_logs")
+}
+
+model PatternContinuity {
+  id              String   @id @default(cuid())
+  algorithmType   String   // Algorithm type for which this continuity data is stored
+  analystId       String   // Analyst this continuity data belongs to
+  lastPattern     String   // Last work pattern assigned (e.g., "SUN_THU", "MON_FRI", etc.)
+  lastWorkDate    DateTime // Last date the analyst worked
+  weekNumber      Int      // Week number in the rotation cycle
+  metadata        String?  // Additional pattern-specific data as JSON
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  
+  analyst         Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  // Unique constraint to ensure one continuity record per analyst per algorithm
+  @@unique([algorithmType, analystId])
+  @@index([algorithmType, updatedAt]) // For finding latest continuity data
+  @@map("pattern_continuity")
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  name        String   // Holiday name (e.g., "New Year's Day", "Christmas")
+  date        DateTime // Holiday date (stored in UTC, converted to local timezone)
+  timezone    String   @default("America/New_York") // Local timezone for the holiday
+  isRecurring Boolean  @default(false) // Whether this holiday repeats annually
+  year        Int?     // Specific year (null for recurring holidays)
+  description String?  // Optional description
+  isActive    Boolean  @default(true) // Whether this holiday affects scheduling
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Performance indexes for date and timezone queries
+  @@index([date, timezone, isActive]) // For holiday lookups by date and timezone
+  @@index([year, isActive]) // For year-based holiday queries
+  @@index([isRecurring, isActive]) // For recurring holiday queries
+  @@map("holidays")
+}
+
+model Absence {
+  id          String   @id @default(cuid())
+  analystId   String   // Analyst who is absent
+  startDate   DateTime // Start date of absence
+  endDate     DateTime // End date of absence
+  type        String   // VACATION, SICK_LEAVE, PERSONAL, EMERGENCY, etc.
+  reason      String?  // Optional reason for absence
+  isApproved  Boolean  @default(true) // Whether the absence is approved
+  isPlanned   Boolean  @default(true) // Whether this is a planned absence
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relationships
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  
+  // Performance indexes for absence queries
+  @@index([analystId, startDate, endDate]) // For analyst absence lookups
+  @@index([startDate, endDate, isApproved]) // For date range queries with approval status
+  @@index([type, isApproved]) // For absence type filtering
+  @@index([isPlanned, isApproved]) // For planned vs unplanned absence queries
+  @@map("absences")
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  type        String   // Activity type (SCHEDULE_GENERATED, ANALYST_ADDED, etc.)
+  category    String   // Category (SCHEDULE, ANALYST, ALGORITHM, ABSENCE, SYSTEM)
+  title       String   // User-friendly title for the activity
+  description String   // Detailed description of what happened
+  performedBy String?  // User who performed the action (null for system actions)
+  resourceType String? // Type of resource affected (analyst, schedule, algorithm, etc.)
+  resourceId  String?  // ID of the affected resource
+  metadata    String?  // Additional JSON metadata for context
+  impact      String   @default("LOW") // Impact level: LOW, MEDIUM, HIGH, CRITICAL
+  createdAt   DateTime @default(now())
+  
+  // Performance indexes for activity queries
+  @@index([createdAt]) // For recent activity queries (most important)
+  @@index([category, createdAt]) // For category-based filtering
+  @@index([type, createdAt]) // For type-based filtering
+  @@index([performedBy, createdAt]) // For user-specific activities
+  @@index([impact, createdAt]) // For impact-based filtering
+  @@map("activities")
+}
+
+model WorkPattern {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "SUN_THU", "MON_FRI", "TUE_SAT"
+  displayName String   // e.g., "Sunday-Thursday", "Monday-Friday"
+  days        String   // Comma-separated day numbers: "0,1,2,3,4" (Sunday=0, Saturday=6)
+  nextPattern String   // Name of next pattern in rotation sequence
+  breakDays   Int      @default(0) // Number of break days after this pattern
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0) // Order in which patterns are cycled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Performance indexes
+  @@index([isActive, sortOrder]) // For active pattern queries in order
+  @@index([name, isActive]) // For pattern lookups by name
+  @@map("work_patterns")
+}
+
 // SQLite doesn't support enums, so we use string constants
 // ShiftType: "MORNING", "EVENING", "WEEKEND"
+// EmployeeType: "EMPLOYEE", "CONTRACTOR"
 // DayOfWeek: "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
 // PreferenceType: "PREFERRED", "AVAILABLE", "UNAVAILABLE"
 // ConstraintType: "BLACKOUT_DATE", "MAX_SCREENER_DAYS", "MIN_SCREENER_DAYS", "PREFERRED_SCREENER", "UNAVAILABLE_SCREENER"
+// AbsenceType: "VACATION", "SICK_LEAVE", "PERSONAL", "EMERGENCY", "TRAINING", "CONFERENCE"
+

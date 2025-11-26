@@ -1,8 +1,21 @@
 import axios from 'axios';
 import moment from 'moment';
+import { cacheService } from './cacheService';
+// Importing debounce for potential future use
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { debounce } from '../hooks/useDebounce';
+
+// Define AxiosRequestConfig type for compatibility
+type AxiosRequestConfig = any;
 
 // API Configuration
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000/api';
+
+// Request throttling configuration
+const THROTTLE_DELAY = 300; // 300ms between requests
+const CACHE_TTL = 30000; // 30 seconds cache TTL for GET requests
+const MAX_RETRIES = 3; // Maximum number of retries for failed requests
+const RETRY_DELAY = 1000; // 1 second delay between retries
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -12,6 +25,88 @@ const apiClient = axios.create({
   },
   timeout: 10000,
 });
+
+// Request queue to manage concurrent requests
+const requestQueue: {
+  config: AxiosRequestConfig;
+  resolve: (value: any) => void;
+  reject: (error: any) => void;
+  retryCount: number;
+}[] = [];
+let isProcessingQueue = false;
+
+// Process the request queue with throttling
+const processQueue = async () => {
+  if (requestQueue.length === 0 || isProcessingQueue) {
+    return;
+  }
+
+  isProcessingQueue = true;
+  const { config, resolve, reject, retryCount } = requestQueue.shift()!;
+
+  try {
+    // Check cache for GET requests
+    if (config.method?.toLowerCase() === 'get' && config.url) {
+      const cacheKey = `${config.url}${config.params ? JSON.stringify(config.params) : ''}`;
+      const cachedData = cacheService.get(cacheKey);
+
+      if (cachedData) {
+        console.log(`Cache hit for: ${config.url}`);
+        resolve(cachedData);
+        setTimeout(processQueue, 0);
+        isProcessingQueue = false;
+        return;
+      }
+    }
+
+    const response = await axios(config);
+
+    // Cache successful GET responses
+    if (config.method?.toLowerCase() === 'get' && config.url) {
+      const cacheKey = `${config.url}${config.params ? JSON.stringify(config.params) : ''}`;
+      cacheService.set(cacheKey, response, CACHE_TTL);
+    }
+
+    resolve(response);
+  } catch (error: any) {
+    // Retry on rate limit errors
+    if (error.response?.status === 429 && retryCount < MAX_RETRIES) {
+      const retryAfter = error.response.headers['retry-after']
+        ? parseInt(error.response.headers['retry-after']) * 1000
+        : RETRY_DELAY;
+
+      console.log(`Rate limited. Retrying after ${retryAfter}ms (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
+
+      setTimeout(() => {
+        requestQueue.push({ config, resolve, reject, retryCount: retryCount + 1 });
+        processQueue();
+      }, retryAfter);
+    } else {
+      reject(error);
+    }
+  } finally {
+    setTimeout(() => {
+      isProcessingQueue = false;
+      processQueue();
+    }, THROTTLE_DELAY);
+  }
+};
+
+// Throttled request function
+const throttledRequest = (config: AxiosRequestConfig) => {
+  return new Promise((resolve, reject) => {
+    requestQueue.push({ config, resolve, reject, retryCount: 0 });
+    processQueue();
+  });
+};
+
+// Override axios methods with throttled versions
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const originalRequest = apiClient.request;
+// @ts-ignore - Ignore type checking for this line as we're using a custom implementation
+apiClient.request = function (config) {
+  return throttledRequest(config);
+};
 
 // Request interceptor for logging
 apiClient.interceptors.request.use(
@@ -33,6 +128,13 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     console.error('API Response Error:', error.response?.data || error.message);
+
+    // Handle rate limiting errors
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.data?.retryAfter || 60;
+      console.warn(`Rate limit exceeded. Retry after ${retryAfter} seconds.`);
+    }
+
     return Promise.reject(error);
   }
 );
@@ -43,6 +145,7 @@ export interface Analyst {
   name: string;
   email: string;
   shiftType: 'MORNING' | 'EVENING';  // AM or PM shift assignment
+  employeeType: 'EMPLOYEE' | 'CONTRACTOR';  // Employee type classification
   isActive: boolean;
   customAttributes?: any;
   skills?: string[];
@@ -109,6 +212,74 @@ export interface AlgorithmConfig {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScheduleGenerationLog {
+  id: string;
+  generatedBy: string;
+  algorithmType: string;
+  startDate: string;
+  endDate: string;
+  schedulesGenerated: number;
+  conflictsDetected: number;
+  fairnessScore?: number;
+  executionTime?: number;
+  status: 'SUCCESS' | 'FAILED' | 'PARTIAL';
+  errorMessage?: string;
+  metadata?: any;
+  createdAt: string;
+}
+
+export interface Activity {
+  id: string;
+  type: string;
+  category: string;
+  title: string;
+  description: string;
+  performedBy?: string;
+  resourceType?: string;
+  resourceId?: string;
+  impact: string;
+  createdAt: string;
+  metadata?: any;
+}
+
+export interface GenerationStats {
+  totalGenerations: number;
+  successfulGenerations: number;
+  failedGenerations: number;
+  totalSchedulesGenerated: number;
+  averageExecutionTime: number;
+  mostUsedAlgorithm: string;
+}
+
+export interface FairnessMetrics {
+  analystId: string;
+  analystName: string;
+  totalDaysWorked: number;
+  weekendDaysWorked: number;
+  holidayDaysWorked: number;
+  screenerDaysAssigned: number;
+  consecutiveWorkDays: number[];
+  averageWorkload: number;
+}
+
+export interface FairnessReport {
+  dateRange: {
+    startDate: string;
+    endDate: string;
+  };
+  schedulesAnalyzed: number;
+  analystsCount: number;
+  overallScore: number;
+  components: {
+    workload: number;
+    weekend: number;
+    screener: number;
+    holiday: number;
+  };
+  analystMetrics: FairnessMetrics[];
+  recommendations: string[];
 }
 
 export interface SchedulePreview {
@@ -197,12 +368,12 @@ export const apiService = {
     return response.data as Analyst;
   },
 
-  createAnalyst: async (data: { name: string; email: string; shiftType: 'MORNING' | 'EVENING', customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
+  createAnalyst: async (data: { name: string; email: string; shiftType: 'MORNING' | 'EVENING'; employeeType: 'EMPLOYEE' | 'CONTRACTOR'; customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
     const response = await apiClient.post('/analysts', data);
     return response.data as Analyst;
   },
 
-  updateAnalyst: async (id: string, data: { name?: string; email?: string; shiftType?: 'MORNING' | 'EVENING'; isActive?: boolean, customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
+  updateAnalyst: async (id: string, data: { name?: string; email?: string; shiftType?: 'MORNING' | 'EVENING'; employeeType?: 'EMPLOYEE' | 'CONTRACTOR'; isActive?: boolean, customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
     const response = await apiClient.put(`/analysts/${id}`, data);
     return response.data as Analyst;
   },
@@ -280,27 +451,37 @@ export const apiService = {
   },
 
   updateSchedule: async (id: string, data: { analystId?: string; date?: string; shiftType?: 'MORNING' | 'EVENING'; isScreener?: boolean }): Promise<Schedule> => {
-    const response = await apiClient.put(`/schedules/${id}`, data);
+    // Fix for potential ID corruption (e.g. :1 suffix)
+    const cleanId = id.includes(':') ? id.split(':')[0] : id;
+    console.log(`apiService.updateSchedule called with id: ${id} -> cleaned to ${cleanId}`, data);
+    const response = await apiClient.put(`/schedules/${cleanId}`, data);
     return response.data as Schedule;
   },
 
   deleteSchedule: async (id: string): Promise<void> => {
-    await apiClient.delete(`/schedules/${id}`);
+    const cleanId = id.includes(':') ? id.split(':')[0] : id;
+    console.log(`apiService.deleteSchedule called with id: ${id} -> cleaned to ${cleanId}`);
+    await apiClient.delete(`/schedules/${cleanId}`);
+  },
+
+  validateSchedule: async (data: { analystId: string; date: string; shiftType: 'MORNING' | 'EVENING'; isScreener?: boolean; scheduleId?: string }): Promise<{ isValid: boolean; violations: any[] }> => {
+    const response = await apiClient.post('/schedules/validate', data);
+    return response.data as { isValid: boolean; violations: any[] };
   },
 
   getScheduleHealth: async (params?: { startDate: string; endDate: string }): Promise<Array<{
-    date: string; 
-    message: string; 
-    type: string; 
-    missingShifts: string[]; 
+    date: string;
+    message: string;
+    type: string;
+    missingShifts: string[];
     severity: string;
   }>> => {
     const response = await apiClient.get('/schedules/health/conflicts', { params });
     return response.data as Array<{
-      date: string; 
-      message: string; 
-      type: string; 
-      missingShifts: string[]; 
+      date: string;
+      message: string;
+      type: string;
+      missingShifts: string[];
       severity: string;
     }>;
   },
@@ -313,51 +494,45 @@ export const apiService = {
   // MVP Schedule Generation (New Implementation)
   generateSchedule: async (data: { startDate: string; endDate: string; algorithm?: string }): Promise<{
     message: string;
-    summary: {
-      totalConflicts: number;
-      criticalConflicts: number;
-      assignmentsNeeded: number;
-      estimatedTime: string;
-    };
-    suggestedAssignments: Array<{
-      date: string;
-      analystId: string;
-      analystName: string;
-      shiftType: 'MORNING' | 'EVENING';
-      isScreener: boolean;
-      strategy: string;
-    }>;
-    dateRange: {
-      startDate: string;
-      endDate: string;
-    };
-    existingSchedules: number;
-    newAssignments: number;
-  }> => {
-    const response = await apiClient.post('/schedules/generate', data);
-    return response.data as {
-      message: string;
-      summary: {
-        totalConflicts: number;
-        criticalConflicts: number;
-        assignmentsNeeded: number;
-        estimatedTime: string;
-      };
-      suggestedAssignments: Array<{
+    result: {
+      proposedSchedules: Array<{
         date: string;
         analystId: string;
         analystName: string;
         shiftType: 'MORNING' | 'EVENING';
         isScreener: boolean;
-        strategy: string;
+        type: 'NEW_SCHEDULE';
       }>;
-      dateRange: {
-        startDate: string;
-        endDate: string;
+      conflicts: Array<{
+        date: string;
+        type: string;
+        description: string;
+        severity: string;
+      }>;
+      fairnessMetrics: {
+        workloadDistribution: {
+          standardDeviation: number;
+          giniCoefficient: number;
+          maxMinRatio: number;
+        };
+        screenerDistribution: {
+          standardDeviation: number;
+          maxMinRatio: number;
+          fairnessScore: number;
+          recommendations: string[];
+        };
+        weekendDistribution: {
+          standardDeviation: number;
+          maxMinRatio: number;
+          fairnessScore: number;
+        };
+        overallFairnessScore: number;
+        recommendations: string[];
       };
-      existingSchedules: number;
-      newAssignments: number;
     };
+  }> => {
+    const response = await apiClient.post('/schedules/generate', data);
+    return response.data as any;
   },
 
   // Legacy Automated Scheduling (for compatibility)
@@ -407,9 +582,9 @@ export const apiService = {
   },
 
   // Analytics
-  getWorkDayTally: async (month: number, year: number): Promise<Array<{ 
-    analystId: string; 
-    analystName: string; 
+  getWorkDayTally: async (month: number, year: number): Promise<Array<{
+    analystId: string;
+    analystName: string;
     month: number;
     year: number;
     totalWorkDays: number;
@@ -420,9 +595,9 @@ export const apiService = {
     fairnessScore: number;
   }>> => {
     const response = await apiClient.get(`/analytics/monthly-tallies/${year}/${month}`);
-    return (response.data as any).data as Array<{ 
-      analystId: string; 
-      analystName: string; 
+    return (response.data as any).data as Array<{
+      analystId: string;
+      analystName: string;
       month: number;
       year: number;
       totalWorkDays: number;
@@ -436,8 +611,8 @@ export const apiService = {
 
   // Enhanced Analytics Endpoints
   getFairnessReport: async (startDate: string, endDate: string): Promise<any> => {
-    const response = await apiClient.get('/analytics/fairness-report', { 
-      params: { startDate, endDate } 
+    const response = await apiClient.get('/analytics/fairness-report', {
+      params: { startDate, endDate }
     });
     return (response.data as any).data;
   },
@@ -526,16 +701,16 @@ export const apiService = {
   },
 
   // Applies a list of assignments to resolve conflicts
-  applyAutoFix: async (data: { assignments: any[] }): Promise<{ 
-    message: string; 
-    createdSchedules: any[]; 
-    errors?: Array<{ assignment: any; error: string }> 
+  applyAutoFix: async (data: { assignments: any[] }): Promise<{
+    message: string;
+    createdSchedules: any[];
+    errors?: Array<{ assignment: any; error: string }>
   }> => {
     const response = await apiClient.post('/schedules/apply-auto-fix', data);
-    return response.data as { 
-      message: string; 
-      createdSchedules: any[]; 
-      errors?: Array<{ assignment: any; error: string }> 
+    return response.data as {
+      message: string;
+      createdSchedules: any[];
+      errors?: Array<{ assignment: any; error: string }>
     };
   },
 
@@ -581,6 +756,213 @@ export const apiService = {
   exportToAppleCalendar: async (schedules: Schedule[]): Promise<{ message: string; calendarUrl: string }> => {
     const response = await apiClient.post('/calendar/apple', { schedules });
     return response.data as { message: string; calendarUrl: string };
+  },
+
+  // Schedule Generation Logging
+  getRecentActivity: async (limit: number = 10): Promise<ScheduleGenerationLog[]> => {
+    const response = await apiClient.get(`/algorithms/recent-activity?limit=${limit}`);
+    return response.data as ScheduleGenerationLog[];
+  },
+
+  // Activity Management
+  getRecentActivities: async (limit: number = 10): Promise<Activity[]> => {
+    const response = await apiClient.get(`/activities/recent?limit=${limit}`);
+    return response.data as Activity[];
+  },
+
+  getActivities: async (filters?: {
+    category?: string;
+    type?: string;
+    performedBy?: string;
+    impact?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<Activity[]> => {
+    const params = new URLSearchParams();
+    if (filters?.category) params.append('category', filters.category);
+    if (filters?.type) params.append('type', filters.type);
+    if (filters?.performedBy) params.append('performedBy', filters.performedBy);
+    if (filters?.impact) params.append('impact', filters.impact);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const response = await apiClient.get(`/activities?${params.toString()}`);
+    return response.data as Activity[];
+  },
+
+  getActivityStats: async (days: number = 30): Promise<{
+    totalActivities: number;
+    activitiesByCategory: Record<string, number>;
+    activitiesByImpact: Record<string, number>;
+    mostActiveUser: string | null;
+    recentActivityTrend: Array<{ date: string; count: number }>;
+  }> => {
+    const response = await apiClient.get(`/activities/stats?days=${days}`);
+    return response.data as {
+      totalActivities: number;
+      activitiesByCategory: Record<string, number>;
+      activitiesByImpact: Record<string, number>;
+      mostActiveUser: string | null;
+      recentActivityTrend: Array<{ date: string; count: number }>;
+    };
+  },
+
+  getGenerationStats: async (days: number = 30): Promise<GenerationStats> => {
+    const response = await apiClient.get(`/algorithms/generation-stats?days=${days}`);
+    return response.data as GenerationStats;
+  },
+
+  // Fairness Metrics
+  getFairnessMetrics: async (startDate: string, endDate: string): Promise<FairnessReport> => {
+    const response = await apiClient.get(`/algorithms/fairness-metrics`, {
+      params: { startDate, endDate }
+    });
+    return response.data as FairnessReport;
+  },
+
+  // Holidays
+  getHolidays: async (year?: number, timezone?: string, isActive?: boolean): Promise<any[]> => {
+    const params: any = {};
+    if (year) params.year = year;
+    if (timezone) params.timezone = timezone;
+    if (isActive !== undefined) params.isActive = isActive;
+
+    const response = await apiClient.get('/holidays', { params });
+    return response.data as any[];
+  },
+
+  getHoliday: async (id: string): Promise<any> => {
+    const response = await apiClient.get(`/holidays/${id}`);
+    return response.data as any;
+  },
+
+  createHoliday: async (data: { name: string; date: string; timezone?: string; isRecurring?: boolean; year?: number; description?: string; isActive?: boolean }): Promise<any> => {
+    const response = await apiClient.post('/holidays', data);
+    return response.data as any;
+  },
+
+  updateHoliday: async (id: string, data: { name?: string; date?: string; timezone?: string; isRecurring?: boolean; year?: number; description?: string; isActive?: boolean }): Promise<any> => {
+    const response = await apiClient.put(`/holidays/${id}`, data);
+    return response.data as any;
+  },
+
+  deleteHoliday: async (id: string): Promise<void> => {
+    await apiClient.delete(`/holidays/${id}`);
+  },
+
+  getHolidaysForYear: async (year: number, timezone?: string): Promise<any[]> => {
+    const params = timezone ? { timezone } : {};
+    const response = await apiClient.get(`/holidays/year/${year}`, { params });
+    return response.data as any[];
+  },
+
+  initializeDefaultHolidays: async (year: number, timezone?: string): Promise<any> => {
+    const response = await apiClient.post('/holidays/initialize-defaults', {
+      year,
+      timezone: timezone || 'America/New_York'
+    });
+    return response.data as any;
+  },
+
+  // Absences
+  getAbsences: async (analystId?: string, type?: string, isApproved?: boolean, isPlanned?: boolean, startDate?: string, endDate?: string): Promise<any[]> => {
+    const params: any = {};
+    if (analystId) params.analystId = analystId;
+    if (type) params.type = type;
+    if (isApproved !== undefined) params.isApproved = isApproved;
+    if (isPlanned !== undefined) params.isPlanned = isPlanned;
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+
+    const response = await apiClient.get('/absences', { params });
+    return response.data as any[];
+  },
+
+  getAbsence: async (id: string): Promise<any> => {
+    const response = await apiClient.get(`/absences/${id}`);
+    return response.data as any;
+  },
+
+  createAbsence: async (data: { analystId: string; startDate: string; endDate: string; type: string; reason?: string; isApproved?: boolean; isPlanned?: boolean }): Promise<any> => {
+    const response = await apiClient.post('/absences', data);
+    return response.data as any;
+  },
+
+  updateAbsence: async (id: string, data: { startDate?: string; endDate?: string; type?: string; reason?: string; isApproved?: boolean; isPlanned?: boolean }): Promise<any> => {
+    const response = await apiClient.put(`/absences/${id}`, data);
+    return response.data as any;
+  },
+
+  deleteAbsence: async (id: string): Promise<void> => {
+    await apiClient.delete(`/absences/${id}`);
+  },
+
+  getAnalystAbsences: async (analystId: string, startDate?: string, endDate?: string): Promise<any[]> => {
+    const params: any = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+
+    const response = await apiClient.get(`/absences/analyst/${analystId}`, { params });
+    return response.data as any[];
+  },
+
+  approveAbsence: async (id: string, isApproved: boolean): Promise<any> => {
+    const response = await apiClient.patch(`/absences/${id}/approve`, { isApproved });
+    return response.data as any;
+  },
+
+  // Schedule Snapshot
+  getScheduleSnapshot: async (): Promise<{
+    todaysScreeners: {
+      MORNING: string[];
+      EVENING: string[];
+      WEEKEND: string[];
+    };
+    upcomingHoliday: {
+      name: string;
+      date: string;
+      daysUntil: number;
+    } | null;
+    todaysCoverage: {
+      counts: {
+        MORNING: number;
+        EVENING: number;
+        WEEKEND: number;
+      };
+      status: {
+        MORNING: 'LOW' | 'MEDIUM' | 'HIGH';
+        EVENING: 'LOW' | 'MEDIUM' | 'HIGH';
+        WEEKEND: 'LOW' | 'MEDIUM' | 'HIGH';
+      };
+    };
+  }> => {
+    const response = await apiClient.get('/schedule-snapshot');
+    return response.data as {
+      todaysScreeners: {
+        MORNING: string[];
+        EVENING: string[];
+        WEEKEND: string[];
+      };
+      upcomingHoliday: {
+        name: string;
+        date: string;
+        daysUntil: number;
+      } | null;
+      todaysCoverage: {
+        counts: {
+          MORNING: number;
+          EVENING: number;
+          WEEKEND: number;
+        };
+        status: {
+          MORNING: 'LOW' | 'MEDIUM' | 'HIGH';
+          EVENING: 'LOW' | 'MEDIUM' | 'HIGH';
+          WEEKEND: 'LOW' | 'MEDIUM' | 'HIGH';
+        };
+      };
+    };
   },
 };
 

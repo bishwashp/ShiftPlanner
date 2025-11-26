@@ -8,6 +8,10 @@ import calendarRoutes from './routes/calendar';
 import monitoringRoutes from './routes/monitoring';
 import authRoutes from './routes/auth';
 import mlRoutes from './routes/ml';
+import holidayRoutes from './routes/holidays';
+import absenceRoutes from './routes/absences';
+import activityRoutes from './routes/activities';
+import scheduleSnapshotRoutes from './routes/schedule-snapshot';
 
 const router = Router();
 
@@ -67,7 +71,10 @@ router.get('/', (req, res) => {
       analytics: '/analytics',
       calendar: '/calendar',
       monitoring: '/monitoring',
-      ml: '/ml'
+      ml: '/ml',
+      holidays: '/holidays',
+      absences: '/absences',
+      activities: '/activities'
     }
     });
 });
@@ -82,5 +89,9 @@ router.use('/analytics', analyticsRoutes);
 router.use('/calendar', calendarRoutes);
 router.use('/monitoring', monitoringRoutes);
 router.use('/ml', mlRoutes);
+router.use('/holidays', holidayRoutes);
+router.use('/absences', absenceRoutes);
+router.use('/activities', activityRoutes);
+router.use('/schedule-snapshot', scheduleSnapshotRoutes);
 
 export default router;

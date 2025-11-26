@@ -69,6 +69,10 @@ module.exports = {
         // Premium border colors
         'border-subtle': 'rgba(255, 255, 255, 0.1)',
         'border-accent': 'rgba(255, 255, 255, 0.2)',
+        // Liquid Glass System
+        'glass-light': 'rgba(255, 255, 255, 0.1)',
+        'glass-dark': 'rgba(20, 20, 20, 0.4)',
+        'border-glass': 'rgba(255, 255, 255, 0.15)',
       },
       borderRadius: {
         lg: `var(--radius)`,
@@ -97,33 +101,34 @@ module.exports = {
         '18': '4.5rem',
         '22': '5.5rem',
       },
+
+      backdropBlur: {
+        'xs': '2px',
+        'sm': '4px',
+        'md': '8px',
+        'lg': '12px',
+        'xl': '16px',
+        'glass': '12px', // Optimized for performance
+      },
+      boxShadow: {
+        'premium': '0 4px 16px rgba(0, 0, 0, 0.1)',
+        'premium-lg': '0 8px 32px rgba(0, 0, 0, 0.15)',
+        'glow': '0 0 20px rgba(255, 255, 255, 0.1)',
+        'event': '0 2px 8px rgba(0, 0, 0, 0.12)',
+        'event-hover': '0 4px 16px rgba(0, 0, 0, 0.18)',
+        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.1)',
+        'glass-hover': '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
+      },
       animation: {
-        'slide-in-up': 'slideInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        'scale-in': 'scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+
+
         'fade-in': 'fadeIn 0.2s ease-out',
         'pulse-soft': 'pulseSoft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'blob': 'blob 20s infinite',
       },
       keyframes: {
-        slideInUp: {
-          '0%': {
-            opacity: '0',
-            transform: 'translateY(10px)'
-          },
-          '100%': {
-            opacity: '1',
-            transform: 'translateY(0)'
-          },
-        },
-        scaleIn: {
-          '0%': {
-            opacity: '0',
-            transform: 'scale(0.95)'
-          },
-          '100%': {
-            opacity: '1',
-            transform: 'scale(1)'
-          },
-        },
+
+
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
@@ -132,20 +137,12 @@ module.exports = {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.8' },
         },
-      },
-      backdropBlur: {
-        'xs': '2px',
-        'sm': '4px',
-        'md': '8px',
-        'lg': '12px',
-        'xl': '16px',
-      },
-      boxShadow: {
-        'premium': '0 4px 16px rgba(0, 0, 0, 0.1)',
-        'premium-lg': '0 8px 32px rgba(0, 0, 0, 0.15)',
-        'glow': '0 0 20px rgba(255, 255, 255, 0.1)',
-        'event': '0 2px 8px rgba(0, 0, 0, 0.12)',
-        'event-hover': '0 4px 16px rgba(0, 0, 0, 0.18)',
+        blob: {
+          '0%': { transform: 'translate(0px, 0px) scale(1)' },
+          '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+          '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+          '100%': { transform: 'translate(0px, 0px) scale(1)' },
+        },
       },
     },
   },

@@ -188,7 +188,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
             isMobile ? 'px-3 py-2 text-sm' : 'px-4 py-2'
           } rounded-lg transition-all touch-manipulation min-h-[44px] focus:outline-none focus:ring-2 focus:ring-primary ${
             isToday
-              ? 'bg-muted/50 text-muted-foreground cursor-not-allowed focus:ring-muted'
+              ? 'bg-muted/50 text-gray-700 dark:text-gray-200 cursor-not-allowed focus:ring-muted'
               : 'bg-primary/10 hover:bg-primary/20 focus:bg-primary/20 text-primary hover:text-primary/80'
           }`}
           title={`Navigate to today's date. Shortcut: Home key`}
@@ -233,7 +233,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
           {getCurrentPeriod()}
         </h1>
         <div
-          className="text-xs text-muted-foreground mt-1"
+          className="text-xs text-gray-700 dark:text-gray-200 mt-1"
           id="timezone-info"
           role="status"
           aria-label={`Current timezone: ${moment().tz(timezone).format('z')}`}
@@ -261,7 +261,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                 } first:rounded-l-lg last:rounded-r-lg transition-all touch-manipulation min-h-[44px] min-w-[44px] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset ${
                   view === viewOption
                     ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'hover:bg-muted/60 focus:bg-muted/60 text-muted-foreground'
+                    : 'hover:bg-muted/60 focus:bg-muted/60 text-gray-700 dark:text-gray-200'
                 }`}
                 title={`Switch to ${viewOption} view. Shortcut: ${viewOption === 'month' ? 'M or 1' : viewOption === 'week' ? 'W or 2' : 'D or 3'}`}
                 aria-label={`View calendar in ${viewOption} format`}

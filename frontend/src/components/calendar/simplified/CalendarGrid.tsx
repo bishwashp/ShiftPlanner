@@ -58,10 +58,10 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   // Enhanced keyboard navigation for calendar grid
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!gridRef.current?.contains(document.activeElement)) return;
-    
+
     const currentDate = focusedDate ? moment(focusedDate) : moment(date).startOf('month');
     let newDate: moment.Moment;
-    
+
     switch (e.key) {
       case 'ArrowLeft':
         e.preventDefault();
@@ -124,7 +124,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
 
     const visibleEvents = dayEvents.slice(0, config.maxVisible);
     const overflowCount = Math.max(0, dayEvents.length - config.maxVisible);
-    
+
     // Dynamic sizing based on number of events
     const getNameBoxSize = (eventCount: number): 'small' | 'medium' | 'large' => {
       if (isMobile) return 'small';
@@ -143,6 +143,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             name={event.title}
             shiftType={event.resource.shiftType}
             isScreener={event.resource.isScreener}
+            date={event.date}
             size={boxSize}
             onClick={() => {
               console.log('Name box clicked:', event.title, dayDate.format('YYYY-MM-DD'));
@@ -152,12 +153,12 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             }}
           />
         ))}
-        
+
         {/* Overflow indicator */}
         {overflowCount > 0 && (
           <button
             className={`
-              w-full text-center text-muted-foreground bg-muted/50 rounded-md border-dashed border
+              w-full text-center text-gray-700 dark:text-gray-200 bg-muted/50 rounded-md border-dashed border
               cursor-pointer hover:bg-muted/70 focus:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-primary transition-colors
               ${isMobile ? 'text-xs py-0.5 px-1' : 'text-xs py-1 px-2'}
             `}
@@ -181,36 +182,36 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     const currentMonth = moment(date).tz(timezone);
     const startOfMonth = currentMonth.clone().startOf('month');
     const endOfMonth = currentMonth.clone().endOf('month');
-    
+
     // Start from the first day of the week containing the first day of the month
     const startDate = startOfMonth.clone().startOf('week');
-    
+
     // End on the last day of the week containing the last day of the month
     const endDate = endOfMonth.clone().endOf('week');
-    
+
     const days: CalendarDay[] = [];
     let current = startDate.clone();
-    
+
     while (current.isSameOrBefore(endDate)) {
       const dayEvents = events.filter(event =>
         event.date === current.format('YYYY-MM-DD')
       );
-      
+
       days.push({
         date: current.clone(),
         events: dayEvents,
         isCurrentMonth: current.month() === currentMonth.month(),
         isToday: current.isSame(moment().tz(timezone), 'day')
       });
-      
+
       current.add(1, 'day');
     }
-    
+
     return days;
   };
 
   const calendarDays = generateCalendarDays();
-  
+
   // Group days into weeks
   const weeks: CalendarDay[][] = [];
   for (let i = 0; i < calendarDays.length; i += 7) {
@@ -222,14 +223,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     const isSelected = focusedDate === day.date.format('YYYY-MM-DD');
     const eventCount = day.events.length;
     const dateString = day.date.format('MMMM D, YYYY');
-    
+
     let description = `${dateString}`;
     if (day.isToday) description += ', today';
     if (!day.isCurrentMonth) description += ', outside current month';
     if (eventCount > 0) {
       description += `, ${eventCount} shift${eventCount > 1 ? 's' : ''} scheduled`;
     }
-    
+
     return { isSelected, description, dateString };
   };
 
@@ -242,12 +243,11 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     >
       {/* Calendar Header */}
       <div className="grid grid-cols-7 gap-1 mb-2" role="row">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+        {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((day, index) => (
           <div
             key={day}
-            className={`text-center py-2 text-sm font-medium text-muted-foreground ${
-              isMobile ? 'text-xs' : ''
-            }`}
+            className={`text-center py-2 text-sm font-medium text-gray-700 dark:text-gray-200 ${isMobile ? 'text-xs' : ''
+              }`}
             role="columnheader"
             aria-label={`${day}day column`}
           >
@@ -273,13 +273,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 <div
                   key={dayIndex}
                   className={`
-                    relative border rounded-lg transition-all duration-200 cursor-pointer
+                    relative border rounded-lg cursor-pointer
+                    backdrop-blur-sm
                     ${day.isCurrentMonth
-                      ? 'bg-background border-border hover:bg-muted/20 focus-within:bg-muted/20'
-                      : 'bg-muted/20 border-muted/40 text-muted-foreground'
+                      ? 'bg-white/60 dark:bg-gray-800/40 border-gray-300/50 dark:border-gray-600/40 hover:bg-white/80 dark:hover:bg-gray-900/80 focus-within:bg-white/80 dark:focus-within:bg-gray-800/60'
+                      : 'bg-gray-100/40 dark:bg-gray-900/20 border-gray-200/40 dark:border-gray-700/30 text-gray-500 dark:text-gray-400'
                     }
                     ${day.isToday
-                      ? 'ring-2 ring-primary bg-primary/5 shadow-sm'
+                      ? '' // Removed cell styling for today
                       : ''
                     }
                     ${isSelected
@@ -287,7 +288,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                       : ''
                     }
                     ${day.events.length > 0 && day.isCurrentMonth
-                      ? 'hover:shadow-md'
+                      ? 'hover:shadow-lg hover:shadow-white/5'
                       : ''
                     }
                   `}
@@ -320,30 +321,19 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   <div
                     className={`
                       font-medium mb-2 flex items-center justify-between
-                      ${day.isToday
-                        ? 'text-primary font-bold'
-                        : day.isCurrentMonth
-                          ? 'text-foreground'
-                          : 'text-muted-foreground'
-                      }
                       ${isMobile ? 'text-xs mb-1' : 'text-sm'}
                     `}
                   >
-                    <span>{day.date.date()}</span>
-                    {day.events.length > 0 && (
-                      <span
-                        className={`
-                          rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold
-                          ${day.events.length > config.maxVisible
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-primary/20 text-primary'
-                          }
-                        `}
-                        title={`${day.events.length} shift${day.events.length > 1 ? 's' : ''}`}
-                      >
-                        {day.events.length}
-                      </span>
-                    )}
+                    {/* Date Number */}
+                    <div className={`
+                      text-sm font-semibold mb-1 flex items-center justify-center w-7 h-7 rounded-full transition-colors
+                      ${day.isToday
+                        ? 'bg-[#F00046] text-white shadow-sm'
+                        : day.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}
+                    `}>
+                      <span>{day.date.date()}</span>
+                    </div>
+
                   </div>
 
                   {/* Smart name box stacking */}
@@ -355,7 +345,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   {day.events.length === 0 && day.isCurrentMonth && (
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-30 focus-within:opacity-30 transition-opacity">
                       <button
-                        className="text-muted-foreground text-xs bg-muted/50 rounded-full w-6 h-6 flex items-center justify-center hover:bg-muted/70 focus:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="text-gray-700 dark:text-gray-200 text-xs bg-muted/50 rounded-full w-6 h-6 flex items-center justify-center hover:bg-muted/70 focus:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-primary"
                         title={`Add shift for ${day.date.format('MMMM D')}`}
                         aria-label={`Add shift for ${dateString}`}
                         onDoubleClick={(e) => {
@@ -377,16 +367,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         ))}
       </div>
 
-      {/* Month indicator at bottom */}
-      <div
-        className="text-center mt-4 text-sm text-muted-foreground"
-        role="status"
-        aria-live="polite"
-        aria-label={`Currently viewing ${moment(date).tz(timezone).format('MMMM YYYY')}`}
-      >
-        {moment(date).tz(timezone).format('MMMM YYYY')}
-      </div>
-      
+
+
       {/* Screen reader instructions */}
       <div className="sr-only" role="region" aria-label="Calendar navigation instructions">
         Use arrow keys to navigate between dates. Press Enter or Space to select a date.

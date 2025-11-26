@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiService, Schedule, Analyst } from '../services/api';
 import moment from 'moment-timezone';
+import Button from './ui/Button';
+
 
 interface CalendarExportProps {
   onError?: (error: string) => void;
@@ -99,16 +101,16 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
   const fetchData = useCallback(async () => {
     try {
       if (isLoading) isLoading(true);
-      
+
       const [schedulesData, analystsData] = await Promise.all([
         apiService.getSchedules(dateRange.start, dateRange.end),
         apiService.getAnalysts()
       ]);
-      
+
       setSchedules(schedulesData);
       setAnalysts(analystsData.filter(a => a.isActive));
       setSelectedAnalysts(analystsData.filter(a => a.isActive).map(a => a.id));
-      
+
     } catch (err) {
       console.error('Error fetching data:', err);
       if (onError) onError('Failed to load data for export');
@@ -126,7 +128,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       setIsExporting(true);
       if (isLoading) isLoading(true);
 
-      const filteredSchedules = schedules.filter(schedule => 
+      const filteredSchedules = schedules.filter(schedule =>
         selectedAnalysts.includes(schedule.analystId)
       );
 
@@ -142,8 +144,8 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       });
 
       // Create and download the file
-      const blob = new Blob([response.data], { 
-        type: format.id === 'ical' ? 'text/calendar' : 'application/json' 
+      const blob = new Blob([response.data], {
+        type: format.id === 'ical' ? 'text/calendar' : 'application/json'
       });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -155,7 +157,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       window.URL.revokeObjectURL(url);
 
       if (onSuccess) onSuccess(`Calendar exported successfully as ${format.name}`);
-      
+
     } catch (err) {
       console.error('Export error:', err);
       if (onError) onError('Failed to export calendar');
@@ -172,9 +174,9 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       // For now, we'll open the external calendar in a new tab
       // In a real implementation, you'd use the specific API for each calendar
       window.open(calendar.url, '_blank');
-      
+
       if (onSuccess) onSuccess(`Opening ${calendar.name} for manual import`);
-      
+
     } catch (err) {
       console.error('External calendar export error:', err);
       if (onError) onError(`Failed to export to ${calendar.name}`);
@@ -200,7 +202,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       });
 
       if (onSuccess) onSuccess('Webhook configured successfully');
-      
+
     } catch (err) {
       console.error('Webhook setup error:', err);
       if (onError) onError('Failed to configure webhook');
@@ -218,17 +220,11 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
   };
 
   return (
-    <div className="space-y-6 p-6 bg-background text-foreground">
-      {/* Header */}
-      <div className="border-b border-border pb-4">
-        <h2 className="text-2xl font-bold text-foreground">Calendar Export & Integration</h2>
-        <p className="text-muted-foreground mt-2">
-          Export schedules to various formats and integrate with external calendar systems
-        </p>
-      </div>
+    <div className="space-y-6 p-6 text-foreground relative z-10">
+      {/* Header removed - now in Modal */}
 
       {/* Date Range Selection */}
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div className="glass-static p-4">
         <h3 className="text-lg font-semibold mb-4">Date Range</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -253,27 +249,29 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       </div>
 
       {/* Analyst Selection */}
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div className="glass-static p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Analysts</h3>
           <div className="space-x-2">
-            <button
+            <Button
               onClick={handleSelectAllAnalysts}
-              className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              variant="primary"
+              size="sm"
             >
               Select All
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleDeselectAllAnalysts}
-              className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
+              variant="secondary"
+              size="sm"
             >
               Deselect All
-            </button>
+            </Button>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {analysts.map(analyst => (
-            <label key={analyst.id} className="flex items-center space-x-2 cursor-pointer">
+            <div key={analyst.id} className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={selectedAnalysts.includes(analyst.id)}
@@ -284,26 +282,25 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
                     setSelectedAnalysts(prev => prev.filter(id => id !== analyst.id));
                   }
                 }}
-                className="rounded border-border text-primary focus:ring-primary"
+                className="h-4 w-4 border-border rounded"
               />
-              <span className="text-sm">{analyst.name}</span>
-            </label>
+              <span className="text-sm text-foreground">{analyst.name}</span>
+            </div>
           ))}
         </div>
       </div>
 
       {/* Export Format Selection */}
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div className="glass-static p-4">
         <h3 className="text-lg font-semibold mb-4">Export Format</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {exportFormats.map(format => (
             <label
               key={format.id}
-              className={`relative cursor-pointer border-2 rounded-lg p-4 transition-all ${
-                exportFormat === format.id
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border hover:border-primary/50'
-              }`}
+              className={`relative cursor-pointer border-2 rounded-lg p-4 transition-all ${exportFormat === format.id
+                ? 'border-primary bg-primary/10 dark:bg-primary/20'
+                : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                }`}
             >
               <input
                 type="radio"
@@ -316,7 +313,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
               <div className="text-center">
                 <div className="text-2xl mb-2">{format.icon}</div>
                 <div className="font-medium">{format.name}</div>
-                <div className="text-xs text-muted-foreground mt-1">{format.description}</div>
+                <div className="text-xs text-gray-700 dark:text-gray-200 mt-1">{format.description}</div>
               </div>
             </label>
           ))}
@@ -324,40 +321,33 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       </div>
 
       {/* Export Button */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <button
+      <div className="glass-static p-4">
+        <Button
           onClick={handleExport}
           disabled={isExporting || selectedAnalysts.length === 0}
-          className="w-full py-3 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+          isLoading={isExporting}
+          variant="primary"
+          className="w-full"
         >
-          {isExporting ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>Exporting...</span>
-            </>
-          ) : (
-            <>
-              <span>📤</span>
-              <span>Export Calendar</span>
-            </>
-          )}
-        </button>
+          {!isExporting && <span className="mr-2">📤</span>}
+          Export Calendar
+        </Button>
       </div>
 
       {/* External Calendar Integration */}
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div className="glass-static p-4">
         <h3 className="text-lg font-semibold mb-4">External Calendar Integration</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {externalCalendars.map(calendar => (
             <button
               key={calendar.id}
               onClick={() => handleExternalCalendarExport(calendar)}
-              className="flex items-center space-x-3 p-4 border border-border rounded-lg hover:border-primary/50 hover:bg-primary/5 transition-all"
+              className="flex items-center space-x-3 p-4 border border-border rounded-lg hover:border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 transition-all"
             >
               <span className="text-2xl">{calendar.icon}</span>
               <div className="text-left">
                 <div className="font-medium">{calendar.name}</div>
-                <div className="text-xs text-muted-foreground">{calendar.description}</div>
+                <div className="text-xs text-gray-700 dark:text-gray-200">{calendar.description}</div>
               </div>
             </button>
           ))}
@@ -365,7 +355,7 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
       </div>
 
       {/* Webhook Configuration */}
-      <div className="bg-card border border-border rounded-lg p-4">
+      <div className="glass-static p-4">
         <h3 className="text-lg font-semibold mb-4">Webhook Integration</h3>
         <div className="space-y-4">
           <div>
@@ -381,21 +371,20 @@ const CalendarExport: React.FC<CalendarExportProps> = ({
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"
-              id="webhookEnabled"
               checked={webhookEnabled}
               onChange={(e) => setWebhookEnabled(e.target.checked)}
-              className="rounded border-border text-primary focus:ring-primary"
+              className="h-4 w-4 border-border rounded"
             />
-            <label htmlFor="webhookEnabled" className="text-sm">
+            <span className="text-sm text-foreground">
               Enable webhook notifications for schedule changes
-            </label>
+            </span>
           </div>
-          <button
+          <Button
             onClick={handleWebhookSetup}
-            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 transition-colors"
+            variant="secondary"
           >
             Configure Webhook
-          </button>
+          </Button>
         </div>
       </div>
     </div>

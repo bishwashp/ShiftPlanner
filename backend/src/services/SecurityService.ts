@@ -97,7 +97,7 @@ export class SecurityService {
       rateLimits: {
         api: {
           windowMs: 15 * 60 * 1000, // 15 minutes
-          maxRequests: parseInt(process.env.RATE_LIMIT_API || '100'),
+          maxRequests: parseInt(process.env.RATE_LIMIT_API || '500'),
           message: 'Too many requests from this IP',
           statusCode: 429,
         },

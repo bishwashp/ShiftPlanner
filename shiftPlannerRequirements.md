@@ -37,20 +37,42 @@ The application will:
 ### 3.2 Schedule Generation
 
 #### 3.2.1 Regular Schedule Generation
-- **FR-2.1**: The system shall create 5-day work schedules for all Analysts.
-- **FR-2.2**: The system shall assign Analysts to one of three patterns:
+- **FR-2.1**: The system shall create 5-day work schedules for all Analysts, with specific patterns determined by the rotation system.
+
+- **FR-2.2**: The system shall utilize three work patterns:
   - Sunday to Thursday
   - Monday to Friday
   - Tuesday to Saturday
-- **FR-2.3**: The system shall rotate Analysts through different shift patterns as below:
-- **FR-2.3.1**: Weekend Rotation:
-  - An Analyst A working Sunday-Thursday in week N will work Tuesday-Saturday in week N+1
-  - Another Analyst B who worked Monday-Friday in week N will be rotated amongst avaialble Analyst to work Sunday-Thursday in week N+1
-  - An Analyst A working Tuesday-Saturday in the week N+1 will work Monday-Friday in week N+2
-- **FR-2.4**: The system shall ensure exactly one Analyst (from either the morning or evening shift) works on each weekend rotation (FR-2.3.1).
+
+- **FR-2.3**: The system shall rotate Analysts through different shift patterns as follows:
+  - **FR-2.3.1**: Weekend Rotation:
+    - The system shall maintain a rotation system where exactly one Analyst per shift type (morning/evening) follows a special rotation pattern at any given time
+    - The rotation pattern consists of:
+      - Week 1: The Analyst works Sunday-Thursday
+      - Week 2: After a 4-day break, the same Analyst works Tuesday-Saturday
+      - Week 3: The Analyst returns to regular Monday-Friday schedule
+    - When an Analyst completes their rotation cycle, the next Analyst is selected from the pool of available Analysts based on fairness metrics
+    - An Analyst shall not re-enter rotation until all other available Analysts have completed their rotation cycles
+    - All other Analysts not currently in rotation shall work regular Monday-Friday schedules
+
+- **FR-2.4**: The system shall ensure exactly one Analyst per shift type (morning/evening) works on each weekend day.
+
 - **FR-2.5**: The system shall provide 4-day breaks for Analysts transitioning from Sunday-Thursday to Tuesday-Saturday schedules.
+
 - **FR-2.6**: The system shall support **dynamic pattern definitions** that can be modified without code changes.
+
 - **FR-2.7**: The system shall allow **runtime selection of different rotation algorithms** based on business needs.
+
+- **FR-2.8**: The system shall select the next Analyst to enter rotation based on fairness metrics including:
+  - Total weekend days worked historically
+  - Time since last rotation
+  - Distribution of Saturday vs Sunday assignments
+
+- **FR-2.9**: The system shall maintain pattern continuity between schedule generations to ensure consistent rotation.
+
+- **FR-2.10**: The system shall handle the "cold start" problem for the first schedule generation by selecting an Analyst based on fairness metrics.
+
+- **FR-2.11**: The system shall exclude Analysts on vacation or unavailable from the rotation selection pool.
 
 #### 3.2.2 Screener Schedule Generation
 - **FR-3.1**: The system shall assign one Morning Screener and one Evening Screener for each weekday.
