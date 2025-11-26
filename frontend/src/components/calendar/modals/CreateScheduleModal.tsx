@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Analyst, apiService } from '../../../services/api';
 import moment from 'moment';
 
@@ -103,7 +104,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
     if (!isOpen) return null;
 
-    return (
+    return ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl">
                 <div className="flex justify-between items-center mb-6">
@@ -122,25 +123,33 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                 {/* Validation Violations Display */}
                 {validationViolations.length > 0 && (
                     <div className="mb-4 space-y-2">
-                        {validationViolations.map((violation, index) => (
-                            <div
-                                key={index}
-                                className={`p-3 rounded-md text-sm border backdrop-blur-sm ${violation.type === 'HARD'
-                                    ? 'bg-red-500/20 border-red-500/30 text-red-200'
-                                    : 'bg-yellow-500/20 border-yellow-500/30 text-yellow-200'
-                                    }`}
-                            >
-                                <div className="font-medium flex items-center gap-2">
-                                    {violation.type === 'HARD' ? '⛔ Critical Conflict' : '⚠️ Warning'}
+                        {validationViolations.map((violation, index) => {
+                            // Simplify verbose messages
+                            let description = violation.description;
+                            if (description.includes('assigned to') && description.includes('cannot schedule for')) {
+                                const assignedShift = description.match(/assigned to (\w+) shift/)?.[1];
+                                if (assignedShift) {
+                                    description = `Analyst is restricted to ${assignedShift} shifts only.`;
+                                }
+                            }
+
+                            return (
+                                <div
+                                    key={index}
+                                    className={`p-3 rounded-md text-sm border backdrop-blur-sm ${violation.type === 'HARD'
+                                        ? 'bg-red-50 dark:bg-red-500/20 border-red-200 dark:border-red-500/30 text-red-800 dark:text-red-200'
+                                        : 'bg-yellow-50 dark:bg-yellow-500/20 border-yellow-200 dark:border-yellow-500/30 text-yellow-800 dark:text-yellow-200'
+                                        }`}
+                                >
+                                    <div className="font-medium">{description}</div>
+                                    {violation.suggestedFix && (
+                                        <div className="mt-1 text-xs opacity-90 font-medium">
+                                            💡 {violation.suggestedFix.replace(/Schedule for (\w+) instead/i, 'Change the Shift Type to $1')}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="mt-1">{violation.description}</div>
-                                {violation.suggestedFix && (
-                                    <div className="mt-1 text-xs opacity-90">
-                                        💡 {violation.suggestedFix}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 
@@ -237,7 +246,8 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

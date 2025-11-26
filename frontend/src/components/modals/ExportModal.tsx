@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import { X } from '@phosphor-icons/react';
 import CalendarExport from '../CalendarExport';
 
@@ -10,7 +11,7 @@ interface ExportModalProps {
 const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
-    return (
+    return ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl animate-in zoom-in-95 duration-200">
                 <button
@@ -23,7 +24,8 @@ const ExportModal: React.FC<ExportModalProps> = ({ isOpen, onClose }) => {
                 <CalendarExport />
                 {/* <div className="p-4 text-center">Calendar Export Placeholder</div> */}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 

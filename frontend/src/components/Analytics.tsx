@@ -87,8 +87,10 @@ const Analytics: React.FC = () => {
   const [fairnessData, setFairnessData] = useState<FairnessReport | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [trendsData, setTrendsData] = useState<Array<{ month: string, fairness: number, avgWorkload: number }>>([]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // Current month
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear()); // Current year
+  // Current month/year for default view
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
+
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
@@ -105,7 +107,7 @@ const Analytics: React.FC = () => {
         setLoading(true);
 
         // Fetch current month data
-        const currentData = await apiService.getWorkDayTally(selectedMonth, selectedYear);
+        const currentData = await apiService.getWorkDayTally(currentMonth, currentYear);
         setTallyData(currentData);
 
         // Fetch fairness report for current month
@@ -152,7 +154,7 @@ const Analytics: React.FC = () => {
     }, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [selectedMonth, selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateAlerts = (tallyData: MonthlyTally[], fairnessData: FairnessReport | null) => {
     const newAlerts: Alert[] = [];
@@ -378,47 +380,6 @@ const Analytics: React.FC = () => {
 
   return (
     <div className="space-y-6 text-foreground p-6 relative z-10">
-      {/* Header with date selection */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Analytics Dashboard</h1>
-          <div className="text-sm text-gray-700 dark:text-gray-200">
-            Last updated: {lastUpdated.toLocaleTimeString()}
-          </div>
-        </div>
-        <div className="flex space-x-3">
-          <Button
-            onClick={() => window.location.reload()}
-            variant="primary"
-            size="sm"
-            icon={ArrowsClockwise}
-          >
-            Refresh
-          </Button>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="px-3 py-2 border border-border rounded-lg bg-input focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {new Date(2024, i).toLocaleDateString('en-US', { month: 'long' })}
-              </option>
-            ))}
-          </select>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="px-3 py-2 border border-border rounded-lg bg-input focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {Array.from({ length: 6 }, (_, i) => (
-              <option key={2025 - i} value={2025 - i}>
-                {2025 - i}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
@@ -429,12 +390,9 @@ const Analytics: React.FC = () => {
           <ChartBar className="h-16 w-16 mx-auto mb-4 text-gray-400" />
           <h3 className="text-xl font-semibold text-foreground mb-2">No Schedule Data Found</h3>
           <p className="text-gray-700 dark:text-gray-200 mb-4">
-            No schedule data found for {selectedMonth}/{selectedYear}.
-            Try selecting a different month or generate some schedules first.
+            No schedule data found for the current month.
+            Try generating some schedules first.
           </p>
-          <div className="text-sm text-gray-700 dark:text-gray-200">
-            Try selecting a different month or generate schedules for the current period
-          </div>
         </div>
       ) : (
         <>

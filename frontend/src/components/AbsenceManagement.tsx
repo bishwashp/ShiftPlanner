@@ -514,7 +514,7 @@ const AbsenceManagement: React.FC = () => {
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-700 dark:text-gray-200">
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No absences found</p>
-                    <p className="text-sm">Click "Add Absence" to create your first absence record</p>
+                    <p className="text-sm">There are no Leave records for any analysts</p>
                   </td>
                 </tr>
               ) : (

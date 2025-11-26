@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { X } from '@phosphor-icons/react';
 import { apiService, FairnessReport } from '../services/api';
 import Button from './ui/Button';
@@ -78,7 +79,7 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
 
   if (!report) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-start mb-6">
@@ -124,7 +125,7 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
         </div>
 
         {/* Recommendations */}
-        {report.recommendations.length > 0 && (
+        {report.recommendations && report.recommendations.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-foreground mb-4">Recommendations</h3>
             <div className="space-y-2">
@@ -153,7 +154,7 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
                 </tr>
               </thead>
               <tbody>
-                {report.analystMetrics.map((metric) => (
+                {(report.analystMetrics || []).map((metric) => (
                   <tr key={metric.analystId} className="border-b border-border/50">
                     <td className="py-2 px-3 text-sm text-foreground">{metric.analystName}</td>
                     <td className="text-center py-2 px-3 text-sm text-gray-700 dark:text-gray-200">{metric.totalDaysWorked}</td>
@@ -185,7 +186,8 @@ const FairnessReportModal: React.FC<FairnessReportModalProps> = ({ startDate, en
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

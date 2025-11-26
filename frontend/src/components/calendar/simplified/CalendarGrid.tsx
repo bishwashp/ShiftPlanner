@@ -272,14 +272,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 <div
                   key={dayIndex}
                   className={`
-                    relative border rounded-lg transition-all duration-200 cursor-pointer
+                    relative border rounded-lg cursor-pointer
                     backdrop-blur-sm
                     ${day.isCurrentMonth
                       ? 'bg-white/60 dark:bg-gray-800/40 border-gray-300/50 dark:border-gray-600/40 hover:bg-white/80 dark:hover:bg-gray-900/80 focus-within:bg-white/80 dark:focus-within:bg-gray-800/60'
                       : 'bg-gray-100/40 dark:bg-gray-900/20 border-gray-200/40 dark:border-gray-700/30 text-gray-500 dark:text-gray-400'
                     }
                     ${day.isToday
-                      ? 'ring-2 ring-primary bg-primary/10 shadow-md shadow-primary/10'
+                      ? '' // Removed cell styling for today
                       : ''
                     }
                     ${isSelected
@@ -325,8 +325,10 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   >
                     {/* Date Number */}
                     <div className={`
-                      text-sm font-semibold mb-1
-                      ${day.isToday ? 'text-primary' : day.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}
+                      text-sm font-semibold mb-1 flex items-center justify-center w-7 h-7 rounded-full transition-colors
+                      ${day.isToday
+                        ? 'bg-[#F00046] text-white shadow-sm'
+                        : day.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}
                     `}>
                       <span>{day.date.date()}</span>
                     </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  List,
+  Sidebar,
   CaretLeft,
   CaretRight,
   ArrowsClockwise,
@@ -117,7 +117,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             className="p-2 rounded-lg hover:bg-gray-200/50 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-900 dark:text-white transition-colors"
             aria-label="Toggle sidebar"
           >
-            <List className="h-5 w-5" weight="bold" />
+            <Sidebar className="h-5 w-5" weight="bold" />
           </button>
           <h1 className="text-lg font-semibold truncate hidden sm:block text-gray-900 dark:text-white">
             {getTitle()}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Analyst, Schedule, apiService } from '../../../services/api';
 import moment from 'moment';
 import GlassCard from '../../common/GlassCard';
@@ -146,7 +147,8 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
 
     if (!isOpen || !schedule) return null;
 
-    return (
+
+    return ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
             <GlassCard className="w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto bg-white/90 dark:bg-gray-900/90 shadow-2xl" interactive={false}>
                 <div className="flex justify-between items-center mb-6">
@@ -166,25 +168,33 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                 {/* Validation Violations Display */}
                 {!showDeleteConfirm && validationViolations.length > 0 && (
                     <div className="mb-4 space-y-2">
-                        {validationViolations.map((violation, index) => (
-                            <div
-                                key={index}
-                                className={`p-3 rounded-md text-sm border ${violation.type === 'HARD'
-                                    ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'
-                                    : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200'
-                                    }`}
-                            >
-                                <div className="font-medium flex items-center gap-2">
-                                    {violation.type === 'HARD' ? '⛔ Critical Conflict' : '⚠️ Warning'}
+                        {validationViolations.map((violation, index) => {
+                            // Simplify verbose messages
+                            let description = violation.description;
+                            if (description.includes('assigned to') && description.includes('cannot schedule for')) {
+                                const assignedShift = description.match(/assigned to (\w+) shift/)?.[1];
+                                if (assignedShift) {
+                                    description = `Analyst is restricted to ${assignedShift} shifts only.`;
+                                }
+                            }
+
+                            return (
+                                <div
+                                    key={index}
+                                    className={`p-3 rounded-md text-sm border ${violation.type === 'HARD'
+                                        ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'
+                                        : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200'
+                                        }`}
+                                >
+                                    <div className="font-medium">{description}</div>
+                                    {violation.suggestedFix && (
+                                        <div className="mt-1 text-xs opacity-90 font-medium">
+                                            💡 {violation.suggestedFix.replace(/Schedule for (\w+) instead/i, 'Change the Shift Type to $1')}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="mt-1">{violation.description}</div>
-                                {violation.suggestedFix && (
-                                    <div className="mt-1 text-xs opacity-90">
-                                        💡 {violation.suggestedFix}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
 
@@ -316,7 +326,8 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                     </form>
                 )}
             </GlassCard>
-        </div>
+        </div>,
+        document.body
     );
 };
 

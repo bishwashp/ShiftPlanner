@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import { X, CalendarBlank, Warning, Info, ListBullets, ChartBar } from '@phosphor-icons/react';
 import moment from 'moment';
 import Checkbox from './ui/Checkbox';
@@ -134,11 +135,11 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] min-h-[60vh] flex flex-col overflow-hidden">
+      <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] min-h-[60vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center space-x-3">
             <CalendarBlank className="h-6 w-6 text-primary" />
             <div>
@@ -190,12 +191,12 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4">
               {viewMode === 'SUMMARY' ? (
                 <div className="space-y-6">
                   {/* Fairness Analysis Card */}
                   {summary.fairnessMetrics && (
-                    <div className="bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+                    <div className="bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                       <div className="flex items-center space-x-2 mb-4">
                         <Info className="h-5 w-5 text-blue-500" />
                         <h3 className="font-semibold text-lg">Fairness Analysis</h3>
@@ -229,7 +230,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
 
                   {/* Workload Summary Table */}
                   <div className="bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg">
-                    <div className="px-6 py-4 border-b border-border flex justify-between items-center">
+                    <div className="p-4 border-t border-border flex justify-end space-x-3 bg-white/50 dark:bg-gray-900/50">
                       <h3 className="font-semibold">Analyst Workload Summary</h3>
                       <span className="text-sm text-gray-700 dark:text-gray-200">{analystStats.length} Analysts</span>
                     </div>
@@ -354,7 +355,8 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
