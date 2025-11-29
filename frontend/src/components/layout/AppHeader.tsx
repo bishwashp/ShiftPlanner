@@ -8,6 +8,7 @@ import {
   Export
 } from '@phosphor-icons/react';
 import Button from '../ui/Button';
+import moment from 'moment-timezone';
 
 import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } from 'date-fns';
 import { View as SidebarView } from './CollapsibleSidebar';
@@ -54,19 +55,21 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const handlePrev = () => {
-    if (view === 'month') setDate(subMonths(date, 1));
-    else if (view === 'week') setDate(subWeeks(date, 1));
-    else setDate(subDays(date, 1));
+    const momentDate = moment(date).tz(timezone);
+    if (view === 'month') setDate(momentDate.subtract(1, 'month').toDate());
+    else if (view === 'week') setDate(momentDate.subtract(1, 'week').toDate());
+    else setDate(momentDate.subtract(1, 'day').toDate());
   };
 
   const handleNext = () => {
-    if (view === 'month') setDate(addMonths(date, 1));
-    else if (view === 'week') setDate(addWeeks(date, 1));
-    else setDate(addDays(date, 1));
+    const momentDate = moment(date).tz(timezone);
+    if (view === 'month') setDate(momentDate.add(1, 'month').toDate());
+    else if (view === 'week') setDate(momentDate.add(1, 'week').toDate());
+    else setDate(momentDate.add(1, 'day').toDate());
   };
 
   const handleToday = () => {
-    setDate(new Date());
+    setDate(moment().tz(timezone).toDate());
   };
 
   const handleViewChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -74,16 +77,19 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   }
 
   const getTitle = () => {
+    // Use moment-timezone for consistent date handling
+    const momentDate = moment(date).tz(timezone);
+
     switch (activeView) {
       case 'schedule':
         if (view === 'week') {
-          const startOfWeek = format(subDays(date, date.getDay()), 'MMM d');
-          const endOfWeek = format(addDays(date, 6 - date.getDay()), 'MMM d, yyyy');
-          const weekNumber = format(date, 'w');
+          const startOfWeek = momentDate.clone().startOf('week').format('MMM D');
+          const endOfWeek = momentDate.clone().endOf('week').format('MMM D, YYYY');
+          const weekNumber = momentDate.format('w');
           return `W${weekNumber} | ${startOfWeek} - ${endOfWeek}`;
         }
-        if (view === 'day') return format(date, 'MMMM d, yyyy');
-        return format(date, 'MMMM yyyy');
+        if (view === 'day') return momentDate.format('MMMM D, YYYY');
+        return momentDate.format('MMMM YYYY');
       case 'dashboard':
         return 'Dashboard';
       case 'analysts':

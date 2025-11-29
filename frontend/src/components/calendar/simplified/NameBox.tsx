@@ -123,7 +123,7 @@ export const NameBox: React.FC<NameBoxProps> = ({
         ${colorScheme.text}
         ${colorScheme.border}
         ${sizeClasses}
-        border rounded-md truncate font-medium
+        border rounded-full truncate font-medium
         backdrop-blur-sm
         transition-all duration-200
         flex items-center justify-center relative

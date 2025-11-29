@@ -13,7 +13,9 @@ import {
   Sun,
   Wrench,
   Note,
-  CaretRight
+  CaretRight,
+  Lightning,
+  Clock
 } from '@phosphor-icons/react';
 import { apiService, DashboardStats, Activity } from '../services/api';
 import { formatDateTime } from '../utils/formatDateTime';
@@ -23,9 +25,8 @@ import { useActionPrompts } from '../contexts/ActionPromptContext';
 import ScheduleGenerationForm from './ScheduleGenerationForm';
 import ScheduleGenerationModal from './ScheduleGenerationModal';
 import GlassCard from './common/GlassCard';
-import TodaysScreenersWidget from './dashboard/widgets/TodaysScreenersWidget';
-import UpcomingHolidaysWidget from './dashboard/widgets/UpcomingHolidaysWidget';
-import CoverageWidget from './dashboard/widgets/CoverageWidget';
+import CommandCenter from './dashboard/command/CommandCenter';
+import SystemHealth from './dashboard/command/SystemHealth';
 import Button from './ui/Button';
 
 interface StatCardProps {
@@ -66,22 +67,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bg
   </GlassCard>
 );
 
-interface QuickActionButtonProps {
-  text: string;
-  icon: React.ElementType;
-  onClick?: () => void;
-}
 
-const QuickActionButton: React.FC<QuickActionButtonProps> = ({ text, icon: Icon, onClick }) => (
-  <Button
-    onClick={onClick}
-    variant="primary"
-    className="w-full h-full min-h-[60px]"
-    leftIcon={Icon}
-  >
-    {text}
-  </Button>
-);
 
 interface DashboardProps {
   onViewChange: (view: View) => void;
@@ -90,9 +76,10 @@ interface DashboardProps {
   isLoading?: (loading: boolean) => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onConflictTabChange?: (tab: 'critical' | 'recommended') => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess, isLoading, onRefresh, isRefreshing }) => {
+const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess, isLoading, onRefresh, isRefreshing, onConflictTabChange }) => {
   const { showCriticalPrompt, hasActivePrompts } = useActionPrompts();
   const [stats, setStats] = useState<DashboardStats>({
     totalAnalysts: 0,
@@ -115,6 +102,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
   const [generatedSchedules, setGeneratedSchedules] = useState<any[]>([]);
   const [generationSummary, setGenerationSummary] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -143,6 +132,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
       // Also fetch all activities for the "All Activities" tab
       const allActivityData = await apiService.getActivities({ limit: 50 });
       setAllActivities(allActivityData);
+
+      // Increment refresh key to force re-mount of child components that fetch their own data
+      setRefreshKey(prev => prev + 1);
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
 
@@ -373,66 +365,77 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
           </div>
         )}
 
-        {conflicts.critical.length > 0 && !hasActivePrompts() && !hasNoScheduleConflict && (
-          <div className="mb-6 p-4 bg-yellow-500/10 border-l-4 border-yellow-500 rounded flex items-center justify-between backdrop-blur-sm">
-            <span className="text-yellow-700 dark:text-yellow-300 font-medium">Schedule issues have been detected for the next 30 days. Please review the Conflict Management for more details.</span>
-            <Button
-              onClick={() => onViewChange('conflicts')}
-              variant="secondary"
-              className="ml-4 bg-yellow-500 text-white hover:bg-yellow-600 border-none"
-            >
-              View
-            </Button>
-          </div>
-        )}
 
-        <div className="flex items-center justify-end mb-4">
-          <div className="text-sm text-gray-700 dark:text-gray-200 bg-white/5 px-3 py-1 rounded-full backdrop-blur-sm">
+
+        <div className="flex items-center justify-end gap-3 mb-4">
+          <SystemHealth
+            key={refreshKey}
+            onResolveCritical={() => {
+              // Ensure we're on the critical tab
+              onConflictTabChange?.('critical');
+              onViewChange('conflicts');
+            }}
+            onReviewRecommended={() => {
+              // Switch to recommended tab
+              onConflictTabChange?.('recommended');
+              onViewChange('conflicts');
+            }}
+          />
+          <div className="text-sm text-gray-700 dark:text-gray-200 bg-white/5 px-3 py-1 rounded-full backdrop-blur-sm whitespace-nowrap">
             Last updated: {formatDateTime(lastUpdated, moment.tz.guess())}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statCards.map((card, index) => (
-            <StatCard key={index} {...card} loading={loading} />
-          ))}
-        </div>
-        {/* New Widgets Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 h-60">
-          <TodaysScreenersWidget />
-          <UpcomingHolidaysWidget />
-          <CoverageWidget />
-        </div>
+        {/* Operational Command Center */}
+        <CommandCenter key={refreshKey} onResolve={() => onViewChange('conflicts')} />
 
-        <GlassCard className="mb-8 p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <QuickActionButton
-              text="Add New Analyst"
-              icon={Plus}
+        <GlassCard className="mb-4 p-4">
+          <div className="flex items-center gap-2 mb-3 text-gray-500 dark:text-gray-400">
+            <Lightning className="w-4 h-4" weight="fill" />
+            <h2 className="text-xs font-medium uppercase tracking-wider">Quick Actions</h2>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
               onClick={handleAddAnalyst}
-            />
-            <QuickActionButton
-              text="Generate Schedule"
-              icon={CalendarBlank}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add New Analyst
+            </Button>
+            <Button
               onClick={handleGenerateSchedule}
-            />
-            <QuickActionButton
-              text="View Analytics"
-              icon={ChartBar}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              <CalendarBlank className="w-4 h-4" />
+              Generate Schedule
+            </Button>
+            <Button
               onClick={handleViewAnalytics}
-            />
-            <QuickActionButton
-              text="Fairness Report"
-              icon={CheckCircle}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              <ChartBar className="w-4 h-4" />
+              View Analytics
+            </Button>
+            <Button
               onClick={() => setShowFairnessReport(true)}
-            />
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Fairness Report
+            </Button>
           </div>
         </GlassCard>
 
-        <GlassCard className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-foreground">Recent Activity</h2>
+        <GlassCard className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+              <Clock className="w-4 h-4" weight="fill" />
+              <h2 className="text-xs font-medium uppercase tracking-wider">Recent Activity</h2>
+            </div>
             <div className="flex bg-muted/50 rounded-lg p-1">
               <Button
                 onClick={() => setActiveActivityTab('recent')}

@@ -10,6 +10,7 @@ import { constraintEngine } from './scheduling/algorithms/ConstraintEngine';
 import { fairnessEngine } from './scheduling/algorithms/FairnessEngine';
 import { optimizationEngine } from './scheduling/algorithms/OptimizationEngine';
 import { PatternContinuityService } from './scheduling/PatternContinuityService';
+import { scoringEngine } from './scheduling/algorithms/ScoringEngine';
 
 export interface AssignmentStrategy {
   id: string;
@@ -435,6 +436,9 @@ export class IntelligentScheduler implements SchedulingStrategy {
   /**
    * Core assignment logic with strategy selection
    */
+  /**
+   * Core assignment logic with strategy selection
+   */
   private async assignAnalyst(
     date: string,
     shiftType: 'MORNING' | 'EVENING' | 'WEEKEND',
@@ -453,51 +457,33 @@ export class IntelligentScheduler implements SchedulingStrategy {
       return null;
     }
 
-    let selectedAnalyst: any;
-    let reason: AssignmentReason;
+    // Fetch history for scoring
+    // We need history to calculate fatigue, consecutive days, etc.
+    // Ideally we should fetch this once at the top level, but for now we'll fetch it here or assume it's available.
+    // The 'analysts' array passed here includes 'schedules' which is the history within the window.
+    // We might need more history (past schedules) for accurate consecutive day calculation.
+    // For this implementation, we'll use what we have in 'analysts' (which includes schedules in the window).
+    // To be more robust, we should ensure 'analysts' includes past schedules too.
 
-    switch (strategy.logic) {
-      case 'HOLIDAY_COVERAGE':
-        selectedAnalyst = this.assignHolidayCoverage(date, shiftType, availableAnalysts);
-        reason = {
-          primaryReason: 'Holiday coverage - experienced analyst',
-          secondaryFactors: ['High work weight day', 'Requires reliable coverage'],
-          workWeight: 2.0,
-          computationCost: 'LOW'
-        };
-        break;
+    // Let's assume analysts have their schedules loaded.
+    // We need to flatten all schedules to pass to ScoringEngine
+    const history = analysts.flatMap(a => a.schedules.map((s: any) => ({
+      analystId: a.id,
+      date: new Date(s.date).toISOString().split('T')[0],
+      shiftType: s.shiftType
+    })));
 
-      case 'WORKLOAD_BALANCE':
-        selectedAnalyst = this.assignWorkloadBalance(date, shiftType, availableAnalysts, startDate, endDate);
-        reason = {
-          primaryReason: 'Workload balance - equitable distribution',
-          secondaryFactors: ['Analyst has lighter week', 'Maintains fair rotation'],
-          workWeight: 1.5,
-          computationCost: 'MEDIUM'
-        };
-        break;
+    // Use ScoringEngine to rank analysts
+    const scoredCandidates = scoringEngine.calculateScores(availableAnalysts, date, shiftType, history);
 
-      case 'EXPERIENCE_BASED':
-        selectedAnalyst = this.assignExperienceBased(date, shiftType, availableAnalysts);
-        reason = {
-          primaryReason: 'Experience-based assignment',
-          secondaryFactors: ['Analyst has relevant experience', 'Complex shift requirements'],
-          workWeight: 1.8,
-          computationCost: 'LOW'
-        };
-        break;
+    // Sort by score (descending)
+    scoredCandidates.sort((a, b) => b.score - a.score);
 
-      case 'ROUND_ROBIN':
-      default:
-        selectedAnalyst = this.assignRoundRobin(date, shiftType, availableAnalysts);
-        reason = {
-          primaryReason: 'Round-robin rotation',
-          secondaryFactors: ['Next in sequence', 'Fair distribution'],
-          workWeight: 1.0,
-          computationCost: 'LOW'
-        };
-        break;
-    }
+    const bestCandidate = scoredCandidates[0];
+
+    if (!bestCandidate) return null;
+
+    const selectedAnalyst = availableAnalysts.find(a => a.id === bestCandidate.analystId);
 
     const shiftDef = this.shiftDefinitions[shiftType];
     const shiftDate = moment.tz(date, shiftDef.tz).hour(shiftDef.startHour).minute(0).second(0).utc().format();
@@ -507,8 +493,14 @@ export class IntelligentScheduler implements SchedulingStrategy {
       shiftType,
       analystId: selectedAnalyst.id,
       analystName: selectedAnalyst.name,
-      reason,
-      strategy: strategy.name
+      reason: {
+        primaryReason: `Smart Auto-Fix (Score: ${bestCandidate.score})`,
+        secondaryFactors: bestCandidate.reasoning,
+        workWeight: bestCandidate.score,
+        computationCost: 'MEDIUM',
+        confidence: bestCandidate.score / 100 // Normalize to 0-1
+      },
+      strategy: 'SMART_SCORING'
     };
   }
 

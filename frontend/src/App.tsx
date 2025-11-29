@@ -220,7 +220,15 @@ function App() {
         return <AlgorithmManagement />;
 
       case 'dashboard':
-        return <Dashboard onViewChange={setActiveView} onError={handleError} onSuccess={handleSuccess} isLoading={handleLoading} onRefresh={handleRefresh} isRefreshing={isRefreshing} />;
+        return <Dashboard
+          onViewChange={setActiveView}
+          onError={handleError}
+          onSuccess={handleSuccess}
+          isLoading={handleLoading}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+          onConflictTabChange={setActiveConflictTab}
+        />;
       case 'schedule':
       default:
         return (

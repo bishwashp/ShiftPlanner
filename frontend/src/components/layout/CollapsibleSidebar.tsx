@@ -119,8 +119,8 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
       >
         {/* Header */}
         <div className={`flex items-center mb-4 p-4 ${isOpen ? 'space-x-2' : 'justify-center'} transition-all duration-300`}>
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
-            SP
+          <div className="w-8 h-8 flex items-center justify-center">
+            <img src="/SP.png" alt="ShiftPlanner Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className={`text-lg font-bold transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>
             ShiftPlanner

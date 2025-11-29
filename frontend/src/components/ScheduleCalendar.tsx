@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect, memo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, memo, useRef } from 'react';
 import moment from 'moment-timezone';
 import { apiService, Schedule, Analyst } from '../services/api';
 import { View as AppView } from './layout/CollapsibleSidebar';
@@ -221,7 +221,135 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
 
   const swipeHandlers = useSwipeGesture(handleSwipeLeft, handleSwipeRight);
 
-  // Modal state
+  // Scroll Navigation Logic
+  const lastNavigationTime = useRef<number>(0);
+  const lastEventTime = useRef<number>(0);
+  const atBoundary = useRef<boolean>(false);
+  const boundaryHitTime = useRef<number>(0); // When we first hit the boundary
+
+  const SCROLL_COOLDOWN = 1000; // ms - Minimum time between navigations
+  const GESTURE_TIMEOUT = 150; // ms - Time gap to consider a new gesture
+  const BOUNDARY_SETTLE_TIME = 250; // ms - Time to wait after hitting boundary before allowing navigation
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    const now = Date.now();
+
+    // Ignore very small movements
+    if (Math.abs(e.deltaY) < 5) return;
+
+    const timeSinceLastEvent = now - lastEventTime.current;
+    lastEventTime.current = now;
+
+    // Check ALL ancestors for scrollability
+    let target = e.target as HTMLElement;
+    let canScroll = false;
+
+    // Traverse up to the root
+    while (target) {
+      // Skip non-element nodes
+      if (target.nodeType !== Node.ELEMENT_NODE) {
+        target = target.parentElement as HTMLElement;
+        continue;
+      }
+
+      let overflowY = window.getComputedStyle(target).overflowY;
+      let isScrollable = false;
+      let scrollTop = target.scrollTop;
+      let scrollHeight = target.scrollHeight;
+      let clientHeight = target.clientHeight;
+
+      // Special handling for body/html which might map to window scroll
+      if (target === document.body || target === document.documentElement) {
+        if (overflowY === 'visible' || overflowY === 'auto' || overflowY === 'scroll') {
+          scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop;
+          scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
+          clientHeight = window.innerHeight;
+          isScrollable = scrollHeight > clientHeight;
+        }
+      } else {
+        isScrollable = (overflowY === 'auto' || overflowY === 'scroll') && scrollHeight > clientHeight;
+      }
+
+      if (isScrollable) {
+        const isAtTop = scrollTop <= 0;
+        const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+
+        if (e.deltaY > 0) {
+          if (!isAtBottom) {
+            canScroll = true;
+            break;
+          }
+        } else {
+          if (!isAtTop) {
+            canScroll = true;
+            break;
+          }
+        }
+      }
+      target = target.parentElement as HTMLElement;
+    }
+
+    // 1. If we can scroll, reset boundary state
+    if (canScroll) {
+      atBoundary.current = false;
+      boundaryHitTime.current = 0;
+      return;
+    }
+
+    // 2. We're at boundary - if first time, record when we hit it
+    if (!atBoundary.current) {
+      atBoundary.current = true;
+      boundaryHitTime.current = now;
+      return; // Don't navigate on first hit
+    }
+
+    // 3. We're at boundary and it's been set
+    //    For navigation to work, we need:
+    //    - Enough time since we first hit boundary (momentum settled)
+    //    - This is a new gesture (gap in events)
+    const timeSinceBoundaryHit = now - boundaryHitTime.current;
+
+    // If we haven't settled yet, keep waiting
+    if (timeSinceBoundaryHit < BOUNDARY_SETTLE_TIME) {
+      return;
+    }
+
+    // If events are coming rapidly (same gesture momentum), keep waiting
+    if (timeSinceLastEvent < GESTURE_TIMEOUT) {
+      return;
+    }
+
+    // We've settled at boundary AND this is a new gesture → Navigate!
+
+    // Check cooldown
+    if (now - lastNavigationTime.current < SCROLL_COOLDOWN) return;
+
+    const momentDate = moment(date).tz(timezone);
+    let newDate: Date | null = null;
+
+    if (e.deltaY > 0) {
+      if (view === 'month') {
+        newDate = momentDate.add(1, 'month').toDate();
+      } else if (view === 'week') {
+        newDate = momentDate.add(1, 'week').toDate();
+      }
+    } else {
+      if (view === 'month') {
+        newDate = momentDate.subtract(1, 'month').toDate();
+      } else if (view === 'week') {
+        newDate = momentDate.subtract(1, 'week').toDate();
+      }
+    }
+
+    if (newDate) {
+      setDate(newDate);
+      lastNavigationTime.current = now;
+      boundaryHitTime.current = now; // Reset settle timer for next navigation
+
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
+  }, [date, setDate, view, timezone]);
+
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -261,7 +389,8 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
     setClickedDay(clickedDate);
     setShowWeekView(true);
     setView('week'); // Update main view state for AppHeader
-  }, [setView]);
+    setDate(clickedDate); // Sync parent date state so header updates correctly
+  }, [setView, setDate]);
 
   const handleReturnToMonth = useCallback(() => {
     setShowWeekView(false);
@@ -396,6 +525,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
     <div
       className={`relative h-full text-foreground transition-colors duration-200 ${theme} z-10`}
       {...(isMobile ? swipeHandlers : {})}
+      onWheel={handleWheel}
       role="application"
       aria-label="ShiftPlanner Simplified Schedule Calendar"
     >

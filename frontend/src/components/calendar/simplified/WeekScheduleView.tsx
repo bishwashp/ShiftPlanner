@@ -263,30 +263,32 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
                     <span className="text-xs font-medium text-blue-700">Morning</span>
                   </div>
                   <div className="space-y-1">
-                    {day.morningSchedules.map((schedule) => (
-                      <div
-                        key={schedule.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, schedule)}
-                        onClick={() => onScheduleClick?.(schedule)}
-                        className={`
-                          p-2 rounded text-xs cursor-move transition-colors
-                          ${schedule.isScreener
-                            ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
-                            : 'bg-blue-100 text-blue-800 border border-blue-200'
-                          }
-                          ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
-                          hover:opacity-80
-                        `}
-                      >
-                        <div className="font-medium">
-                          {getAnalystName(schedule.analystId)}
+                    {day.morningSchedules.map((schedule) => {
+                      const isWeekend = day.date.day() === 0 || day.date.day() === 6;
+                      return (
+                        <div
+                          key={schedule.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, schedule)}
+                          onClick={() => onScheduleClick?.(schedule)}
+                          className={`
+                            px-3 py-1.5 rounded-full text-xs cursor-move transition-colors
+                            ${isWeekend
+                              ? 'bg-green-500/20 text-green-800 dark:text-green-200 border border-green-400/30'
+                              : schedule.isScreener
+                                ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
+                                : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            }
+                            ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
+                            hover:opacity-80
+                          `}
+                        >
+                          <div className="font-medium">
+                            {getAnalystName(schedule.analystId)}
+                          </div>
                         </div>
-                        {schedule.isScreener && (
-                          <div className="text-xs opacity-75">Screener</div>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -297,30 +299,32 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
                     <span className="text-xs font-medium text-purple-700">Evening</span>
                   </div>
                   <div className="space-y-1">
-                    {day.eveningSchedules.map((schedule) => (
-                      <div
-                        key={schedule.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, schedule)}
-                        onClick={() => onScheduleClick?.(schedule)}
-                        className={`
-                          p-2 rounded text-xs cursor-move transition-colors
-                          ${schedule.isScreener
-                            ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
-                            : 'bg-purple-100 text-purple-800 border border-purple-200'
-                          }
-                          ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
-                          hover:opacity-80
-                        `}
-                      >
-                        <div className="font-medium">
-                          {getAnalystName(schedule.analystId)}
+                    {day.eveningSchedules.map((schedule) => {
+                      const isWeekend = day.date.day() === 0 || day.date.day() === 6;
+                      return (
+                        <div
+                          key={schedule.id}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, schedule)}
+                          onClick={() => onScheduleClick?.(schedule)}
+                          className={`
+                            px-3 py-1.5 rounded-full text-xs cursor-move transition-colors
+                            ${isWeekend
+                              ? 'bg-green-500/20 text-green-800 dark:text-green-200 border border-green-400/30'
+                              : schedule.isScreener
+                                ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
+                                : 'bg-purple-100 text-purple-800 border border-purple-200'
+                            }
+                            ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
+                            hover:opacity-80
+                          `}
+                        >
+                          <div className="font-medium">
+                            {getAnalystName(schedule.analystId)}
+                          </div>
                         </div>
-                        {schedule.isScreener && (
-                          <div className="text-xs opacity-75">Screener</div>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 

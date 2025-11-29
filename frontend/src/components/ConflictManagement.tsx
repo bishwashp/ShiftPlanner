@@ -22,14 +22,11 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
   const fetchConflicts = async () => {
     setLoading(true);
     try {
-      // Get conflicts for the next 30 days (using 2025 dates to match database)
-      const startDate = new Date('2025-10-08');
-      const endDate = new Date('2025-11-08');
+      // Get conflicts for the next 30 days (matching SystemHealth logic)
+      const startDate = moment().format('YYYY-MM-DD');
+      const endDate = moment().add(30, 'days').format('YYYY-MM-DD');
 
-      const data = await apiService.getAllConflicts(
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0]
-      );
+      const data = await apiService.getAllConflicts(startDate, endDate);
       setConflicts(data);
     } catch (error) {
       console.error("Failed to fetch conflicts:", error);
@@ -53,19 +50,16 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
     fetchAnalysts();
   }, []);
 
-  const currentConflicts = conflicts[activeTab] || [];
-
-  // Check if there's a "no schedule exists" or "incomplete schedules" conflict (now in recommended section)
-  const hasNoScheduleConflict = conflicts.recommended.some(conflict =>
-    conflict.type === 'NO_SCHEDULE_EXISTS' || conflict.type === 'INCOMPLETE_SCHEDULES'
+  const currentConflicts = (conflicts[activeTab] || []).filter(c =>
+    c.type !== 'NO_SCHEDULE_EXISTS' && c.type !== 'INCOMPLETE_SCHEDULES'
   );
 
   const handleAutoFixAll = async () => {
     setAutoFixing(true);
     setAutoFixMsg(null);
     try {
-      const startDate = '2025-10-08';
-      const endDate = '2025-11-08';
+      const startDate = moment().format('YYYY-MM-DD');
+      const endDate = moment().add(30, 'days').format('YYYY-MM-DD');
       const result = await apiService.autoFixConflicts({ startDate, endDate });
 
       if (!result.proposals || result.proposals.length === 0) {
@@ -149,20 +143,6 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
     <div className="text-foreground max-w-4xl mx-auto p-6 relative z-10">
       {loading ? (
         <div className="text-center text-gray-700 dark:text-gray-200">Loading conflicts...</div>
-      ) : hasNoScheduleConflict && activeTab === 'recommended' ? (
-        <div className="text-center">
-          <div className="p-6 bg-yellow-500/10 dark:bg-yellow-500/20 border border-yellow-500 dark:border-yellow-400 rounded-lg">
-            <div className="text-yellow-700 dark:text-yellow-300 font-semibold text-lg mb-2">
-              {conflicts.recommended.find(c => c.type === 'NO_SCHEDULE_EXISTS') ? 'Schedule Not Generated' : 'Incomplete Schedules Detected'}
-            </div>
-            <div className="text-yellow-600 dark:text-yellow-400 mb-4">
-              {conflicts.recommended.find(c => c.type === 'NO_SCHEDULE_EXISTS' || c.type === 'INCOMPLETE_SCHEDULES')?.message}
-            </div>
-            <div className="text-sm text-yellow-600 dark:text-yellow-400">
-              Generate complete schedules (both morning and evening shifts) to assign analysts and resolve conflicts.
-            </div>
-          </div>
-        </div>
       ) : currentConflicts.length === 0 ? (
         <div className="text-center text-gray-700 dark:text-gray-200">No {activeTab} conflicts detected in the next 30 days.</div>
       ) : (
@@ -171,7 +151,7 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
             <button
               className="px-5 py-2 bg-primary text-primary-foreground rounded font-semibold hover:bg-primary/90 disabled:opacity-60"
               onClick={handleAutoFixAll}
-              disabled={autoFixing || hasNoScheduleConflict}
+              disabled={autoFixing}
             >
               {autoFixing ? 'Auto-Fixing...' : 'Auto-Fix All'}
             </button>
