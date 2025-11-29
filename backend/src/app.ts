@@ -16,6 +16,16 @@ import { webhookService } from './services/WebhookService';
 // Export prisma for use in other modules
 export { prisma };
 
+// Extend Express Request interface to include requestId
+declare global {
+  namespace Express {
+    interface Request {
+      requestId?: string;
+    }
+  }
+}
+
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -65,23 +75,23 @@ app.use(addRequestId);
 // Request logging middleware
 app.use(async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const startTime = Date.now();
-  
+
   // Create a logger instance with request context
-  const reqLogger = logger.child({ 
-    requestId: req.requestId, 
-    method: req.method, 
-    url: req.url, 
-    ip: req.ip 
+  const reqLogger = logger.child({
+    requestId: req.requestId,
+    method: req.method,
+    url: req.url,
+    ip: req.ip
   });
-  
+
   // Attach logger to request object
   (req as any).logger = reqLogger;
-  
+
   // Log request start
   reqLogger.info('Request started', {
     userAgent: req.headers['user-agent'],
   });
-  
+
   // Also log to security audit log
   await securityService.logAuditEvent('REQUEST_START', 'api', undefined, {
     method: req.method,
@@ -93,15 +103,15 @@ app.use(async (req: express.Request, res: express.Response, next: express.NextFu
 
   // Override res.end to log response
   const originalEnd = res.end;
-  res.end = function(this: any, chunk?: any, encoding?: any) {
+  res.end = function (this: any, chunk?: any, encoding?: any) {
     const duration = Date.now() - startTime;
-    
+
     // Log request completion
     reqLogger.info('Request completed', {
       statusCode: res.statusCode,
       duration,
     });
-    
+
     // Also log to security audit log
     securityService.logAuditEvent('REQUEST_END', 'api', undefined, {
       method: req.method,
@@ -131,18 +141,18 @@ app.get('/health', async (req, res) => {
   try {
     // Test database connection
     await prisma.$queryRaw`SELECT 1`;
-    
+
     // Test cache connection
     const cacheHealthy = await cacheService.healthCheck();
-    
+
     // Test GraphQL server
     const graphqlHealth = await graphqlHealthCheck();
-    
+
     const performanceMetrics = getDatabasePerformance();
     const cacheStats = await cacheService.getStats();
-    
-    res.json({ 
-      status: 'ok', 
+
+    res.json({
+      status: 'ok',
       timestamp: new Date().toISOString(),
       version: '1.0.0',
       database: {
@@ -192,7 +202,7 @@ app.get('/health/cache-performance', async (req, res) => {
   try {
     const stats = await cacheService.getStats();
     const healthy = await cacheService.healthCheck();
-    
+
     res.json({
       timestamp: new Date().toISOString(),
       healthy,
@@ -211,7 +221,7 @@ app.get('/health/cache-performance', async (req, res) => {
 app.get('/health/graphql-performance', async (req, res) => {
   try {
     const health = await graphqlHealthCheck();
-    
+
     res.json({
       timestamp: new Date().toISOString(),
       health
@@ -345,7 +355,7 @@ app.use(async (err: any, req: express.Request, res: express.Response, next: expr
     method: req.method,
     requestId: req.requestId
   });
-  
+
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',

@@ -37,12 +37,12 @@ export class FairnessTracker {
    */
   async initialize(startDate: Date, analysts: any[], holidays: Date[] = []): Promise<void> {
     // Set holidays
-    holidays.forEach(holiday => {
+    holidays.forEach((holiday: Date) => {
       this.holidays.add(moment(holiday).format('YYYY-MM-DD'));
     });
 
     // Initialize metrics for all analysts
-    analysts.forEach(analyst => {
+    analysts.forEach((analyst: any) => {
       this.metrics.set(analyst.id, {
         analystId: analyst.id,
         analystName: analyst.name,
@@ -72,7 +72,7 @@ export class FairnessTracker {
     });
 
     // Process historical schedules to build fairness metrics
-    historicalSchedules.forEach(schedule => {
+    historicalSchedules.forEach((schedule: any) => {
       const metrics = this.metrics.get(schedule.analystId);
       if (!metrics) return;
 
@@ -100,7 +100,7 @@ export class FairnessTracker {
    */
   calculateFairnessScore(assignments: ScheduleAssignment[]): number {
     const tempMetrics = this.cloneMetrics();
-    
+
     // Apply assignments to temporary metrics
     assignments.forEach(assignment => {
       const metrics = tempMetrics.get(assignment.analystId);
@@ -132,12 +132,12 @@ export class FairnessTracker {
   /**
    * Get the most fair analyst for a given shift
    */
-  getMostFairAnalyst(
+  async getMostFairAnalyst(
     availableAnalysts: any[],
     date: Date,
     shiftType: string,
     isScreener: boolean
-  ): string | null {
+  ): Promise<string | null> {
     if (availableAnalysts.length === 0) return null;
 
     const dayOfWeek = date.getDay();
@@ -147,9 +147,9 @@ export class FairnessTracker {
     let bestAnalyst = availableAnalysts[0];
     let bestScore = -Infinity;
 
-    availableAnalysts.forEach(analyst => {
+    for (const analyst of availableAnalysts) {
       const metrics = this.metrics.get(analyst.id);
-      if (!metrics) return;
+      if (!metrics) continue;
 
       // Calculate a score that favors analysts with lower workload
       let score = 0;
@@ -168,9 +168,9 @@ export class FairnessTracker {
       // For screeners, heavily penalize if assigned recently
       if (isScreener) {
         score -= metrics.screenerDaysAssigned * 50;
-        
+
         // Check if screener was assigned in the last 2 days
-        const recentScreenerDays = this.getRecentScreenerDays(analyst.id, date, 2);
+        const recentScreenerDays = await this.getRecentScreenerDays(analyst.id, date, 2);
         if (recentScreenerDays >= 2) score -= 2000; // Max 2 consecutive screener days
       }
 
@@ -188,7 +188,7 @@ export class FairnessTracker {
         bestScore = score;
         bestAnalyst = analyst;
       }
-    });
+    }
 
     return bestAnalyst.id;
   }
@@ -218,7 +218,7 @@ export class FairnessTracker {
    */
   getPatternContinuityData(): { [analystId: string]: { lastPattern: string; lastWorkDate: Date } } {
     const continuityData: { [key: string]: { lastPattern: string; lastWorkDate: Date } } = {};
-    
+
     this.metrics.forEach((metrics, analystId) => {
       if (metrics.lastWorkPattern && metrics.lastWorkDate) {
         continuityData[analystId] = {
@@ -362,7 +362,7 @@ export class FairnessTracker {
     }
 
     const daysDiff = Math.floor((date.getTime() - metrics.lastWorkDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (daysDiff === 1) {
       // Consecutive day
       const lastConsecutive = metrics.consecutiveWorkDays[metrics.consecutiveWorkDays.length - 1] || 0;
@@ -381,7 +381,7 @@ export class FairnessTracker {
     if (!metrics.lastWorkDate) return false;
 
     const daysDiff = Math.floor((date.getTime() - metrics.lastWorkDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (daysDiff === 1) {
       const currentConsecutive = metrics.consecutiveWorkDays[metrics.consecutiveWorkDays.length - 1] || 0;
       return currentConsecutive >= maxConsecutive;

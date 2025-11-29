@@ -39,7 +39,7 @@ export class HolidayService {
         isActive: true,
         OR: [
           { year: year },
-          { 
+          {
             isRecurring: true,
             date: {
               gte: startOfYear,
@@ -52,7 +52,7 @@ export class HolidayService {
     });
 
     // Convert dates back to the requested timezone for response
-    return holidays.map(holiday => ({
+    return holidays.map((holiday: any) => ({
       ...holiday,
       date: moment(holiday.date).tz(timezone).format('YYYY-MM-DD'),
       localDate: moment(holiday.date).tz(timezone).toDate()
@@ -65,10 +65,10 @@ export class HolidayService {
   async isHoliday(date: string, timezone: string = 'America/New_York'): Promise<boolean> {
     const momentDate = moment.tz(date, timezone);
     const year = momentDate.year();
-    
+
     const holidays = await this.getHolidaysForYear(year, timezone);
-    
-    return holidays.some(holiday => 
+
+    return holidays.some(holiday =>
       moment(holiday.date).isSame(momentDate, 'day')
     );
   }
@@ -79,10 +79,10 @@ export class HolidayService {
   async getHolidayForDate(date: string, timezone: string = 'America/New_York'): Promise<any | null> {
     const momentDate = moment.tz(date, timezone);
     const year = momentDate.year();
-    
+
     const holidays = await this.getHolidaysForYear(year, timezone);
-    
-    return holidays.find(holiday => 
+
+    return holidays.find(holiday =>
       moment(holiday.date).isSame(momentDate, 'day')
     ) || null;
   }
@@ -95,7 +95,7 @@ export class HolidayService {
 
     // Convert date to UTC for storage
     const momentDate = moment.tz(date, timezone);
-    
+
     if (!momentDate.isValid()) {
       throw new Error('Invalid date format');
     }
@@ -120,15 +120,15 @@ export class HolidayService {
    */
   async updateHoliday(id: string, holidayData: Partial<HolidayData>): Promise<any> {
     const updateData: any = {};
-    
+
     if (holidayData.name) updateData.name = holidayData.name;
     if (holidayData.date && holidayData.timezone) {
       const momentDate = moment.tz(holidayData.date, holidayData.timezone);
-      
+
       if (!momentDate.isValid()) {
         throw new Error('Invalid date format');
       }
-      
+
       updateData.date = momentDate.utc().toDate();
       updateData.timezone = holidayData.timezone;
     }
@@ -222,7 +222,7 @@ export class HolidayService {
     ];
 
     const createdHolidays = [];
-    
+
     for (const holidayData of defaultHolidays) {
       // Check if holiday already exists
       const existingHoliday = await this.prisma.holiday.findFirst({
@@ -276,7 +276,7 @@ export class HolidayService {
         date: momentDate.format('YYYY-MM-DD'),
         description: `Holiday conflicts with ${existingSchedules.length} existing schedule(s)`,
         severity: 'HIGH',
-        affectedAnalysts: existingSchedules.map(s => s.analyst.name),
+        affectedAnalysts: existingSchedules.map((s: any) => s.analyst.name),
         suggestedResolution: 'Consider rescheduling affected analysts or marking holiday as inactive'
       });
     }
@@ -295,7 +295,7 @@ export class HolidayService {
     });
 
     const availableAnalysts = totalAnalysts - unavailableAnalysts;
-    
+
     if (availableAnalysts < 2) { // Minimum staff requirement
       conflicts.push({
         type: 'INSUFFICIENT_STAFF',

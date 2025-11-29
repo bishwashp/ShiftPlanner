@@ -202,6 +202,11 @@ export class IntelligentScheduler implements SchedulingStrategy {
       this.name, 'WEEKEND_ROTATION', startDate, endDate, analysts, existingSchedules
     );
 
+    // Plan AM to PM rotation for weekdays
+    const amToPmRotationMap = await this.rotationManager.planAMToPMRotation(
+      startDate, endDate, morningAnalysts, existingSchedules
+    );
+
     const currentMoment = moment.utc(startDate);
     const endMoment = moment.utc(endDate);
 
@@ -233,9 +238,14 @@ export class IntelligentScheduler implements SchedulingStrategy {
         ) || false;
 
         if (shouldWork && !onVacation) {
+          // Check if this AM analyst is rotated to PM for today
+          const rotatedToPm = amToPmRotationMap.get(dateStr)?.includes(analyst.id);
+          const shiftType = rotatedToPm ? 'EVENING' : 'MORNING';
+          const type = rotatedToPm ? 'AM_TO_PM_ROTATION' : 'NEW_SCHEDULE';
+
           result.proposedSchedules.push({
             date: dateStr, analystId: analyst.id, analystName: analyst.name,
-            shiftType: 'MORNING', isScreener: false, type: 'NEW_SCHEDULE'
+            shiftType: shiftType, isScreener: false, type: type
           });
         }
       }

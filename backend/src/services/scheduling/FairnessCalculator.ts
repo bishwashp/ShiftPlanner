@@ -204,6 +204,94 @@ export class FairnessCalculator {
     // Return the analyst who rotated longest ago
     return availableAnalysts[0];
   }
+
+  /**
+   * Calculate fairness scores for AM to PM rotation
+   * Focuses on balancing the number of PM shifts picked up by AM analysts
+   */
+  calculateAMToPMFairnessScores(
+    analysts: any[],
+    historicalSchedules: any[],
+    currentDate: Date
+  ): { scores: Map<string, number>; lastPMRotationDates: Map<string, Date> } {
+    const fairnessScores = new Map<string, number>();
+    const pmShiftsWorked = new Map<string, number>();
+    const lastPMRotationDate = new Map<string, Date>();
+
+    // Initialize maps
+    analysts.forEach(analyst => {
+      pmShiftsWorked.set(analyst.id, 0);
+      lastPMRotationDate.set(analyst.id, new Date(0));
+    });
+
+    // Calculate historical metrics
+    historicalSchedules.forEach(schedule => {
+      const scheduleDate = new Date(schedule.date);
+      const analystId = schedule.analystId;
+
+      // Only care about AM analysts working PM (EVENING) shifts
+      if (!pmShiftsWorked.has(analystId)) return;
+
+      if (schedule.shiftType === 'EVENING') {
+        pmShiftsWorked.set(analystId, (pmShiftsWorked.get(analystId) || 0) + 1);
+
+        const currentLastDate = lastPMRotationDate.get(analystId) || new Date(0);
+        if (scheduleDate > currentLastDate) {
+          lastPMRotationDate.set(analystId, scheduleDate);
+        }
+      }
+    });
+
+    // Calculate scores
+    // Higher score = More fair to select (Has worked fewer PM shifts, or rotated longer ago)
+    analysts.forEach(analyst => {
+      let score = 0;
+
+      // Factor 1: Fewer PM shifts = Higher score
+      const shifts = pmShiftsWorked.get(analyst.id) || 0;
+      score += 100 - (shifts * 10); // Simple linear penalty
+
+      // Factor 2: Time since last PM rotation = Higher score
+      const lastRotation = lastPMRotationDate.get(analyst.id) || new Date(0);
+      const daysSince = Math.floor((currentDate.getTime() - lastRotation.getTime()) / (1000 * 60 * 60 * 24));
+      score += Math.min(daysSince, 50); // Cap bonus
+
+      fairnessScores.set(analyst.id, score);
+    });
+
+    return { scores: fairnessScores, lastPMRotationDates: lastPMRotationDate };
+  }
+
+  /**
+   * Select multiple analysts for AM to PM rotation
+   */
+  selectNextAnalystsForAMToPMRotation(
+    analysts: any[],
+    fairnessData: { scores: Map<string, number>; lastPMRotationDates: Map<string, Date> },
+    count: number,
+    unavailableAnalystIds: Set<string> = new Set()
+  ): any[] {
+    const availableAnalysts = analysts.filter(a => !unavailableAnalystIds.has(a.id));
+
+    if (availableAnalysts.length === 0) return [];
+
+    // Sort by Fairness Score (Descending - Highest First)
+    // Tie-breaker: Last Rotation Date (Ascending - Oldest First)
+    availableAnalysts.sort((a, b) => {
+      const scoreA = fairnessData.scores.get(a.id) || 0;
+      const scoreB = fairnessData.scores.get(b.id) || 0;
+
+      if (Math.abs(scoreA - scoreB) > 1) { // Significant difference
+        return scoreB - scoreA;
+      }
+
+      const dateA = fairnessData.lastPMRotationDates.get(a.id) || new Date(0);
+      const dateB = fairnessData.lastPMRotationDates.get(b.id) || new Date(0);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    return availableAnalysts.slice(0, count);
+  }
 }
 
 export const fairnessCalculator = new FairnessCalculator();

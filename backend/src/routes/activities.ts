@@ -8,7 +8,7 @@ router.get('/recent', async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
     const activities = await ActivityService.getRecentActivities(limit);
-    
+
     res.json(activities);
   } catch (error: any) {
     console.error('Error fetching recent activities:', error);
@@ -48,7 +48,7 @@ router.get('/stats', async (req: Request, res: Response) => {
   try {
     const days = parseInt(req.query.days as string) || 30;
     const stats = await ActivityService.getActivityStats(days);
-    
+
     res.json(stats);
   } catch (error: any) {
     console.error('Error fetching activity stats:', error);
@@ -60,11 +60,11 @@ router.get('/stats', async (req: Request, res: Response) => {
 router.post('/log', async (req: Request, res: Response) => {
   try {
     const activityData = req.body;
-    
+
     // Validate required fields
     if (!activityData.type || !activityData.category || !activityData.title || !activityData.description) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: type, category, title, description' 
+      return res.status(400).json({
+        error: 'Missing required fields: type, category, title, description'
       });
     }
 
@@ -81,7 +81,7 @@ router.post('/test-high-impact', async (req: Request, res: Response) => {
   try {
     const testActivity = {
       type: 'SYSTEM_MAINTENANCE',
-      category: 'SYSTEM',
+      category: 'SYSTEM' as const,
       title: 'Critical System Update',
       description: 'Emergency security patch applied to resolve critical vulnerability affecting all user accounts',
       performedBy: 'admin',
@@ -95,8 +95,8 @@ router.post('/test-high-impact', async (req: Request, res: Response) => {
     };
 
     await ActivityService.logActivity(testActivity);
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: 'High-impact test activity created successfully',
       activity: testActivity
     });
@@ -154,8 +154,8 @@ router.post('/test-all-impacts', async (req: Request, res: Response) => {
       results.push(activity);
     }
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message: 'All impact level test activities created successfully',
       activities: results
     });

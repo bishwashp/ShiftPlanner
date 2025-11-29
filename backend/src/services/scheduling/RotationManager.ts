@@ -222,6 +222,65 @@ export class RotationManager {
     );
     return plan ? plan.pattern : 'MON_FRI';
   }
+
+
+  /**
+   * Plan AM to PM rotation for weekdays
+   * Selects 2 AM analysts to work PM shift each weekday
+   */
+  async planAMToPMRotation(
+    startDate: Date,
+    endDate: Date,
+    amAnalysts: any[],
+    historicalSchedules: any[] = []
+  ): Promise<Map<string, string[]>> {
+    // Map of Date (YYYY-MM-DD) -> Array of Analyst IDs working PM
+    const rotationMap = new Map<string, string[]>();
+
+    const current = moment.utc(startDate);
+    const end = moment.utc(endDate);
+
+    // Track local history to ensure fairness within the generation window
+    const localSchedules = [...historicalSchedules];
+
+    while (current.isSameOrBefore(end, 'day')) {
+      const dayOfWeek = current.day();
+      const dateStr = current.format('YYYY-MM-DD');
+
+      // Only rotate on weekdays (Mon=1 to Fri=5)
+      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        // Calculate fairness scores based on history + local decisions
+        const fairnessData = fairnessCalculator.calculateAMToPMFairnessScores(
+          amAnalysts,
+          localSchedules,
+          current.toDate()
+        );
+
+        // Select 2 analysts
+        const selectedAnalysts = fairnessCalculator.selectNextAnalystsForAMToPMRotation(
+          amAnalysts,
+          fairnessData,
+          2
+        );
+
+        const selectedIds = selectedAnalysts.map(a => a.id);
+        rotationMap.set(dateStr, selectedIds);
+
+        // Update local history so next day's calculation knows about this assignment
+        selectedIds.forEach(id => {
+          localSchedules.push({
+            analystId: id,
+            date: current.toDate(),
+            shiftType: 'EVENING'
+          });
+        });
+      }
+
+      current.add(1, 'day');
+    }
+
+    return rotationMap;
+  }
 }
 
 export const rotationManager = new RotationManager(null as any);

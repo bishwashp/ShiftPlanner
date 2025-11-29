@@ -36,7 +36,7 @@ export class AbsenceService {
     // Validate date range
     const start = moment(startDate);
     const end = moment(endDate);
-    
+
     if (start > end) {
       throw new Error('End date must be on or after start date');
     }
@@ -45,7 +45,7 @@ export class AbsenceService {
     const analyst = await this.prisma.analyst.findUnique({
       where: { id: analystId }
     });
-    
+
     if (!analyst) {
       throw new Error('Analyst not found');
     }
@@ -96,7 +96,7 @@ export class AbsenceService {
    */
   async updateAbsence(id: string, absenceData: Partial<AbsenceData>): Promise<any> {
     const updateData: any = {};
-    
+
     if (absenceData.startDate) updateData.startDate = moment(absenceData.startDate).toDate();
     if (absenceData.endDate) updateData.endDate = moment(absenceData.endDate).toDate();
     if (absenceData.type) updateData.type = absenceData.type;
@@ -108,7 +108,7 @@ export class AbsenceService {
     if (absenceData.startDate && absenceData.endDate) {
       const start = moment(absenceData.startDate);
       const end = moment(absenceData.endDate);
-      
+
       if (start > end) {
         throw new Error('End date must be on or after start date');
       }
@@ -145,10 +145,10 @@ export class AbsenceService {
    */
   async getAnalystAbsences(analystId: string, startDate?: string, endDate?: string): Promise<any[]> {
     const where: any = { analystId };
-    
+
     if (startDate || endDate) {
       where.OR = [];
-      
+
       if (startDate) {
         where.OR.push({
           endDate: {
@@ -156,7 +156,7 @@ export class AbsenceService {
           }
         });
       }
-      
+
       if (endDate) {
         where.OR.push({
           startDate: {
@@ -204,7 +204,7 @@ export class AbsenceService {
    */
   async isAnalystAbsent(analystId: string, date: string): Promise<boolean> {
     const momentDate = moment(date);
-    
+
     const absence = await this.prisma.absence.findFirst({
       where: {
         analystId,
@@ -222,7 +222,7 @@ export class AbsenceService {
    */
   async getAbsentAnalysts(date: string): Promise<any[]> {
     const momentDate = moment(date);
-    
+
     const absences = await this.prisma.absence.findMany({
       where: {
         startDate: { lte: momentDate.endOf('day').toDate() },
@@ -241,7 +241,7 @@ export class AbsenceService {
       }
     });
 
-    return absences.map(absence => absence.analyst);
+    return absences.map((absence: any) => absence.analyst);
   }
 
   /**
@@ -250,7 +250,7 @@ export class AbsenceService {
   async checkAbsenceConflicts(absenceData: AbsenceData, excludeId?: string): Promise<AbsenceConflict[]> {
     const conflicts: AbsenceConflict[] = [];
     const { analystId, startDate, endDate } = absenceData;
-    
+
     const start = moment(startDate);
     const end = moment(endDate);
 
@@ -279,7 +279,7 @@ export class AbsenceService {
         date: start.format('YYYY-MM-DD'),
         description: `Absence conflicts with ${existingSchedules.length} existing schedule(s)`,
         severity: 'HIGH',
-        affectedAnalysts: existingSchedules.map(s => s.analyst.name),
+        affectedAnalysts: existingSchedules.map((s: any) => s.analyst.name),
         suggestedResolution: 'Consider rescheduling affected shifts or adjusting absence dates'
       });
     }
@@ -329,7 +329,7 @@ export class AbsenceService {
     });
 
     // Count unique analysts absent during this period
-    const absentAnalystIds = new Set(allAbsences.map(a => a.analystId));
+    const absentAnalystIds = new Set(allAbsences.map((a: any) => a.analystId));
     if (excludeId) {
       // If updating, remove the current absence from the count
       const currentAbsence = await this.prisma.absence.findUnique({
@@ -344,7 +344,7 @@ export class AbsenceService {
     absentAnalystIds.add(analystId);
 
     const availableAnalysts = totalAnalysts - absentAnalystIds.size;
-    
+
     if (availableAnalysts < 2) { // Minimum staff requirement
       conflicts.push({
         type: 'INSUFFICIENT_STAFF',
@@ -403,20 +403,20 @@ export class AbsenceService {
       byMonth: {} as Record<string, number>
     };
 
-    absences.forEach(absence => {
+    absences.forEach((absence: any) => {
       const start = moment(absence.startDate);
       const end = moment(absence.endDate);
       const days = end.diff(start, 'days') + 1;
-      
+
       stats.totalDays += days;
-      
+
       // Count by type
       if (!stats.byType[absence.type]) {
         stats.byType[absence.type] = { count: 0, days: 0 };
       }
       stats.byType[absence.type].count++;
       stats.byType[absence.type].days += days;
-      
+
       // Count by month
       const month = start.format('YYYY-MM');
       stats.byMonth[month] = (stats.byMonth[month] || 0) + days;

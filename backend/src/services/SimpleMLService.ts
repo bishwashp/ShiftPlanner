@@ -63,7 +63,7 @@ export class SimpleMLService {
   // 1. Smart Workload Prediction
   async predictWorkloadNeeds(futureDate: Date): Promise<WorkloadPrediction> {
     const cacheKey = `workload_prediction_${futureDate.toISOString().split('T')[0]}`;
-    
+
     const cached = await this.cache.get(cacheKey);
     if (cached) {
       return cached as WorkloadPrediction;
@@ -82,7 +82,7 @@ export class SimpleMLService {
     // Simple linear regression: predict based on day of week and month
     const dayOfWeek = futureDate.getDay();
     const month = futureDate.getMonth();
-    
+
     // Group by day of week and month
     const dailyStaffing = new Map<string, number>();
     for (const schedule of historicalData) {
@@ -96,12 +96,12 @@ export class SimpleMLService {
       .filter(([key]) => key.startsWith(`${dayOfWeek}_`))
       .map(([_, count]) => count);
 
-    const avgStaffing = similarDays.length > 0 
+    const avgStaffing = similarDays.length > 0
       ? similarDays.reduce((a, b) => a + b, 0) / similarDays.length
       : 4; // Default fallback
 
     // Calculate confidence based on data consistency
-    const variance = similarDays.length > 0 
+    const variance = similarDays.length > 0
       ? similarDays.reduce((sum, val) => sum + Math.pow(val - avgStaffing, 2), 0) / similarDays.length
       : 0;
     const confidence = Math.max(0.3, 1 - (Math.sqrt(variance) / avgStaffing));
@@ -122,8 +122,8 @@ export class SimpleMLService {
   }
 
   // 2. Burnout Risk Scoring
-  async assessBurnoutRisk(analysts: any[]): Promise<BurnoutAssessment[]> {
-    const assessments: BurnoutAssessment[] = [];
+  async assessBurnoutRisk(analysts: any[]): Promise<BurnoutRiskAssessment[]> {
+    const assessments: BurnoutRiskAssessment[] = [];
 
     for (const analyst of analysts) {
       // Get recent schedule data (last 30 days)
@@ -140,9 +140,9 @@ export class SimpleMLService {
       // Calculate risk factors
       const totalWorkDays = recentSchedules.length;
       const consecutiveStreaks = this.calculateConsecutiveStreaks(recentSchedules);
-      const weekendDays = recentSchedules.filter(s => s.shiftType === 'WEEKEND').length;
-      const screenerDays = recentSchedules.filter(s => s.isScreener).length;
-      
+      const weekendDays = recentSchedules.filter((s: any) => s.shiftType === 'WEEKEND').length;
+      const screenerDays = recentSchedules.filter((s: any) => s.isScreener).length;
+
       // Simple ML scoring algorithm
       let riskScore = 0;
       const factors: string[] = [];
@@ -234,7 +234,7 @@ export class SimpleMLService {
       const reasons: string[] = [];
 
       // Check workload balance
-      const analystSchedules = recentSchedules.filter(s => s.analystId === analyst.id);
+      const analystSchedules = recentSchedules.filter((s: any) => s.analystId === analyst.id);
       const workload = analystSchedules.length;
       const avgWorkload = recentSchedules.length / analysts.length;
 
@@ -260,16 +260,16 @@ export class SimpleMLService {
       }
 
       // Check screener balance
-      const screenerDays = analystSchedules.filter(s => s.isScreener).length;
-      const avgScreeners = analystSchedules.filter(s => s.isScreener).length / analysts.length;
-      
+      const screenerDays = analystSchedules.filter((s: any) => s.isScreener).length;
+      const avgScreeners = analystSchedules.filter((s: any) => s.isScreener).length / analysts.length;
+
       if (screenerDays < avgScreeners * 0.5) {
         score += 10; // Bonus for fewer screener duties
         reasons.push('Low screener duty load');
       }
 
       // Check weekend work balance
-      const weekendDays = analystSchedules.filter(s => s.shiftType === 'WEEKEND').length;
+      const weekendDays = analystSchedules.filter((s: any) => s.shiftType === 'WEEKEND').length;
       if (weekendDays < 2) {
         score += 5; // Small bonus for weekend availability
         reasons.push('Available for weekend work');
@@ -308,7 +308,7 @@ export class SimpleMLService {
   // 4. Demand Forecasting
   async forecastDemand(period: 'WEEK' | 'MONTH'): Promise<DemandForecast> {
     const cacheKey = `demand_forecast_${period}`;
-    
+
     const cached = await this.cache.get(cacheKey);
     if (cached) {
       return cached as DemandForecast;
@@ -328,7 +328,7 @@ export class SimpleMLService {
     for (const schedule of historicalData) {
       const date = new Date(schedule.date);
       let key: string;
-      
+
       if (period === 'WEEK') {
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
@@ -336,18 +336,18 @@ export class SimpleMLService {
       } else {
         key = `${date.getFullYear()}-${date.getMonth()}`;
       }
-      
+
       groupedData.set(key, (groupedData.get(key) || 0) + 1);
     }
 
     // Calculate trend using simple linear regression
     const dataPoints = Array.from(groupedData.values());
     const avgDemand = dataPoints.reduce((a, b) => a + b, 0) / dataPoints.length;
-    
+
     // Simple trend calculation
     const recentAvg = dataPoints.slice(-4).reduce((a, b) => a + b, 0) / 4;
     const olderAvg = dataPoints.slice(0, -4).reduce((a, b) => a + b, 0) / Math.max(1, dataPoints.length - 4);
-    
+
     let trend: 'INCREASING' | 'STABLE' | 'DECREASING' = 'STABLE';
     if (recentAvg > olderAvg * 1.1) trend = 'INCREASING';
     else if (recentAvg < olderAvg * 0.9) trend = 'DECREASING';
@@ -392,12 +392,12 @@ export class SimpleMLService {
     // Check for potential conflicts
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const currentDate = new Date(d);
-      
+
       // Check staffing shortage
-      const daySchedules = existingSchedules.filter(s => 
+      const daySchedules = existingSchedules.filter((s: any) =>
         s.date.toDateString() === currentDate.toDateString()
       );
-      
+
       if (daySchedules.length < 4) { // Minimum staffing requirement
         predictions.push({
           date: currentDate,
@@ -416,8 +416,8 @@ export class SimpleMLService {
       // Check constraint violations
       for (const constraint of constraints) {
         if (constraint.startDate <= currentDate && currentDate <= constraint.endDate) {
-          const analystSchedules = daySchedules.filter(s => s.analystId === constraint.analystId);
-          
+          const analystSchedules = daySchedules.filter((s: any) => s.analystId === constraint.analystId);
+
           if (analystSchedules.length > 0) {
             predictions.push({
               date: currentDate,
@@ -445,7 +445,7 @@ export class SimpleMLService {
         const workloadValues = Array.from(workloads.values());
         const maxWorkload = Math.max(...workloadValues);
         const minWorkload = Math.min(...workloadValues);
-        
+
         if (maxWorkload - minWorkload > 2) {
           predictions.push({
             date: currentDate,
@@ -477,10 +477,10 @@ export class SimpleMLService {
     for (let i = 1; i < sortedSchedules.length; i++) {
       const prevDate = new Date(sortedSchedules[i - 1].date);
       const currDate = new Date(sortedSchedules[i].date);
-      
+
       const diffTime = currDate.getTime() - prevDate.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 1) {
         currentStreak++;
         maxStreak = Math.max(maxStreak, currentStreak);
@@ -499,7 +499,7 @@ export class SimpleMLService {
 
   private getMonthName(month: number): string {
     const months = ['January', 'February', 'March', 'April', 'May', 'June',
-                   'July', 'August', 'September', 'October', 'November', 'December'];
+      'July', 'August', 'September', 'October', 'November', 'December'];
     return months[month];
   }
 }
