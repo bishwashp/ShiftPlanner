@@ -143,7 +143,7 @@ export class DashboardService {
   private predictiveEngine: PredictiveEngine;
 
   constructor(
-    prisma: PrismaClient, 
+    prisma: PrismaClient,
     cache: typeof cacheService,
     analyticsEngine: AnalyticsEngine,
     predictiveEngine: PredictiveEngine
@@ -156,7 +156,7 @@ export class DashboardService {
 
   async generateRealTimeDashboard(): Promise<DashboardData> {
     const cacheKey = 'real_time_dashboard';
-    
+
     // Try to get from cache first (cache for 5 minutes)
     const cached = await this.cache.get(cacheKey);
     if (cached) {
@@ -196,13 +196,13 @@ export class DashboardService {
 
     // Cache for 5 minutes
     await this.cache.set(cacheKey, dashboardData, 300);
-    
+
     return dashboardData;
   }
 
   async createCustomReport(config: ReportConfig): Promise<CustomReport> {
     const reportId = `report_${Date.now()}`;
-    
+
     let data: any;
     let summary: string;
     let recommendations: string[] = [];
@@ -411,12 +411,15 @@ export class DashboardService {
     const distribution = analysts.map((analyst: any) => {
       const analystSchedules = schedules.filter((s: any) => s.analystId === analyst.id);
       const workload = analystSchedules.length;
-      
+
       // Calculate fairness score for this analyst
       const fairnessScore = this.calculateIndividualFairnessScore({
         totalWorkDays: workload,
         screenerDays: analystSchedules.filter((s: any) => s.isScreener).length,
-        weekendDays: analystSchedules.filter((s: any) => s.shiftType === 'WEEKEND').length,
+        weekendDays: analystSchedules.filter((s: any) => {
+          const d = new Date(s.date);
+          return d.getDay() === 0 || d.getDay() === 6;
+        }).length,
         consecutiveWorkDayStreaks: this.calculateConsecutiveStreaks(analystSchedules),
       }, analystSchedules);
 
@@ -556,7 +559,7 @@ export class DashboardService {
     const streakPenalty = Math.max(0, (tally.consecutiveWorkDayStreaks - 5) * 0.1);
     const screenerBalance = tally.screenerDays > 0 ? 0.1 : 0;
     const weekendBalance = tally.weekendDays > 0 ? 0.1 : 0;
-    
+
     return Math.max(0, Math.min(1, baseScore - streakPenalty + screenerBalance + weekendBalance));
   }
 
@@ -570,10 +573,10 @@ export class DashboardService {
     for (let i = 1; i < sortedSchedules.length; i++) {
       const prevDate = new Date(sortedSchedules[i - 1].date);
       const currDate = new Date(sortedSchedules[i].date);
-      
+
       const diffTime = currDate.getTime() - prevDate.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 1) {
         currentStreak++;
         maxStreak = Math.max(maxStreak, currentStreak);
@@ -587,11 +590,11 @@ export class DashboardService {
 
   private calculateStandardDeviation(values: number[]): number {
     if (values.length === 0) return 0;
-    
+
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
     const variance = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
-    
+
     return Math.sqrt(variance);
   }
 

@@ -89,7 +89,7 @@ export class PredictiveEngine {
 
   async predictStaffingNeeds(futureDate: Date): Promise<StaffingPrediction> {
     const cacheKey = `staffing_prediction_${futureDate.toISOString().split('T')[0]}`;
-    
+
     const cached = await this.cache.get(cacheKey);
     if (cached) {
       return cached as StaffingPrediction;
@@ -108,7 +108,7 @@ export class PredictiveEngine {
     // Analyze patterns for the same day of week and month
     const sameDayOfWeek = futureDate.getDay();
     const sameMonth = futureDate.getMonth();
-    
+
     const relevantSchedules = historicalData.filter((schedule: any) => {
       const scheduleDate = new Date(schedule.date);
       return scheduleDate.getDay() === sameDayOfWeek && scheduleDate.getMonth() === sameMonth;
@@ -122,12 +122,12 @@ export class PredictiveEngine {
     }
 
     const staffingValues = Array.from(dailyStaffing.values());
-    const averageStaffing = staffingValues.length > 0 
+    const averageStaffing = staffingValues.length > 0
       ? staffingValues.reduce((a, b) => a + b, 0) / staffingValues.length
       : 4; // Default staffing
 
     // Calculate confidence based on data consistency
-    const variance = staffingValues.length > 0 
+    const variance = staffingValues.length > 0
       ? staffingValues.reduce((sum, val) => sum + Math.pow(val - averageStaffing, 2), 0) / staffingValues.length
       : 0;
     const confidence = Math.max(0.3, 1 - (Math.sqrt(variance) / averageStaffing));
@@ -154,7 +154,7 @@ export class PredictiveEngine {
 
     // Cache for 1 hour
     await this.cache.set(cacheKey, prediction, 3600);
-    
+
     return prediction;
   }
 
@@ -176,35 +176,44 @@ export class PredictiveEngine {
       // Calculate risk factors
       const totalWorkDays = recentSchedules.length;
       const consecutiveStreaks = this.calculateConsecutiveStreaks(recentSchedules);
-      const weekendDays = recentSchedules.filter((s: any) => s.shiftType === 'WEEKEND').length;
+      const weekendDays = recentSchedules.filter((s: any) => {
+        const d = new Date(s.date);
+        return d.getDay() === 0 || d.getDay() === 6;
+      }).length;
       const screenerDays = recentSchedules.filter((s: any) => s.isScreener).length;
-      
+
       // Calculate risk score (0-100)
       let riskScore = 0;
       const factors: string[] = [];
 
-      // High workload factor
-      if (totalWorkDays > 20) {
+      // ADJUSTED: High workload factor - only flag if working more than 25 days in 30 (83%+)
+      if (totalWorkDays > 25) {
+        riskScore += 35;
+        factors.push(`Excessive workload: ${totalWorkDays} days in 30 days`);
+      } else if (totalWorkDays > 23) {
+        riskScore += 15;
+        factors.push(`Heavy workload: ${totalWorkDays} days in 30 days`);
+      }
+
+      // Consecutive work days factor - only flag if 7+ days straight
+      if (consecutiveStreaks >= 7) {
         riskScore += 30;
-        factors.push(`High workload: ${totalWorkDays} days in 30 days`);
+        factors.push(`Long consecutive streak: ${consecutiveStreaks} days without rest`);
       }
 
-      // Consecutive work days factor
-      if (consecutiveStreaks > 5) {
-        riskScore += 25;
-        factors.push(`Long consecutive streak: ${consecutiveStreaks} days`);
-      }
-
-      // Weekend work factor
-      if (weekendDays > 4) {
+      // Weekend work factor - only flag if working 6+ weekends
+      if (weekendDays >= 6) {
         riskScore += 20;
+        factors.push(`Excessive weekend work: ${weekendDays} weekend days`);
+      } else if (weekendDays >= 5) {
+        riskScore += 10;
         factors.push(`High weekend work: ${weekendDays} weekend days`);
       }
 
-      // Screener duty factor
-      if (screenerDays > 6) {
+      // Screener duty factor - only flag if 8+ screener days
+      if (screenerDays >= 8) {
         riskScore += 15;
-        factors.push(`High screener duty: ${screenerDays} screener days`);
+        factors.push(`Heavy screener duty: ${screenerDays} screener days`);
       }
 
       // Determine risk level
@@ -263,7 +272,10 @@ export class PredictiveEngine {
     const weekendDistribution = new Map<string, number>();
     for (const analyst of analysts) {
       const analystWeekends = recentSchedules.filter(
-        (s: any) => s.analystId === analyst.id && s.shiftType === 'WEEKEND'
+        (s: any) => {
+          const d = new Date(s.date);
+          return s.analystId === analyst.id && (d.getDay() === 0 || d.getDay() === 6);
+        }
       ).length;
       weekendDistribution.set(analyst.id, analystWeekends);
     }
@@ -385,10 +397,10 @@ export class PredictiveEngine {
     for (let i = 1; i < sortedSchedules.length; i++) {
       const prevDate = new Date(sortedSchedules[i - 1].date);
       const currDate = new Date(sortedSchedules[i].date);
-      
+
       const diffTime = currDate.getTime() - prevDate.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 1) {
         currentStreak++;
         maxStreak = Math.max(maxStreak, currentStreak);

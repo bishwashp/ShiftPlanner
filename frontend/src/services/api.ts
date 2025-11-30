@@ -282,6 +282,28 @@ export interface FairnessReport {
   recommendations: string[];
 }
 
+export interface MonthlyTally {
+  analystId: string;
+  analystName: string;
+  month: number;
+  year: number;
+  totalWorkDays: number;
+  regularShiftDays: number;
+  screenerDays: number;
+  weekendDays: number;
+  consecutiveWorkDayStreaks: number;
+  fairnessScore: number;
+}
+
+export interface BurnoutRisk {
+  analystId: string;
+  analystName: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  riskScore: number;
+  factors: string[];
+  recommendations: string[];
+}
+
 export interface SchedulePreview {
   startDate: string;
   endDate: string;
@@ -865,6 +887,8 @@ export const apiService = {
     });
     return response.data as any;
   },
+
+
 
   // Absences
   getAbsences: async (analystId?: string, type?: string, isApproved?: boolean, isPlanned?: boolean, startDate?: string, endDate?: string): Promise<any[]> => {

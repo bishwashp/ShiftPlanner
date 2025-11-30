@@ -22,6 +22,10 @@ export class ConstraintEngine {
         const softViolations = this.validateSoftConstraints(schedules, softConstraints);
         violations.push(...softViolations);
 
+        // Validate rolling 7-day window (CRITICAL system constraint)
+        const rolling7DayViolations = this.validateRolling7DayLimit(schedules);
+        violations.push(...rolling7DayViolations);
+
         // Calculate overall validation score
         const score = this.calculateValidationScore(violations, schedules.length);
         const isValid = violations.filter(v => v.type === 'HARD').length === 0;
@@ -225,6 +229,54 @@ export class ConstraintEngine {
                 affectedSchedules: preferredAnalystSchedules.map(s => `${s.analystName} on ${s.date}`),
                 suggestedFix: 'Consider assigning screener role to preferred analyst during this period'
             });
+        }
+
+        return violations;
+    }
+
+    /**
+     * Validate rolling 7-day window limit (max 5 days worked in any 7-day period)
+     * This is a CRITICAL system constraint to prevent analyst burnout
+     */
+    private validateRolling7DayLimit(
+        schedules: ProposedSchedule[]
+    ): ConstraintViolation[] {
+        const violations: ConstraintViolation[] = [];
+        const analystSchedulesMap = this.groupSchedulesByAnalyst(schedules);
+
+        for (const [analystId, analystSchedules] of analystSchedulesMap) {
+            // Sort by date
+            const sorted = analystSchedules.sort((a, b) =>
+                new Date(a.date).getTime() - new Date(b.date).getTime()
+            );
+
+            // Check each date and its 7-day window
+            for (let i = 0; i < sorted.length; i++) {
+                const currentDate = new Date(sorted[i].date);
+                const windowStart = new Date(currentDate);
+                windowStart.setDate(windowStart.getDate() - 6); // 7-day window including current date
+
+                const daysInWindow = sorted.filter(s => {
+                    const sDate = new Date(s.date);
+                    return sDate >= windowStart && sDate <= currentDate;
+                }).length;
+
+                if (daysInWindow > 5) {
+                    const windowSchedules = sorted.filter(s => {
+                        const sDate = new Date(s.date);
+                        return sDate >= windowStart && sDate <= currentDate;
+                    });
+
+                    violations.push({
+                        type: 'HARD',
+                        severity: 'CRITICAL',
+                        description: `${sorted[i].analystName} working ${daysInWindow} days in a 7-day period (max 5 allowed)`,
+                        affectedSchedules: windowSchedules.map(s => `${s.analystName} on ${s.date}`),
+                        suggestedFix: `Reduce shifts for ${sorted[i].analystName} - remove at least ${daysInWindow - 5} shift(s) in this period`
+                    });
+                    break; // Only report once per analyst to avoid duplicate violations
+                }
+            }
         }
 
         return violations;

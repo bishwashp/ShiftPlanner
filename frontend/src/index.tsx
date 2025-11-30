@@ -4,13 +4,17 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+import { PeriodProvider } from './context/PeriodContext';
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 
 root.render(
   <React.StrictMode>
-    <App />
+    <PeriodProvider>
+      <App />
+    </PeriodProvider>
   </React.StrictMode>
 );
 

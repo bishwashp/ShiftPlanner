@@ -51,7 +51,7 @@ export class ScoringEngine {
             consecutiveDays: this.calculateConsecutiveDaysScore(candidate, targetDate, history),
             turnaroundTime: this.calculateTurnaroundScore(candidate, targetDate, shiftType, history),
             workload: this.calculateWorkloadScore(candidate, targetDate, history),
-            rolePreference: this.calculatePreferenceScore(candidate, shiftType),
+            rolePreference: this.calculatePreferenceScore(candidate, targetDate, shiftType),
             weekendFairness: this.calculateWeekendScore(candidate, targetDate, shiftType, history)
         };
 
@@ -126,15 +126,20 @@ export class ScoringEngine {
         return 1.0;
     }
 
-    private calculatePreferenceScore(candidate: any, shiftType: string): number {
-        // If candidate has a preferred shift type (assuming it's on the analyst object)
+    private calculatePreferenceScore(candidate: any, targetDate: string, shiftType: string): number {
+        // If candidate has a preferred shift type
         if (candidate.shiftType === shiftType) return 1.0;
-        if (candidate.shiftType === 'WEEKEND' && shiftType === 'WEEKEND') return 1.0;
+
+        const isTargetWeekend = moment(targetDate).day() === 0 || moment(targetDate).day() === 6;
+        // If candidate prefers weekends (assuming candidate.shiftType can be 'WEEKEND')
+        if (candidate.shiftType === 'WEEKEND' && isTargetWeekend) return 1.0;
+
         return 0.5; // Neutral if not preferred
     }
 
     private calculateWeekendScore(candidate: any, targetDate: string, shiftType: string, history: any[]): number {
-        if (shiftType !== 'WEEKEND') return 1.0; // Not relevant for weekdays
+        const isWeekend = moment(targetDate).day() === 0 || moment(targetDate).day() === 6;
+        if (!isWeekend) return 1.0; // Not relevant for weekdays
 
         // Check if worked last weekend
         const lastWeekend = moment(targetDate).subtract(7, 'days'); // Approx
@@ -143,7 +148,7 @@ export class ScoringEngine {
         // For now, just check total weekend shifts in history
         const weekendShifts = history.filter(h =>
             h.analystId === candidate.id &&
-            (h.shiftType === 'WEEKEND' || moment(h.date).day() === 0 || moment(h.date).day() === 6)
+            (moment(h.date).day() === 0 || moment(h.date).day() === 6)
         ).length;
 
         // Inverse to number of weekend shifts (fewer is better for fairness)

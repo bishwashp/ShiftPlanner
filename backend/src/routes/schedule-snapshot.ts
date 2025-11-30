@@ -10,7 +10,7 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const today = moment().format('YYYY-MM-DD');
     const thirtyDaysFromNow = moment().add(30, 'days').format('YYYY-MM-DD');
-    
+
     // 1. Get today's screeners
     const todaysSchedules = await prisma.schedule.findMany({
       where: {
@@ -39,7 +39,10 @@ router.get('/', async (req: Request, res: Response) => {
         .filter(s => s.shiftType === 'EVENING' && s.isScreener)
         .map(s => s.analyst.name.split(' ')[0]),
       WEEKEND: todaysSchedules
-        .filter(s => s.shiftType === 'WEEKEND' && s.isScreener)
+        .filter(s => {
+          const d = new Date(s.date);
+          return (d.getDay() === 0 || d.getDay() === 6) && s.isScreener;
+        })
         .map(s => s.analyst.name.split(' ')[0])
     };
 
@@ -47,7 +50,7 @@ router.get('/', async (req: Request, res: Response) => {
     const holidayService = new HolidayService(prisma);
     const currentYear = moment().year();
     const holidays = await holidayService.getHolidaysForYear(currentYear);
-    
+
     const upcomingHoliday = holidays.find(holiday => {
       const holidayDate = moment(holiday.date);
       return holidayDate.isAfter(moment(today)) && holidayDate.isSameOrBefore(moment(thirtyDaysFromNow));

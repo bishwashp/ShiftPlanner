@@ -108,8 +108,8 @@ export class AnalyticsEngine {
   }
 
   async calculateMonthlyTallies(month: number, year: number): Promise<MonthlyTally[]> {
-    const cacheKey = `monthly_tallies_${year}_${month}`;
-    
+    const cacheKey = `monthly_tallies_v2_${year}_${month}`;
+
     // Try to get from cache first
     const cached = await this.cache.get(cacheKey);
     if (cached) {
@@ -138,7 +138,7 @@ export class AnalyticsEngine {
 
     for (const schedule of schedules) {
       const analystId = schedule.analystId;
-      
+
       if (!analystMap.has(analystId)) {
         analystMap.set(analystId, {
           analystId,
@@ -163,7 +163,10 @@ export class AnalyticsEngine {
         tally.regularShiftDays++;
       }
 
-      if (schedule.shiftType === 'WEEKEND') {
+      // Check if the schedule date is a weekend (Saturday=6, Sunday=0)
+      const scheduleDate = new Date(schedule.date);
+      const dayOfWeek = scheduleDate.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
         tally.weekendDays++;
       }
     }
@@ -176,16 +179,16 @@ export class AnalyticsEngine {
     }
 
     const result = Array.from(analystMap.values());
-    
+
     // Cache the result for 1 hour
     await this.cache.set(cacheKey, result, 3600);
-    
+
     return result;
   }
 
   async generateFairnessReport(dateRange: DateRange): Promise<FairnessReport> {
     const cacheKey = `fairness_report_${dateRange.startDate.toISOString()}_${dateRange.endDate.toISOString()}`;
-    
+
     const cached = await this.cache.get(cacheKey);
     if (cached) {
       return cached as FairnessReport;
@@ -234,7 +237,11 @@ export class AnalyticsEngine {
 
     // Calculate weekend distribution
     const weekendCounts = analysts.map((analyst: any) => {
-      const analystSchedules = schedules.filter((s: any) => s.analystId === analyst.id && s.shiftType === 'WEEKEND');
+      const analystSchedules = schedules.filter((s: any) => {
+        const scheduleDate = new Date(s.date);
+        const dayOfWeek = scheduleDate.getDay();
+        return s.analystId === analyst.id && (dayOfWeek === 0 || dayOfWeek === 6);
+      });
       return analystSchedules.length;
     });
 
@@ -250,8 +257,12 @@ export class AnalyticsEngine {
       const analystSchedules = schedules.filter((s: any) => s.analystId === analyst.id);
       const workload = analystSchedules.length;
       const screenerDays = analystSchedules.filter((s: any) => s.isScreener).length;
-      const weekendDays = analystSchedules.filter((s: any) => s.shiftType === 'WEEKEND').length;
-      
+      const weekendDays = analystSchedules.filter((s: any) => {
+        const scheduleDate = new Date(s.date);
+        const dayOfWeek = scheduleDate.getDay();
+        return dayOfWeek === 0 || dayOfWeek === 6;
+      }).length;
+
       return {
         analystId: analyst.id,
         analystName: analyst.name,
@@ -279,7 +290,7 @@ export class AnalyticsEngine {
     const workloadScore = Math.max(0, 1 - (workloadDistribution.standardDeviation / 10)); // Normalize workload score
     const screenerScore = screenerDistribution.fairnessScore || 1;
     const weekendScore = weekendDistribution.fairnessScore || 1;
-    
+
     const overallFairnessScore = (
       workloadScore * 0.4 +
       screenerScore * 0.3 +
@@ -298,7 +309,7 @@ export class AnalyticsEngine {
 
     // Cache for 30 minutes
     await this.cache.set(cacheKey, result, 1800);
-    
+
     return result;
   }
 
@@ -319,13 +330,13 @@ export class AnalyticsEngine {
     // Simple trend analysis (can be enhanced with ML)
     for (let i = 1; i <= futureMonths; i++) {
       const futureDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
-      
+
       // Calculate average workload for the same month in historical data
-      const sameMonthData = historicalData.filter((s: any) => 
+      const sameMonthData = historicalData.filter((s: any) =>
         s.date.getMonth() === futureDate.getMonth()
       );
 
-      const averageWorkload = sameMonthData.length > 0 
+      const averageWorkload = sameMonthData.length > 0
         ? sameMonthData.length / 6 // Average per month
         : 20; // Default prediction
 
@@ -342,7 +353,7 @@ export class AnalyticsEngine {
 
   async identifyOptimizationOpportunities(schedules: any[]): Promise<OptimizationOpportunity[]> {
     const opportunities: OptimizationOpportunity[] = [];
-    
+
     // Analyze workload balance
     const workloads = new Map<string, number>();
     for (const schedule of schedules) {
@@ -418,11 +429,11 @@ export class AnalyticsEngine {
     for (let i = 1; i < sortedSchedules.length; i++) {
       const prevDate = new Date(sortedSchedules[i - 1].date);
       const currDate = new Date(sortedSchedules[i].date);
-      
+
       // Check if dates are consecutive
       const diffTime = currDate.getTime() - prevDate.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === 1) {
         currentStreak++;
         maxStreak = Math.max(maxStreak, currentStreak);
@@ -438,74 +449,74 @@ export class AnalyticsEngine {
     // Simple fairness score based on workload balance
     // Higher score = more fair
     const baseScore = 1.0;
-    
+
     // Penalize for very high consecutive streaks
     const streakPenalty = Math.max(0, (tally.consecutiveWorkDayStreaks - 5) * 0.1);
-    
+
     // Bonus for balanced screener and weekend distribution
     const screenerBalance = tally.screenerDays > 0 ? 0.1 : 0;
     const weekendBalance = tally.weekendDays > 0 ? 0.1 : 0;
-    
+
     return Math.max(0, Math.min(1, baseScore - streakPenalty + screenerBalance + weekendBalance));
   }
 
   private calculateStandardDeviation(values: number[]): number {
     if (values.length === 0) return 0;
-    
+
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
     const variance = squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
-    
+
     return Math.sqrt(variance);
   }
 
   private calculateGiniCoefficient(values: number[]): number {
     if (values.length === 0) return 0;
-    
+
     const sorted = [...values].sort((a, b) => a - b);
     const n = sorted.length;
     let sum = 0;
-    
+
     for (let i = 0; i < n; i++) {
       sum += (2 * (i + 1) - n - 1) * sorted[i];
     }
-    
+
     return sum / (n * sorted.reduce((a, b) => a + b, 0));
   }
 
   private calculateDistributionFairness(values: number[]): number {
     if (values.length === 0) return 1;
-    
+
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     if (mean === 0) return 1; // If all values are 0, it's perfectly fair
-    
+
     const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
     const standardDeviation = Math.sqrt(variance);
-    
+
     // Convert to fairness score (0-1, where 1 is perfectly fair)
     return Math.max(0, 1 - (standardDeviation / mean));
   }
 
   private generateRecommendations(data: any): string[] {
     const recommendations: string[] = [];
-    
+
     if (data.workloadDistribution.standardDeviation > 2) {
       recommendations.push('Consider redistributing workload to reduce variance');
     }
-    
+
     if (data.screenerDistribution.fairnessScore < 0.7) {
       recommendations.push('Implement more equitable screener rotation');
     }
-    
+
     if (data.weekendDistribution.fairnessScore < 0.7) {
       recommendations.push('Balance weekend assignments across all analysts');
     }
-    
+
     const lowFairnessAnalysts = data.individualScores.filter((s: any) => s.fairnessScore < 0.5);
     if (lowFairnessAnalysts.length > 0) {
       recommendations.push(`Review scheduling for ${lowFairnessAnalysts.length} analysts with low fairness scores`);
     }
-    
+
     return recommendations;
   }
 } 

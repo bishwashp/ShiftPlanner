@@ -140,35 +140,44 @@ export class SimpleMLService {
       // Calculate risk factors
       const totalWorkDays = recentSchedules.length;
       const consecutiveStreaks = this.calculateConsecutiveStreaks(recentSchedules);
-      const weekendDays = recentSchedules.filter((s: any) => s.shiftType === 'WEEKEND').length;
+      const weekendDays = recentSchedules.filter((s: any) => {
+        const d = new Date(s.date);
+        return d.getDay() === 0 || d.getDay() === 6;
+      }).length;
       const screenerDays = recentSchedules.filter((s: any) => s.isScreener).length;
 
       // Simple ML scoring algorithm
       let riskScore = 0;
       const factors: string[] = [];
 
-      // High workload factor (0-40 points)
-      if (totalWorkDays > 20) {
-        riskScore += Math.min(40, (totalWorkDays - 20) * 2);
-        factors.push(`High workload: ${totalWorkDays} days in 30 days`);
+      // ADJUSTED: High workload factor - only flag if working more than 25 days in 30 (83%+)
+      if (totalWorkDays > 25) {
+        riskScore += Math.min(40, (totalWorkDays - 25) * 3);
+        factors.push(`Excessive workload: ${totalWorkDays} days in 30 days`);
+      } else if (totalWorkDays > 23) {
+        riskScore += 15;
+        factors.push(`Heavy workload: ${totalWorkDays} days in 30 days`);
       }
 
-      // Consecutive work days factor (0-30 points)
-      if (consecutiveStreaks > 5) {
-        riskScore += Math.min(30, (consecutiveStreaks - 5) * 5);
-        factors.push(`Long consecutive streak: ${consecutiveStreaks} days`);
+      // Consecutive work days factor - only flag if 7+ days straight
+      if (consecutiveStreaks >= 7) {
+        riskScore += Math.min(30, (consecutiveStreaks - 6) * 5);
+        factors.push(`Long consecutive streak: ${consecutiveStreaks} days without rest`);
       }
 
-      // Weekend work factor (0-20 points)
-      if (weekendDays > 4) {
-        riskScore += Math.min(20, (weekendDays - 4) * 4);
+      // Weekend work factor - only flag if working 6+ weekends
+      if (weekendDays >= 6) {
+        riskScore += Math.min(20, (weekendDays - 5) * 4);
+        factors.push(`Excessive weekend work: ${weekendDays} weekend days`);
+      } else if (weekendDays >= 5) {
+        riskScore += 10;
         factors.push(`High weekend work: ${weekendDays} weekend days`);
       }
 
-      // Screener duty factor (0-10 points)
-      if (screenerDays > 6) {
-        riskScore += Math.min(10, (screenerDays - 6) * 2);
-        factors.push(`High screener duty: ${screenerDays} screener days`);
+      // Screener duty factor - only flag if 8+ screener days
+      if (screenerDays >= 8) {
+        riskScore += Math.min(10, (screenerDays - 7) * 2);
+        factors.push(`Heavy screener duty: ${screenerDays} screener days`);
       }
 
       // Determine risk level
@@ -269,7 +278,10 @@ export class SimpleMLService {
       }
 
       // Check weekend work balance
-      const weekendDays = analystSchedules.filter((s: any) => s.shiftType === 'WEEKEND').length;
+      const weekendDays = analystSchedules.filter((s: any) => {
+        const d = new Date(s.date);
+        return d.getDay() === 0 || d.getDay() === 6;
+      }).length;
       if (weekendDays < 2) {
         score += 5; // Small bonus for weekend availability
         reasons.push('Available for weekend work');

@@ -157,6 +157,10 @@ export class FairnessTracker {
       // Base score on inverse of total days worked
       score -= metrics.totalDaysWorked * 10;
 
+      // CRITICAL: Check rolling 7-day window limit (max 5 days in any 7-day period)
+      const wouldExceed7Day = await this.wouldExceedRolling7DayLimit(analyst.id, date);
+      if (wouldExceed7Day) score -= 2000; // CRITICAL penalty - fundamental constraint
+
       // Penalize if this would create excessive consecutive days
       const wouldCreateConsecutive = this.wouldCreateExcessiveConsecutiveDays(
         metrics,
@@ -388,6 +392,31 @@ export class FairnessTracker {
     }
 
     return false;
+  }
+
+  /**
+   * Check if assigning a shift would exceed the maximum days in a rolling 7-day window
+   */
+  private async wouldExceedRolling7DayLimit(
+    analystId: string,
+    date: Date,
+    maxDaysIn7: number = 5
+  ): Promise<boolean> {
+    const startDate = new Date(date);
+    startDate.setDate(startDate.getDate() - 6); // 7-day window including proposed date
+
+    const existingSchedules = await this.prisma.schedule.count({
+      where: {
+        analystId,
+        date: {
+          gte: startDate,
+          lte: date
+        }
+      }
+    });
+
+    // If adding this shift would exceed limit (existing schedules doesn't include the proposed one)
+    return existingSchedules >= maxDaysIn7;
   }
 
   private async getRecentScreenerDays(analystId: string, date: Date, days: number): Promise<number> {

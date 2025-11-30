@@ -272,3 +272,27 @@ model WorkPattern {
 // ConstraintType: "BLACKOUT_DATE", "MAX_SCREENER_DAYS", "MIN_SCREENER_DAYS", "PREFERRED_SCREENER", "UNAVAILABLE_SCREENER"
 // AbsenceType: "VACATION", "SICK_LEAVE", "PERSONAL", "EMERGENCY", "TRAINING", "CONFERENCE"
 
+
+model SystemEvent {
+  id          String   @id @default(cuid())
+  eventType   String   // SCHEDULE_CHANGED, CONSTRAINT_CHANGED, HOLIDAY_CHANGED, ALGORITHM_RUN
+  entityType  String   // SCHEDULE, CONSTRAINT, HOLIDAY, ANALYST
+  entityId    String?
+  
+  action      String   // CREATED, UPDATED, DELETED
+  actorType   String   // USER, SYSTEM, ALGORITHM
+  actorId     String?
+  
+  before      String?  // JSON string
+  after       String?  // JSON string
+  changes     String?  // JSON string
+  
+  metadata    String?  // JSON string
+  
+  createdAt   DateTime @default(now())
+  
+  // Performance indexes
+  @@index([eventType, createdAt])
+  @@index([entityType, entityId])
+  @@map("system_events")
+}

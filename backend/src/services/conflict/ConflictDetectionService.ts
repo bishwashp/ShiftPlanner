@@ -116,7 +116,8 @@ export class ConflictDetectionService {
       if (schedule.shiftType === 'EVENING') {
         shifts.evening = true;
       }
-      if (schedule.shiftType === 'WEEKEND') {
+      const date = new Date(schedule.date);
+      if (date.getDay() === 0 || date.getDay() === 6) {
         shifts.weekend = true;
       }
     }

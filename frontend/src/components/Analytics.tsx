@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { apiService } from '../services/api';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { apiService, Schedule, MonthlyTally, FairnessReport, Analyst } from '../services/api';
 import moment from 'moment';
-import Button from './ui/Button';
 import {
-  ArrowsClockwise,
   ChartBar,
   Warning,
   TrendUp,
@@ -14,685 +12,861 @@ import {
   Users,
   Siren,
   CheckCircle,
-  Info
+  Trophy,
+  Calendar,
+  ArrowCounterClockwise,
+  Info,
+  UsersThree
 } from '@phosphor-icons/react';
-
-interface MonthlyTally {
-  analystId: string;
-  analystName: string;
-  month: number;
-  year: number;
-  totalWorkDays: number;
-  regularShiftDays: number;
-  screenerDays: number;
-  weekendDays: number;
-  consecutiveWorkDayStreaks: number;
-  fairnessScore: number;
-}
-
-interface FairnessReport {
-  overallFairnessScore: number;
-  individualScores: Array<{
-    analystName: string;
-    fairnessScore: number;
-    workload: number;
-    screenerDays: number;
-    weekendDays: number;
-  }>;
-  recommendations: string[];
-}
-
-interface Alert {
-  id: string;
-  type: string;
-  message: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-}
-
-interface BurnoutRisk {
-  analystId: string;
-  analystName: string;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  riskScore: number;
-  factors: string[];
-  recommendations: string[];
-}
-
-interface WorkloadPrediction {
-  date: Date;
-  predictedRequiredStaff: number;
-  confidence: number;
-  factors: string[];
-}
-
-interface DemandForecast {
-  period: string;
-  predictedDemand: number;
-  confidence: number;
-  trend: 'INCREASING' | 'STABLE' | 'DECREASING';
-  factors: string[];
-}
-
-interface ConflictPrediction {
-  date: Date;
-  probability: number;
-  conflictType: string;
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  description: string;
-  preventiveActions: string[];
-}
+import { BurnoutModal } from './analytics/BurnoutModal';
+import { ActivityRing } from './analytics/ActivityRing';
+import { MetricCard } from './analytics/MetricCard';
+import { TrendChart } from './analytics/TrendChart';
+import { WorkloadTrendChart } from './analytics/WorkloadTrendChart';
+import { TeamRadar } from './analytics/TeamRadar';
+import { usePeriod } from '../context/PeriodContext';
+import { AnalystComparison } from './analytics/AnalystComparison';
+import { AnalystHeatmap } from './analytics/AnalystHeatmap';
+import { ShiftRadar } from './analytics/ShiftRadar';
+import { AnalyticsTabs } from './analytics/AnalyticsTabs';
+import { motion } from 'framer-motion';
 
 const Analytics: React.FC = () => {
+  // State
+  const { period, setPeriod } = usePeriod();
+  const [loading, setLoading] = useState(true);
   const [tallyData, setTallyData] = useState<MonthlyTally[]>([]);
   const [fairnessData, setFairnessData] = useState<FairnessReport | null>(null);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [trendsData, setTrendsData] = useState<Array<{ month: string, fairness: number, avgWorkload: number }>>([]);
-  // Current month/year for default view
-  const currentMonth = new Date().getMonth() + 1;
-  const currentYear = new Date().getFullYear();
+  const [analysts, setAnalysts] = useState<Analyst[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [trendsData, setTrendsData] = useState<Array<{ name: string, fairness: number, avgWeightedScore: number }>>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [burnoutRisks, setBurnoutRisks] = useState<any[]>([]);
+  const [isBurnoutModalOpen, setIsBurnoutModalOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'WORKLOAD' | 'SCREENER' | 'WEEKEND'>('WORKLOAD');
 
-  // ML Insights state
-  const [burnoutRisks, setBurnoutRisks] = useState<BurnoutRisk[]>([]);
-  const [workloadPredictions, setWorkloadPredictions] = useState<WorkloadPrediction[]>([]);
-  const [demandForecast, setDemandForecast] = useState<DemandForecast | null>(null);
-  const [conflictPredictions, setConflictPredictions] = useState<ConflictPrediction[]>([]);
-  const [activeMLTab, setActiveMLTab] = useState<'burnout' | 'workload' | 'demand' | 'conflicts'>('burnout');
+  // Refs
+  const deepDiveRef = useRef<HTMLDivElement>(null);
 
+  // Date ranges based on Period
   useEffect(() => {
-    const fetchAnalyticsData = async () => {
-      try {
+    const fetchData = async () => {
+      // Only show full loading screen on initial mount
+      if (!tallyData.length && !schedules.length) {
         setLoading(true);
+      }
 
-        // Fetch current month data
-        const currentData = await apiService.getWorkDayTally(currentMonth, currentYear);
-        setTallyData(currentData);
+      try {
+        const now = moment();
+        const currentMonth = now.month() + 1;
+        const currentYear = now.year();
+        const startOfMonth = now.clone().startOf('month').format('YYYY-MM-DD');
+        const endOfMonth = now.clone().endOf('month').format('YYYY-MM-DD');
 
-        // Fetch fairness report for current month
-        const startOfMonth = moment().startOf('month').format('YYYY-MM-DD');
-        const endOfMonth = moment().endOf('month').format('YYYY-MM-DD');
+        // Determine date range based on period
+        let startStr = startOfMonth;
+        let endStr = endOfMonth;
 
-        try {
-          const fairnessReport = await apiService.getFairnessReport(startOfMonth, endOfMonth);
-          setFairnessData(fairnessReport);
-        } catch (error) {
-          console.warn('Could not fetch fairness report, using fallback calculation');
-          // Create a fallback fairness report based on current tally data
-          if (currentData.length > 0) {
-            const fallbackReport = generateFallbackFairnessReport(currentData);
-            setFairnessData(fallbackReport);
-          }
+        if (period === 'WEEKLY') {
+          startStr = now.clone().startOf('week').format('YYYY-MM-DD');
+          endStr = now.clone().endOf('week').format('YYYY-MM-DD');
+        } else if (period === 'MONTHLY') {
+          startStr = now.clone().startOf('month').format('YYYY-MM-DD');
+          endStr = now.clone().endOf('month').format('YYYY-MM-DD');
+        } else if (period === 'QUARTERLY') {
+          startStr = now.clone().startOf('quarter').format('YYYY-MM-DD');
+          endStr = now.clone().endOf('quarter').format('YYYY-MM-DD');
+        } else if (period === 'YEARLY') {
+          startStr = now.clone().startOf('year').format('YYYY-MM-DD');
+          endStr = now.clone().endOf('year').format('YYYY-MM-DD');
         }
 
-        // Generate alerts based on data
-        const currentFairnessData = fairnessData || generateFallbackFairnessReport(currentData);
-        generateAlerts(currentData, currentFairnessData);
+        const [fairness, scheds, analystList] = await Promise.all([
+          apiService.getFairnessReport(startStr, endStr),
+          apiService.getSchedules(startStr, endStr),
+          apiService.getAnalysts()
+        ]);
 
-        // Generate trends data (last 6 months)
-        await generateTrendsData();
+        // Calculate tally data from schedules (supports all periods, not just current month)
+        const tallyMap = new Map<string, any>();
 
-        // Fetch ML insights
-        await fetchMLInsights();
+        // Initialize tally for all active analysts
+        analystList.filter(a => a.isActive).forEach(analyst => {
+          tallyMap.set(analyst.id, {
+            analystId: analyst.id,
+            analystName: analyst.name,
+            totalWorkDays: 0,
+            weekendDays: 0,
+            screenerDays: 0,
+            fairnessScore: 0,
+            weightedScore: 0,
+            consecutiveWorkDayStreaks: 0
+          });
+        });
 
-        // Update last updated timestamp
-        setLastUpdated(new Date());
+        // Calculate Weighted Scores per Analyst
+        analystList.filter(a => a.isActive).forEach(analyst => {
+          const analystSchedules = scheds
+            .filter(s => s.analystId === analyst.id)
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+          let weightedScore = 0;
+          let lastWasScreener = false;
+          let totalWorkDays = 0;
+          let weekendDays = 0;
+          let screenerDays = 0;
+
+          analystSchedules.forEach(s => {
+            totalWorkDays++;
+            const m = moment(s.date);
+            const isWeekend = m.day() === 0 || m.day() === 6;
+            if (isWeekend) weekendDays++;
+            if (s.isScreener) screenerDays++;
+
+            // Weighted Logic: Additive
+            // Base: 1.0
+            // Weekend: +1.0
+            // Screener: +1.0
+            // Evening: +0.5
+            // Consecutive Screener: +1.0
+
+            let weight = 1.0;
+            if (isWeekend) weight += 1.0;
+            if (s.isScreener) weight += 1.0;
+            if (s.shiftType === 'EVENING') weight += 0.5;
+            if (s.isScreener && lastWasScreener) weight += 1.0; // Penalty
+
+            weightedScore += weight;
+            lastWasScreener = s.isScreener;
+          });
+
+          const tally = tallyMap.get(analyst.id);
+          if (tally) {
+            tally.totalWorkDays = totalWorkDays;
+            tally.weekendDays = weekendDays;
+            tally.screenerDays = screenerDays;
+            tally.weightedScore = weightedScore;
+          }
+        });
+
+        // Calculate fairness scores based on WEIGHTED workload distribution
+        const scores = Array.from(tallyMap.values()).map(t => t.weightedScore);
+        const avgScore = scores.reduce((a, b) => a + b, 0) / (scores.length || 1);
+
+        tallyMap.forEach(tally => {
+          // Fairness score: closer to average = higher score
+          const deviation = Math.abs(tally.weightedScore - avgScore);
+          const maxDeviation = avgScore > 0 ? avgScore : 1;
+          tally.fairnessScore = Math.max(0, 1 - (deviation / maxDeviation));
+        });
+
+        const tallies = Array.from(tallyMap.values());
+        setTallyData(tallies);
+
+        // Populate Chart Data (Analyst View)
+        // Sort by Weighted Score (Descending) to show busiest first
+        const chartData = tallies
+          .sort((a, b) => b.weightedScore - a.weightedScore)
+          .map(t => ({
+            name: t.analystName,
+            fairness: t.fairnessScore,
+            avgWeightedScore: t.weightedScore
+          }));
+        setTrendsData(chartData);
+        setFairnessData(fairness);
+        setSchedules(scheds);
+        setAnalysts(analystList);
+
+        // Calculate burnout risk from the schedules (respects period selection)
+        const burnoutAssessments = calculateBurnoutRisk(scheds, analystList, period);
+        setBurnoutRisks(burnoutAssessments);
+
+        // Calculate trends (mock data for now or derived)
 
       } catch (error) {
-        console.error('Failed to fetch analytics data', error);
+        console.error('Error fetching analytics data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAnalyticsData();
+    fetchData();
+  }, [period]);
 
-    // Auto-refresh every 5 minutes
-    const interval = setInterval(() => {
-      fetchAnalyticsData();
-    }, 5 * 60 * 1000);
+  // Client-side burnout calculation that respects the selected period
+  const calculateBurnoutRisk = (schedules: Schedule[], analysts: Analyst[], selectedPeriod: string) => {
+    const assessments: any[] = [];
+    const periodDays = selectedPeriod === 'WEEKLY' ? 7 : selectedPeriod === 'MONTHLY' ? 30 : selectedPeriod === 'QUARTERLY' ? 90 : 365;
 
-    return () => clearInterval(interval);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    for (const analyst of analysts.filter(a => a.isActive)) {
+      const analystSchedules = schedules.filter(s => s.analystId === analyst.id).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const generateAlerts = (tallyData: MonthlyTally[], fairnessData: FairnessReport | null) => {
-    const newAlerts: Alert[] = [];
+      const totalWorkDays = analystSchedules.length;
+      const weekendDays = analystSchedules.filter(s => {
+        const day = new Date(s.date).getDay();
+        return day === 0 || day === 6;
+      }).length;
+      const screenerDays = analystSchedules.filter(s => s.isScreener).length;
 
-    // Check for workload imbalances
-    const workloads = tallyData.map(t => t.totalWorkDays);
-    const avgWorkload = workloads.reduce((a, b) => a + b, 0) / workloads.length;
-    const maxWorkload = Math.max(...workloads);
-    const minWorkload = Math.min(...workloads);
+      // Calculate consecutive streaks
+      let maxStreak = 0;
+      let currentStreak = 0;
+      for (let i = 0; i < analystSchedules.length; i++) {
+        if (i === 0) {
+          currentStreak = 1;
+        } else {
+          const prevDate = new Date(analystSchedules[i - 1].date);
+          const currDate = new Date(analystSchedules[i].date);
+          const diffDays = Math.ceil((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays === 1) {
+            currentStreak++;
+          } else {
+            maxStreak = Math.max(maxStreak, currentStreak);
+            currentStreak = 1;
+          }
+        }
+      }
+      maxStreak = Math.max(maxStreak, currentStreak);
 
-    if (maxWorkload - minWorkload > avgWorkload * 0.4) {
-      newAlerts.push({
-        id: 'workload-imbalance',
-        type: 'WORKLOAD_IMBALANCE',
-        message: `Workload imbalance detected: ${maxWorkload - minWorkload} day difference between highest and lowest`,
-        severity: maxWorkload - minWorkload > avgWorkload * 0.6 ? 'HIGH' : 'MEDIUM'
+      // Calculate risk score
+      let riskScore = 0;
+      const factors: string[] = [];
+
+      // Workload factor - scale by period
+      const workloadThreshold = Math.floor(periodDays * 0.83); // 83% utilization
+      if (totalWorkDays > workloadThreshold) {
+        riskScore += 35;
+        factors.push(`Excessive workload: ${totalWorkDays} days in ${periodDays} days`);
+      } else if (totalWorkDays > Math.floor(periodDays * 0.75)) {
+        riskScore += 15;
+        factors.push(`Heavy workload: ${totalWorkDays} days in ${periodDays} days`);
+      }
+
+      // Consecutive streaks
+      if (maxStreak >= 7) {
+        riskScore += 30;
+        factors.push(`Long consecutive streak: ${maxStreak} days without rest`);
+      }
+
+      // Weekend work - scale by period
+      const expectedWeekends = Math.floor(periodDays / 7) * 2;
+      if (weekendDays >= Math.floor(expectedWeekends * 0.75)) {
+        riskScore += 20;
+        factors.push(`Excessive weekend work: ${weekendDays} weekend days`);
+      } else if (weekendDays >= Math.floor(expectedWeekends * 0.6)) {
+        riskScore += 10;
+        factors.push(`High weekend work: ${weekendDays} weekend days`);
+      }
+
+      // Screener duty - scale by period
+      const screenerExpected = Math.floor(periodDays / 4); // ~1 per week
+      if (screenerDays >= screenerExpected * 2) {
+        riskScore += 15;
+        factors.push(`Heavy screener duty: ${screenerDays} screener days`);
+      }
+
+      // Determine risk level
+      let riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW';
+      if (riskScore >= 70) riskLevel = 'CRITICAL';
+      else if (riskScore >= 50) riskLevel = 'HIGH';
+      else if (riskScore >= 30) riskLevel = 'MEDIUM';
+
+      // Recommendations
+      const recommendations: string[] = [];
+      if (totalWorkDays > workloadThreshold) {
+        recommendations.push('Consider reducing workload for next period');
+      }
+      if (maxStreak >= 7) {
+        recommendations.push('Add rest days between work periods');
+      }
+      if (weekendDays >= Math.floor(expectedWeekends * 0.75)) {
+        recommendations.push('Reduce weekend assignments');
+      }
+      if (screenerDays >= screenerExpected * 2) {
+        recommendations.push('Rotate screener duties more evenly');
+      }
+      if (recommendations.length === 0) {
+        recommendations.push('Workload is balanced - maintain current schedule');
+      }
+
+      assessments.push({
+        analystId: analyst.id,
+        analystName: analyst.name,
+        riskLevel,
+        riskScore,
+        factors,
+        recommendations,
+        lastAssessment: new Date(),
       });
     }
 
-    // Check for consecutive work streaks
-    const longStreaks = tallyData.filter(t => t.consecutiveWorkDayStreaks > 5);
-    if (longStreaks.length > 0) {
-      newAlerts.push({
-        id: 'consecutive-streaks',
-        type: 'CONSECUTIVE_STREAKS',
-        message: `${longStreaks.length} analyst(s) have consecutive work streaks > 5 days`,
-        severity: 'MEDIUM'
-      });
-    }
-
-    // Check fairness score
-    if (fairnessData && fairnessData.overallFairnessScore < 0.7) {
-      newAlerts.push({
-        id: 'low-fairness',
-        type: 'FAIRNESS_VIOLATION',
-        message: `Low fairness score: ${(fairnessData.overallFairnessScore * 100).toFixed(1)}%`,
-        severity: fairnessData.overallFairnessScore < 0.5 ? 'HIGH' : 'MEDIUM'
-      });
-    }
-
-    setAlerts(newAlerts);
+    return assessments;
   };
 
-  const generateFallbackFairnessReport = (tallyData: MonthlyTally[]): FairnessReport => {
-    if (tallyData.length === 0) {
-      return {
-        overallFairnessScore: 0,
-        individualScores: [],
-        recommendations: ['No data available for fairness analysis']
-      };
+
+
+  // Helper to toggle filter
+  const toggleFilter = (filter: 'WORKLOAD' | 'SCREENER' | 'WEEKEND') => {
+    if (activeFilter !== filter) {
+      setActiveFilter(filter);
+      // Scroll to deep dive section
+      if (deepDiveRef.current) {
+        deepDiveRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
+  };
 
-    // Calculate workload distribution fairness
-    const workloads = tallyData.map(t => t.totalWorkDays);
-    const avgWorkload = workloads.reduce((a, b) => a + b, 0) / workloads.length;
-    const maxWorkload = Math.max(...workloads);
-    const minWorkload = Math.min(...workloads);
+  // Helper: Get dynamic ring color based on score (Apple Fitness style)
+  // UPDATED: Dynamic ring color based on score
+  // 0-50: Red, 50-85: Blue, 85+: Green
+  const getDynamicColor = (score: number): string => {
+    if (score < 0.5) return 'from-red-500 to-red-600';
+    if (score < 0.85) return 'from-blue-500 to-blue-600';
+    return 'from-green-500 to-green-600';
+  };
 
-    // Simple fairness score based on workload variance
-    const variance = workloads.reduce((sum, w) => sum + Math.pow(w - avgWorkload, 2), 0) / workloads.length;
-    const standardDeviation = Math.sqrt(variance);
+  // Sort tally data based on active filter
+  const sortedTallyData = useMemo(() => {
+    return [...tallyData].sort((a, b) => {
+      switch (activeFilter) {
+        case 'SCREENER': return b.screenerDays - a.screenerDays;
+        case 'WEEKEND': return b.weekendDays - a.weekendDays;
+        case 'WORKLOAD': return b.totalWorkDays - a.totalWorkDays;
+        default: return b.totalWorkDays - a.totalWorkDays; // Default sort by workload
+      }
+    });
+  }, [tallyData, activeFilter]);
 
-    // Convert to 0-1 scale (lower variance = higher fairness)
-    const workloadFairness = Math.max(0, 1 - (standardDeviation / avgWorkload));
+  // Process Data for Components
+  // UPDATED: Calculate metrics from schedules to respect Period
+  const metrics = useMemo(() => {
+    if (schedules.length === 0 && tallyData.length === 0) return null;
 
-    // Calculate screener distribution fairness
-    const screenerCounts = tallyData.map(t => t.screenerDays);
-    const avgScreeners = screenerCounts.reduce((a, b) => a + b, 0) / screenerCounts.length;
-    const screenerVariance = screenerCounts.reduce((sum, s) => sum + Math.pow(s - avgScreeners, 2), 0) / screenerCounts.length;
-    const screenerFairness = avgScreeners > 0 ? Math.max(0, 1 - (Math.sqrt(screenerVariance) / avgScreeners)) : 1;
+    // Use schedules if available (respects period), otherwise fallback to tallyData
+    // But tallyData is only for current month.
+    // Let's calculate from schedules for consistency with Period.
 
-    // Overall fairness score (weighted average)
-    const overallScore = (workloadFairness * 0.7) + (screenerFairness * 0.3);
+    const analystWorkloads: Record<string, number> = {};
+    const analystScreeners: Record<string, number> = {};
+    const analystWeekends: Record<string, number> = {};
 
-    // Generate individual scores
-    const individualScores = tallyData.map(analyst => ({
-      analystName: analyst.analystName,
-      fairnessScore: analyst.fairnessScore,
-      workload: analyst.totalWorkDays,
-      screenerDays: analyst.screenerDays,
-      weekendDays: analyst.weekendDays
-    }));
+    // Initialize with active analysts
+    analysts.forEach(a => {
+      analystWorkloads[a.id] = 0;
+      analystScreeners[a.id] = 0;
+      analystWeekends[a.id] = 0;
+    });
 
-    // Generate recommendations
-    const recommendations: string[] = [];
-    if (overallScore < 0.8) {
-      recommendations.push('Consider redistributing workload to improve fairness');
-    }
-    if (maxWorkload - minWorkload > avgWorkload * 0.3) {
-      recommendations.push('Address workload imbalance between analysts');
-    }
-    if (screenerFairness < 0.7) {
-      recommendations.push('Balance screener duties more evenly');
-    }
-    if (recommendations.length === 0) {
-      recommendations.push('Schedule fairness is good - keep current approach');
-    }
+    schedules.forEach(s => {
+      if (analystWorkloads[s.analystId] !== undefined) {
+        analystWorkloads[s.analystId]++;
+        if (s.isScreener) analystScreeners[s.analystId]++;
+        const day = new Date(s.date).getDay();
+        if (day === 0 || day === 6) analystWeekends[s.analystId]++;
+      }
+    });
+
+    const workloads = Object.values(analystWorkloads);
+    const screeners = Object.values(analystScreeners);
+    const weekends = Object.values(analystWeekends);
+    const activeCount = workloads.length || 1;
+
+    // 1. Workload Fairness
+    const avgWorkload = workloads.reduce((a, b) => a + b, 0) / activeCount;
+    const workloadVariance = workloads.reduce((sum, w) => sum + Math.pow(w - avgWorkload, 2), 0) / activeCount;
+    const workloadFairness = avgWorkload > 0 ? Math.max(0, 1 - (Math.sqrt(workloadVariance) / avgWorkload)) : 1;
+
+    // 2. Screener Fairness
+    const avgScreener = screeners.reduce((a, b) => a + b, 0) / activeCount;
+    const screenerVariance = screeners.reduce((sum, s) => sum + Math.pow(s - avgScreener, 2), 0) / activeCount;
+    const screenerFairness = avgScreener > 0 ? Math.max(0, 1 - (Math.sqrt(screenerVariance) / avgScreener)) : 1;
+
+    // 3. Weekend Fairness
+    const avgWeekend = weekends.reduce((a, b) => a + b, 0) / activeCount;
+    const weekendVariance = weekends.reduce((sum, w) => sum + Math.pow(w - avgWeekend, 2), 0) / activeCount;
+    const weekendFairness = avgWeekend > 0 ? Math.max(0, 1 - (Math.sqrt(weekendVariance) / avgWeekend)) : 1;
 
     return {
-      overallFairnessScore: overallScore,
-      individualScores,
-      recommendations
+      workloadFairness,
+      screenerFairness,
+      weekendFairness,
+      avgWorkload,
+      totalShifts: workloads.reduce((a, b) => a + b, 0),
+      activeAnalysts: activeCount
     };
-  };
+  }, [schedules, analysts, tallyData]);
 
-  const generateTrendsData = async () => {
-    const trends = [];
+  // Process Heatmap Data
+  // Period-aware heatmap data generation
+  const getHeatmapData = (analystId: string) => {
+    const now = moment();
+    let startDate, endDate;
+    let aggregationType: 'daily' | 'weekly' | 'monthly' = 'daily';
 
-    // Get data for last 6 months from current month
-    for (let i = 5; i >= 0; i--) {
-      const targetDate = moment().subtract(i, 'months');
-      const month = targetDate.month() + 1;
-      const year = targetDate.year();
+    // Calculate date range and aggregation type based on period
+    if (period === 'WEEKLY') {
+      startDate = now.clone().startOf('week');
+      endDate = now.clone().endOf('week');
+      aggregationType = 'daily';
+    } else if (period === 'MONTHLY') {
+      startDate = now.clone().startOf('month');
+      endDate = now.clone().endOf('month');
+      aggregationType = 'daily';
+    } else if (period === 'QUARTERLY') {
+      startDate = now.clone().startOf('quarter');
+      endDate = now.clone().endOf('quarter');
+      aggregationType = 'weekly';
+    } else { // YEARLY
+      startDate = now.clone().startOf('year');
+      endDate = now.clone().endOf('year');
+      aggregationType = 'monthly'; // Use monthly for yearly view
+    }
 
-      try {
-        const monthlyData = await apiService.getWorkDayTally(month, year);
-        if (monthlyData.length > 0) {
-          const avgWorkload = monthlyData.reduce((sum, analyst) => sum + analyst.totalWorkDays, 0) / monthlyData.length;
+    if (aggregationType === 'monthly') {
+      // Aggregate by months (for yearly view)
+      const data = [];
+      const current = startDate.clone().startOf('month');
 
-          // Calculate actual fairness score from the data
-          const workloads = monthlyData.map(t => t.totalWorkDays);
-          const avgWorkloadForFairness = workloads.reduce((a, b) => a + b, 0) / workloads.length;
-          const variance = workloads.reduce((sum, w) => sum + Math.pow(w - avgWorkloadForFairness, 2), 0) / workloads.length;
-          const standardDeviation = Math.sqrt(variance);
-          const fairness = avgWorkloadForFairness > 0 ? Math.max(0, 1 - (standardDeviation / avgWorkloadForFairness)) : 1;
+      while (current <= endDate) {
+        const monthEnd = current.clone().endOf('month');
+        const monthSchedules = schedules.filter(s => {
+          if (s.analystId !== analystId) return false;
+          const sDate = moment(s.date);
+          return sDate >= current && sDate <= monthEnd;
+        });
 
-          trends.push({
-            month: targetDate.format('MMM YYYY'),
-            fairness: fairness,
-            avgWorkload: Math.round(avgWorkload)
-          });
-        }
-      } catch (error) {
-        console.warn(`Could not fetch data for ${month}/${year}`);
+        let totalDays = 0;
+        let weekendDays = 0;
+        let screenerDays = 0;
+        let hasWeekend = false;
+        let hasScreener = false;
+
+        monthSchedules.forEach(shift => {
+          const d = moment(shift.date);
+          const dayOfWeek = d.day();
+          const isWknd = dayOfWeek === 0 || dayOfWeek === 6;
+
+          // Apply active filter
+          let passesFilter = true;
+          if (activeFilter === 'SCREENER' && !shift.isScreener) passesFilter = false;
+          if (activeFilter === 'WEEKEND' && !isWknd) passesFilter = false;
+
+          if (passesFilter) {
+            totalDays++;
+            if (isWknd) {
+              weekendDays++;
+              hasWeekend = true;
+            }
+            if (shift.isScreener && !isWknd) { // Only count screener if NOT weekend
+              screenerDays++;
+              hasScreener = true;
+            }
+          }
+        });
+
+        data.push({
+          date: current.format('MMM'),
+          monthStart: current.format('YYYY-MM-DD'),
+          totalDays,
+          weekendDays,
+          screenerDays,
+          hasWeekend,
+          hasScreener,
+          isMonthly: true // Flag for monthly aggregation
+        });
+
+        current.add(1, 'month');
       }
-    }
 
-    setTrendsData(trends);
-  };
+      return data;
+    } else if (aggregationType === 'weekly') {
+      // Aggregate by weeks (for quarterly view)
+      const data = [];
+      const current = startDate.clone().startOf('week');
 
-  const fetchMLInsights = async () => {
-    try {
-      // Fetch all ML insights in parallel
-      const [
-        burnoutData,
-        demandData,
-        conflictData
-      ] = await Promise.all([
-        apiService.getBurnoutRiskAssessment(),
-        apiService.getDemandForecast('WEEK'),
-        apiService.getConflictPrediction(
-          moment().format('YYYY-MM-DD'),
-          moment().add(7, 'days').format('YYYY-MM-DD')
-        )
-      ]);
+      while (current <= endDate) {
+        const weekEnd = current.clone().endOf('week');
+        const weekSchedules = schedules.filter(s => {
+          if (s.analystId !== analystId) return false;
+          const sDate = moment(s.date);
+          return sDate >= current && sDate <= weekEnd;
+        });
 
-      setBurnoutRisks(burnoutData);
-      setDemandForecast(demandData);
-      setConflictPredictions(conflictData);
+        let totalDays = 0;
+        let weekendDays = 0;
+        let screenerDays = 0;
+        let hasWeekend = false;
+        let hasScreener = false;
 
-      // Generate workload predictions for next 7 days
-      const predictions = [];
-      for (let i = 1; i <= 7; i++) {
-        const futureDate = moment().add(i, 'days').format('YYYY-MM-DD');
-        try {
-          const prediction = await apiService.getWorkloadPrediction(futureDate);
-          predictions.push(prediction);
-        } catch (error) {
-          console.warn(`Could not fetch workload prediction for ${futureDate}`);
-        }
+        weekSchedules.forEach(shift => {
+          const d = moment(shift.date);
+          const dayOfWeek = d.day();
+          const isWknd = dayOfWeek === 0 || dayOfWeek === 6;
+
+          // Apply active filter
+          let passesFilter = true;
+          if (activeFilter === 'SCREENER' && !shift.isScreener) passesFilter = false;
+          if (activeFilter === 'WEEKEND' && !isWknd) passesFilter = false;
+
+          if (passesFilter) {
+            totalDays++;
+            if (isWknd) {
+              weekendDays++;
+              hasWeekend = true;
+            }
+            if (shift.isScreener && !isWknd) { // Only count screener if NOT weekend
+              screenerDays++;
+              hasScreener = true;
+            }
+          }
+        });
+
+        data.push({
+          date: current.format('MMM D'),
+          weekStart: current.format('YYYY-MM-DD'),
+          totalDays,
+          weekendDays,
+          screenerDays,
+          hasWeekend,
+          hasScreener,
+          isWeekly: true // Flag for weekly aggregation
+        });
+
+        current.add(1, 'week');
       }
-      setWorkloadPredictions(predictions);
 
-    } catch (error) {
-      console.error('Failed to fetch ML insights', error);
+      return data;
+    } else if (aggregationType === 'daily') {
+      // Daily data for weekly/monthly
+      const data = [];
+      const current = startDate.clone();
+
+      while (current <= endDate) {
+        const dateStr = current.format('YYYY-MM-DD');
+        const shift = schedules.find(s => s.analystId === analystId && s.date.startsWith(dateStr));
+
+        let hasShift = false;
+        let isScreener = false;
+        let isWeekend = false;
+
+        if (shift) {
+          const dayOfWeek = current.day();
+          const isWknd = dayOfWeek === 0 || dayOfWeek === 6;
+
+          let passesFilter = true;
+          if (activeFilter === 'SCREENER' && !shift.isScreener) passesFilter = false;
+          if (activeFilter === 'WEEKEND' && !isWknd) passesFilter = false;
+
+          if (passesFilter) {
+            hasShift = true;
+            isScreener = shift.isScreener && !isWknd; // Only mark as screener if NOT weekend
+            isWeekend = isWknd;
+          }
+        }
+
+        data.push({
+          date: current.format('MMM D'),
+          hasShift,
+          isScreener,
+          isWeekend,
+          isWeekly: false
+        });
+
+        current.add(1, 'day');
+      }
+
+      return data;
     }
+
+    // Fallback (should never reach here)
+    return [];
   };
 
-  const getFairnessColor = (score: number) => {
-    if (score >= 0.8) return 'text-green-600';
-    if (score >= 0.6) return 'text-yellow-600';
-    return 'text-red-600';
+  // Process Radar Data
+  const getRadarData = (analyst: MonthlyTally) => {
+    if (!metrics) return [];
+    const avgScreener = tallyData.reduce((sum, t) => sum + t.screenerDays, 0) / tallyData.length;
+    const avgWeekend = tallyData.reduce((sum, t) => sum + t.weekendDays, 0) / tallyData.length;
+    const avgRegular = tallyData.reduce((sum, t) => sum + t.regularShiftDays, 0) / tallyData.length;
+
+    // Normalize to 100 scale relative to max in group or reasonable cap
+    const normalize = (val: number, avg: number) => {
+      const max = Math.max(val, avg) * 1.5 || 1;
+      return (val / max) * 100;
+    };
+
+    return [
+      { subject: 'Regular', A: normalize(analyst.regularShiftDays, avgRegular), B: normalize(avgRegular, avgRegular), fullMark: 100 },
+      { subject: 'Screener', A: normalize(analyst.screenerDays, avgScreener), B: normalize(avgScreener, avgScreener), fullMark: 100 },
+      { subject: 'Weekend', A: normalize(analyst.weekendDays, avgWeekend), B: normalize(avgWeekend, avgWeekend), fullMark: 100 },
+    ];
   };
 
-  const getAlertColor = (severity: string) => {
-    switch (severity) {
-      case 'CRITICAL': return 'bg-red-100 border-red-500 text-red-700';
-      case 'HIGH': return 'bg-orange-100 border-orange-500 text-orange-700';
-      case 'MEDIUM': return 'bg-yellow-100 border-yellow-500 text-yellow-700';
-      default: return 'bg-blue-100 border-blue-500 text-blue-700';
-    }
-  };
+  // Prepare Comparison Data based on active filter
+  const comparisonData = useMemo(() => {
+    return sortedTallyData.map(t => {
+      let value = t.totalWorkDays;
+      let metricLabel = 'Total Days';
 
-  const getRiskColor = (riskLevel: string) => {
-    switch (riskLevel) {
-      case 'CRITICAL': return 'text-red-600 bg-red-100';
-      case 'HIGH': return 'text-orange-600 bg-orange-100';
-      case 'MEDIUM': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-green-600 bg-green-100';
-    }
-  };
+      if (activeFilter === 'SCREENER') {
+        value = t.screenerDays;
+        metricLabel = 'Screener Days';
+      } else if (activeFilter === 'WEEKEND') {
+        value = t.weekendDays;
+        metricLabel = 'Weekend Days';
+      }
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'CRITICAL': return 'border-red-500 bg-red-50';
-      case 'HIGH': return 'border-orange-500 bg-orange-50';
-      case 'MEDIUM': return 'border-yellow-500 bg-yellow-50';
-      default: return 'border-blue-500 bg-blue-50';
-    }
-  };
+      // Calculate percentile for the specific metric
+      const allValues = sortedTallyData.map(x =>
+        activeFilter === 'SCREENER' ? x.screenerDays :
+          activeFilter === 'WEEKEND' ? x.weekendDays :
+            x.totalWorkDays
+      );
+      const sortedValues = [...allValues].sort((a, b) => b - a);
+      const rank = sortedValues.indexOf(value);
+      const percentile = ((sortedValues.length - rank) / sortedValues.length) * 100;
 
-  const getTrendIcon = (trend: string) => {
-    switch (trend) {
-      case 'INCREASING': return <TrendUp className="h-6 w-6" />;
-      case 'DECREASING': return <TrendDown className="h-6 w-6" />;
-      default: return <ArrowRight className="h-6 w-6" />;
-    }
-  };
+      return {
+        name: t.analystName,
+        value: value,
+        fairnessScore: t.fairnessScore,
+        percentile,
+        metricLabel // Pass this if AnalystComparison supports it, or use it in title
+      };
+    });
+  }, [sortedTallyData, activeFilter]);
 
-  const maxWorkload = Math.max(...tallyData.map(t => t.totalWorkDays), 1);
-
-  const cardClass = "bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-6";
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 text-foreground p-6 relative z-10">
-
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="text-gray-700 dark:text-gray-200">Loading analytics data...</div>
-        </div>
-      ) : tallyData.length === 0 ? (
-        <div className="text-center py-12">
-          <ChartBar className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-xl font-semibold text-foreground mb-2">No Schedule Data Found</h3>
-          <p className="text-gray-700 dark:text-gray-200 mb-4">
-            No schedule data found for the current month.
-            Try generating some schedules first.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* 1. Fairness Score */}
-          <div className={cardClass}>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Overall Fairness Score</h3>
-            {fairnessData ? (
-              <div className="flex items-center space-x-4">
-                <div className={`text-4xl font-bold ${getFairnessColor(fairnessData.overallFairnessScore)}`}>
-                  {(fairnessData.overallFairnessScore * 100).toFixed(1)}%
-                </div>
-                <div>
-                  <div className="text-sm text-gray-700 dark:text-gray-200">
-                    {fairnessData.overallFairnessScore >= 0.8 ? 'Excellent' :
-                      fairnessData.overallFairnessScore >= 0.6 ? 'Good' : 'Needs Improvement'}
-                  </div>
-                  <div className="text-xs text-gray-700 dark:text-gray-200">
-                    Based on workload distribution for {moment().format('MMMM YYYY')}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center text-gray-700 dark:text-gray-200">
-                <div className="text-2xl font-bold">N/A</div>
-                <div className="text-sm">No data available for fairness calculation</div>
-              </div>
-            )}
+    <div className="p-6 space-y-8 relative z-10">
+      <div className="max-w-7xl mx-auto space-y-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-8"
+        >
+          {/* Header Section with Period Toggle */}
+          <div className="flex justify-end items-center mb-6">
+            {/* Period Toggle moved to AppHeader */}
           </div>
+          {/* Hero: Fairness Rings */}
+          <section
+            className="grid grid-cols-1 md:grid-cols-3 gap-8 relative"
+            onClick={(e) => {
+              // Reset filter when clicking empty area (not on a ring)
+              if (e.target === e.currentTarget && activeFilter !== 'WORKLOAD') {
+                setActiveFilter('WORKLOAD');
+              }
+            }}
+          >
+            <ActivityRing
+              value={metrics?.workloadFairness || 0}
+              color={getDynamicColor(metrics?.workloadFairness || 0)}
+              label="Workload Balance"
+              subtitle="Team fairness score"
+              onClick={() => toggleFilter('WORKLOAD')}
+              isActive={activeFilter === 'WORKLOAD'}
+              isFaded={activeFilter !== 'WORKLOAD'}
+              infoTooltip="100% = Perfectly balanced workload compared to team average"
+            />
+            <ActivityRing
+              value={metrics?.screenerFairness || 0}
+              color={getDynamicColor(metrics?.screenerFairness || 0)}
+              label="Screener Balance"
+              subtitle="Duty distribution"
+              onClick={() => toggleFilter('SCREENER')}
+              isActive={activeFilter === 'SCREENER'}
+              isFaded={activeFilter !== 'SCREENER'}
+              infoTooltip="100% = Equal distribution of screener duties"
+            />
+            <ActivityRing
+              value={metrics?.weekendFairness || 0}
+              color={getDynamicColor(metrics?.weekendFairness || 0)}
+              label="Weekend Balance"
+              subtitle="Weekend equity"
+              onClick={() => toggleFilter('WEEKEND')}
+              isActive={activeFilter === 'WEEKEND'}
+              isFaded={activeFilter !== 'WEEKEND'}
+              infoTooltip="100% = Fair rotation of weekend shifts"
+            />
+          </section>
 
-          {/* 2. Alerts */}
-          {alerts.length > 0 && (
-            <div className={cardClass}>
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Warning className="h-5 w-5 text-yellow-500" />
-                Upcoming Issues
-              </h3>
-              <div className="space-y-3">
-                {alerts.map((alert) => (
-                  <div key={alert.id} className={`p-3 rounded-lg border-l-4 ${getAlertColor(alert.severity)}`}>
-                    <div className="font-medium">{alert.message}</div>
-                    <div className="text-sm opacity-75 capitalize">{alert.type.replace('_', ' ').toLowerCase()}</div>
+          {/* Key Metrics */}
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <MetricCard
+              label="Overall Fairness"
+              value={`${((metrics?.workloadFairness || 0) * 100).toFixed(0)}% `}
+              trend={{ direction: 'up', value: '+2.5%' }}
+              icon={<ChartBar className="h-6 w-6" />}
+              color="blue"
+              backContent={
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                    <span className="text-sm opacity-80">Workload</span>
+                    <span className="font-bold">{((metrics?.workloadFairness || 0) * 100).toFixed(0)}%</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 3. Workload Balance Dashboard */}
-          <div className={cardClass}>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Workload Balance</h3>
-            <div className="space-y-4">
-              {tallyData.map((analyst) => (
-                <div key={analyst.analystId} className="flex items-center space-x-4">
-                  <div className="w-32 text-sm font-medium text-foreground truncate">
-                    {analyst.analystName}
+                  <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                    <span className="text-sm opacity-80">Screener</span>
+                    <span className="font-bold">{((metrics?.screenerFairness || 0) * 100).toFixed(0)}%</span>
                   </div>
-                  <div className="flex-1 bg-muted rounded-full h-6 relative">
-                    <div
-                      className="bg-primary h-6 rounded-full flex items-center justify-end pr-2"
-                      style={{ width: `${(analyst.totalWorkDays / maxWorkload) * 100}%` }}
-                    >
-                      <span className="text-primary-foreground text-xs font-medium">
-                        {analyst.totalWorkDays}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-sm text-gray-700 dark:text-gray-200">
-                    {analyst.totalWorkDays} days
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm opacity-80">Weekend</span>
+                    <span className="font-bold">{((metrics?.weekendFairness || 0) * 100).toFixed(0)}%</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 4. Analyst Performance Summary */}
-          <div className={cardClass}>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Analyst Performance Summary</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 font-medium text-foreground">Analyst</th>
-                    <th className="text-left py-2 font-medium text-foreground">Total Days</th>
-                    <th className="text-left py-2 font-medium text-foreground">Weekend Days</th>
-                    <th className="text-left py-2 font-medium text-foreground">Screener Days</th>
-                    <th className="text-left py-2 font-medium text-foreground">Max Streak</th>
-                    <th className="text-left py-2 font-medium text-foreground">Fairness Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tallyData.map((analyst) => (
-                    <tr key={analyst.analystId} className="border-b border-border">
-                      <td className="py-2 font-medium text-foreground">{analyst.analystName}</td>
-                      <td className="py-2 text-gray-700 dark:text-gray-200">{analyst.totalWorkDays}</td>
-                      <td className="py-2 text-gray-700 dark:text-gray-200">{analyst.weekendDays}</td>
-                      <td className="py-2 text-gray-700 dark:text-gray-200">{analyst.screenerDays}</td>
-                      <td className="py-2 text-gray-700 dark:text-gray-200">{analyst.consecutiveWorkDayStreaks}</td>
-                      <td className={`py-2 font-medium ${getFairnessColor(analyst.fairnessScore)}`}>
-                        {(analyst.fairnessScore * 100).toFixed(0)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* 5. Monthly Trends */}
-          {trendsData.length > 0 && (
-            <div className={cardClass}>
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <TrendUp className="h-5 w-5 text-blue-500" />
-                Monthly Trends (Last 6 Months)
-              </h3>
-              <div className="space-y-4">
-                {trendsData.map((trend, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <div className="font-medium text-foreground">{trend.month}</div>
-                    <div className="flex items-center space-x-6">
-                      <div className="text-center">
-                        <div className={`text-sm font-medium ${getFairnessColor(trend.fairness)}`}>
-                          {(trend.fairness * 100).toFixed(0)}%
-                        </div>
-                        <div className="text-xs text-gray-700 dark:text-gray-200">Fairness</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm font-medium text-foreground">{trend.avgWorkload}</div>
-                        <div className="text-xs text-gray-700 dark:text-gray-200">Avg Days</div>
-                      </div>
-                    </div>
+              }
+            />
+            <MetricCard
+              label="Active Analysts"
+              value={tallyData.length.toString()}
+              icon={<Users className="h-6 w-6" />}
+              color="purple"
+              backContent={
+                <div className="space-y-2 text-center pt-4">
+                  <div className="text-4xl font-bold">{tallyData.length}</div>
+                  <div className="text-sm opacity-80">Active Analysts</div>
+                  <div className="text-xs opacity-60 mt-2">Total Tracked: {tallyData.length}</div>
+                </div>
+              }
+            />
+            <MetricCard
+              label={`Shifts This ${period === 'WEEKLY' ? 'Week' : period === 'MONTHLY' ? 'Month' : period === 'QUARTERLY' ? 'Quarter' : 'Year'} `}
+              value={schedules.length.toString()}
+              icon={<Calendar className="h-6 w-6" />}
+              color="green"
+              backContent={
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                    <span className="text-sm opacity-80">Regular</span>
+                    <span className="font-bold">{schedules.filter(s => !s.isScreener && new Date(s.date).getDay() !== 0 && new Date(s.date).getDay() !== 6).length}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 6. Recommendations */}
-          {fairnessData && fairnessData.recommendations.length > 0 && (
-            <div className={cardClass}>
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-yellow-500" />
-                Recommendations
-              </h3>
-              <ul className="space-y-2">
-                {fairnessData.recommendations.map((recommendation, index) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <span className="text-primary mt-1">•</span>
-                    <span className="text-gray-700 dark:text-gray-200">{recommendation}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* 7. ML Insights */}
-          <div className={cardClass}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <Robot className="h-5 w-5 text-purple-500" />
-                ML Insights
-              </h3>
-              <div className="text-sm text-gray-700 dark:text-gray-200">
-                Powered by simple algorithms
-              </div>
-            </div>
-
-            {/* ML Tab Navigation */}
-            <div className="flex space-x-1 bg-muted p-1 rounded-lg mb-6">
-              {[
-                { id: 'burnout', label: 'Burnout Risk', icon: <Warning className="h-4 w-4" /> },
-                { id: 'workload', label: 'Workload', icon: <Users className="h-4 w-4" /> },
-                { id: 'demand', label: 'Demand', icon: <ChartBar className="h-4 w-4" /> },
-                { id: 'conflicts', label: 'Conflicts', icon: <Siren className="h-4 w-4" /> }
-              ].map((tab) => (
-                <Button
-                  key={tab.id}
-                  onClick={() => setActiveMLTab(tab.id as any)}
-                  variant={activeMLTab === tab.id ? 'primary' : 'ghost'}
-                  size="sm"
-                  className="flex-1 flex items-center justify-center gap-2"
-                >
-                  {tab.icon} {tab.label}
-                </Button>
-              ))}
-            </div>
-
-            {/* Burnout Risk Tab */}
-            {activeMLTab === 'burnout' && (
-              <div className="space-y-3">
-                {burnoutRisks
-                  .filter(risk => risk.riskLevel !== 'LOW')
-                  .sort((a, b) => b.riskScore - a.riskScore)
-                  .map((risk) => (
-                    <div key={risk.analystId} className="p-4 border border-border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-medium text-foreground">{risk.analystName}</div>
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(risk.riskLevel)}`}>
-                          {risk.riskLevel} ({risk.riskScore}%)
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-700 dark:text-gray-200 mb-2">
-                        <strong>Risk Factors:</strong> {risk.factors.join(', ')}
-                      </div>
-                      <div className="text-sm text-gray-700 dark:text-gray-200">
-                        <strong>Recommendations:</strong> {risk.recommendations.join(', ')}
-                      </div>
-                    </div>
-                  ))}
-                {burnoutRisks.filter(risk => risk.riskLevel !== 'LOW').length === 0 && (
-                  <div className="text-center text-gray-700 dark:text-gray-200 py-8">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
-                    <div>No high-risk burnout cases detected</div>
-                    <div className="text-sm">All analysts have balanced workloads</div>
+                  <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                    <span className="text-sm opacity-80">Screener</span>
+                    <span className="font-bold">{schedules.filter(s => s.isScreener).length}</span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm opacity-80">Weekend</span>
+                    <span className="font-bold">{schedules.filter(s => new Date(s.date).getDay() === 0 || new Date(s.date).getDay() === 6).length}</span>
+                  </div>
+                </div>
+              }
+            />
+            <MetricCard
+              label="Burnout Risks"
+              value={burnoutRisks.filter(r => r.riskLevel === 'HIGH' || r.riskLevel === 'CRITICAL').length.toString()}
+              trend={burnoutRisks.filter(r => r.riskLevel === 'HIGH' || r.riskLevel === 'CRITICAL').length > 0 ? { direction: 'down', value: 'Risks Detected' } : undefined}
+              icon={<Siren className="h-6 w-6" />}
+              color="red"
+              backContent={
+                <div className="text-center py-8">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Click card for detailed breakdown
+                  </p>
+                  <button
+                    onClick={() => setIsBurnoutModalOpen(true)}
+                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+                  >
+                    View Details
+                  </button>
+                </div>
+              }
+            />
+          </section>
+
+          {/* Drill Down Tabs (Moved Above Trends) */}
+          <section ref={deepDiveRef}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Drill Down
+                {activeFilter !== 'WORKLOAD' && (
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    (Filtered by {activeFilter.charAt(0) + activeFilter.slice(1).toLowerCase()})
+                  </span>
                 )}
-              </div>
-            )}
+              </h2>
+              <button
+                onClick={() => setActiveFilter('WORKLOAD')}
+                disabled={activeFilter === 'WORKLOAD'}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${activeFilter === 'WORKLOAD'
+                  ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                  : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
+                  }`}
+              >
+                <ArrowCounterClockwise className="h-5 w-5" />
+                RESET
+              </button>
+            </div>
 
-            {/* Workload Prediction Tab */}
-            {activeMLTab === 'workload' && (
-              <div className="space-y-3">
-                {workloadPredictions.map((prediction, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border border-border rounded-lg">
-                    <div>
-                      <div className="font-medium text-foreground">
-                        {moment(prediction.date).format('dddd, MMM D')}
-                      </div>
-                      <div className="text-sm text-gray-700 dark:text-gray-200">
-                        Confidence: {(prediction.confidence * 100).toFixed(0)}%
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-primary">
-                        {prediction.predictedRequiredStaff}
-                      </div>
-                      <div className="text-sm text-gray-700 dark:text-gray-200">analysts needed</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Demand Forecast Tab */}
-            {activeMLTab === 'demand' && demandForecast && (
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <div className="text-3xl font-bold text-primary">
-                    {demandForecast.predictedDemand}
-                  </div>
-                  <div className="text-sm text-gray-700 dark:text-gray-200">predicted demand</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl mb-1 flex justify-end">{getTrendIcon(demandForecast.trend)}</div>
-                  <div className="text-sm font-medium text-foreground capitalize">
-                    {demandForecast.trend.toLowerCase()}
-                  </div>
-                  <div className="text-xs text-gray-700 dark:text-gray-200">
-                    {(demandForecast.confidence * 100).toFixed(0)}% confidence
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Conflict Predictions Tab */}
-            {activeMLTab === 'conflicts' && (
-              <div className="space-y-3">
-                {conflictPredictions
-                  .sort((a, b) => b.probability - a.probability)
-                  .map((conflict, index) => (
-                    <div key={index} className={`p-4 border-l-4 rounded-lg ${getSeverityColor(conflict.severity)}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-medium text-foreground">
-                          {moment(conflict.date).format('MMM D, YYYY')}
+            <AnalyticsTabs
+              tabs={[
+                {
+                  id: 'workload',
+                  label: 'Workload (Quantity)',
+                  content: (
+                    <AnalystComparison
+                      analysts={comparisonData}
+                      metric="workload"
+                      title={`${period === 'WEEKLY' ? 'Weekly' : period === 'MONTHLY' ? 'Monthly' : period === 'QUARTERLY' ? 'Quarterly' : 'Yearly'} Workload Distribution`}
+                      showPercentiles
+                    />
+                  )
+                },
+                {
+                  id: 'intensity',
+                  label: 'Intensity (Burnout)',
+                  content: (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {sortedTallyData.map(analyst => (
+                        <div key={analyst.analystId}>
+                          <h4 className="font-medium text-gray-900 dark:text-white text-sm">{analyst.analystName}</h4>
+                          <AnalystHeatmap data={getHeatmapData(analyst.analystId)} />
                         </div>
-                        <div className="text-sm font-medium">
-                          {(conflict.probability * 100).toFixed(0)}% probability
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-700 dark:text-gray-200 mb-2">
-                        <strong>{conflict.conflictType}:</strong> {conflict.description}
-                      </div>
-                      <div className="text-sm text-gray-700 dark:text-gray-200">
-                        <strong>Preventive Actions:</strong> {conflict.preventiveActions.join(', ')}
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                {conflictPredictions.length === 0 && (
-                  <div className="text-center text-gray-700 dark:text-gray-200 py-8">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
-                    <div>No conflicts predicted for the next 7 days</div>
-                    <div className="text-sm">Schedule looks good!</div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+                  )
+                },
+                {
+                  id: 'distribution',
+                  label: 'Distribution (Equity)',
+                  content: (
+                    <TeamRadar data={sortedTallyData} />
+                  )
+                },
+              ]}
+            />
+          </section>
+
+          {/* Trend Analysis (Split) */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <WorkloadTrendChart
+              schedules={schedules}
+              analysts={analysts}
+              period={period}
+            />
+            <TrendChart
+              data={trendsData}
+              title="Fairness distribution by Workload"
+              subtitle={`Weighted Workload vs Fairness Score (${period})`}
+            />
+          </section>
+        </motion.div>
+
+        {/* Burn out Modal */}
+        <BurnoutModal
+          isOpen={isBurnoutModalOpen}
+          onClose={() => setIsBurnoutModalOpen(false)}
+          risks={burnoutRisks}
+        />
+      </div>
     </div>
   );
 };
 
-export default Analytics; 
+export default Analytics;

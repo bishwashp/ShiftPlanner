@@ -14,6 +14,7 @@ import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } fr
 import { View as SidebarView } from './CollapsibleSidebar';
 import ViewSettingsMenu from './ViewSettingsMenu';
 import ExportModal from '../modals/ExportModal';
+import { usePeriod } from '../../context/PeriodContext';
 
 interface AppHeaderProps {
   sidebarOpen: boolean;
@@ -53,6 +54,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   filterHook
 }) => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const { period, setPeriod } = usePeriod();
 
   const handlePrev = () => {
     const momentDate = moment(date).tz(timezone);
@@ -220,6 +222,27 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 <span className="hidden sm:inline">Export</span>
               </Button>
             </>
+          )}
+
+          {/* Global Period Toggle - Only for Analytics */}
+          {activeView === 'analytics' && (
+            <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-800/50 rounded-lg p-1 mr-2 border border-gray-200 dark:border-gray-700">
+              {(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`
+                    px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200
+                    ${period === p
+                      ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                    }
+                  `}
+                >
+                  {p.charAt(0) + p.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* View Settings Menu */}
