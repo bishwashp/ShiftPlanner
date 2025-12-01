@@ -114,3 +114,17 @@ coverage/
 *.tgz
 *.tar.gz 
 PROJECT_STATUS.md
+
+# Explicit log patterns
+*.log
+backend.log
+frontend.log
+
+# Explicit OS files
+.DS_Store
+**/.DS_Store
+._*
+
+# Temporary files
+*.tmp
+*.temp
