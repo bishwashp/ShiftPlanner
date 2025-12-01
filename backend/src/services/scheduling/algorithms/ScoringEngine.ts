@@ -6,6 +6,8 @@ export interface ScoringFactors {
     workload: number;
     rolePreference: number;
     weekendFairness: number;
+    debtRepayment: number;
+    coverageFatigue: number;
 }
 
 export interface ScoredCandidate {
@@ -23,7 +25,9 @@ export class ScoringEngine {
         TURNAROUND_TIME: 30,
         WORKLOAD: 15,
         ROLE_PREFERENCE: 10,
-        WEEKEND_FAIRNESS: 25
+        WEEKEND_FAIRNESS: 25,
+        DEBT_REPAYMENT: 50, // High priority to repay debt
+        COVERAGE_FATIGUE: 30 // Penalty for overuse
     };
 
     /**
@@ -33,9 +37,11 @@ export class ScoringEngine {
         candidates: any[],
         targetDate: string,
         shiftType: 'MORNING' | 'EVENING' | 'WEEKEND',
-        history: any[]
+        history: any[],
+        debtMap: Map<string, number> = new Map(),
+        coverageCounts: Map<string, number> = new Map()
     ): ScoredCandidate[] {
-        return candidates.map(candidate => this.scoreCandidate(candidate, targetDate, shiftType, history));
+        return candidates.map(candidate => this.scoreCandidate(candidate, targetDate, shiftType, history, debtMap, coverageCounts));
     }
 
     /**
@@ -45,22 +51,37 @@ export class ScoringEngine {
         candidate: any,
         targetDate: string,
         shiftType: 'MORNING' | 'EVENING' | 'WEEKEND',
-        history: any[]
+        history: any[],
+        debtMap: Map<string, number>,
+        coverageCounts: Map<string, number>
     ): ScoredCandidate {
         const factors: ScoringFactors = {
             consecutiveDays: this.calculateConsecutiveDaysScore(candidate, targetDate, history),
             turnaroundTime: this.calculateTurnaroundScore(candidate, targetDate, shiftType, history),
             workload: this.calculateWorkloadScore(candidate, targetDate, history),
             rolePreference: this.calculatePreferenceScore(candidate, targetDate, shiftType),
-            weekendFairness: this.calculateWeekendScore(candidate, targetDate, shiftType, history)
+            weekendFairness: this.calculateWeekendScore(candidate, targetDate, shiftType, history),
+            debtRepayment: this.calculateDebtScore(candidate, debtMap),
+            coverageFatigue: this.calculateCoverageFatigueScore(candidate, coverageCounts)
         };
 
-        const score =
+        // Base score calculation
+        let score =
             (factors.consecutiveDays * this.weights.CONSECUTIVE_DAYS) +
             (factors.turnaroundTime * this.weights.TURNAROUND_TIME) +
             (factors.workload * this.weights.WORKLOAD) +
             (factors.rolePreference * this.weights.ROLE_PREFERENCE) +
             (factors.weekendFairness * this.weights.WEEKEND_FAIRNESS);
+
+        // Add Debt Repayment Boost (Add directly to score, don't just weight 0-1)
+        // Actually, let's stick to 0-1 normalized factors * weight
+        score += factors.debtRepayment * this.weights.DEBT_REPAYMENT;
+
+        // Subtract Coverage Fatigue (Penalty)
+        // Factor is 0.0 (bad) to 1.0 (good). So we ADD it.
+        // If fatigue is high, score is low.
+        // Wait, calculateCoverageFatigueScore should return 1.0 for NO fatigue, 0.0 for HIGH fatigue.
+        score += factors.coverageFatigue * this.weights.COVERAGE_FATIGUE;
 
         const reasoning = this.generateReasoning(factors);
 
@@ -156,6 +177,25 @@ export class ScoringEngine {
         return Math.max(0, 1.0 - (weekendShifts * 0.2));
     }
 
+    private calculateDebtScore(candidate: any, debtMap: Map<string, number>): number {
+        const debt = debtMap.get(candidate.id) || 0;
+        if (debt > 0) return 1.0; // Has debt, prioritize (High score)
+        if (debt < 0) return 0.0; // Has credit, deprioritize (Low score)
+        return 0.5; // Neutral
+    }
+
+    private calculateCoverageFatigueScore(candidate: any, coverageCounts: Map<string, number>): number {
+        const count = coverageCounts.get(candidate.id) || 0;
+        // 0 coverage = 1.0 (Fresh)
+        // 1 coverage = 0.8
+        // 2 coverage = 0.5
+        // 3+ coverage = 0.0 (Fatigued)
+        if (count === 0) return 1.0;
+        if (count === 1) return 0.8;
+        if (count === 2) return 0.5;
+        return 0.0;
+    }
+
     private generateReasoning(factors: ScoringFactors): string[] {
         const reasons: string[] = [];
         if (factors.turnaroundTime < 0.5) reasons.push("Avoids clopening risk");
@@ -163,6 +203,8 @@ export class ScoringEngine {
         if (factors.consecutiveDays === 1.0) reasons.push("Fresh (low consecutive days)");
         if (factors.workload === 1.0) reasons.push("Good workload balance");
         if (factors.rolePreference === 1.0) reasons.push("Matches shift preference");
+        if (factors.debtRepayment === 1.0) reasons.push("Repaying fairness debt");
+        if (factors.coverageFatigue < 0.5) reasons.push("High coverage fatigue");
         return reasons;
     }
 }

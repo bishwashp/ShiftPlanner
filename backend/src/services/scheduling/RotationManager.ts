@@ -232,7 +232,8 @@ export class RotationManager {
     startDate: Date,
     endDate: Date,
     amAnalysts: any[],
-    historicalSchedules: any[] = []
+    historicalSchedules: any[] = [],
+    absenceService: any // Avoid circular dependency import for now, or use interface
   ): Promise<Map<string, string[]>> {
     // Map of Date (YYYY-MM-DD) -> Array of Analyst IDs working PM
     const rotationMap = new Map<string, string[]>();
@@ -249,16 +250,25 @@ export class RotationManager {
 
       // Only rotate on weekdays (Mon=1 to Fri=5)
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+        // Filter out absent analysts for this specific date
+        const availableAnalysts = [];
+        for (const analyst of amAnalysts) {
+          const isAbsent = await absenceService.isAnalystAbsent(analyst.id, dateStr);
+          if (!isAbsent) {
+            availableAnalysts.push(analyst);
+          }
+        }
+
         // Calculate fairness scores based on history + local decisions
         const fairnessData = fairnessCalculator.calculateAMToPMFairnessScores(
-          amAnalysts,
+          availableAnalysts, // Use available analysts only
           localSchedules,
           current.toDate()
         );
 
         // Select 2 analysts
         const selectedAnalysts = fairnessCalculator.selectNextAnalystsForAMToPMRotation(
-          amAnalysts,
+          availableAnalysts, // Use available analysts only
           fairnessData,
           2
         );

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import moment from 'moment';
 import { IntelligentScheduler } from '../services/IntelligentScheduler';
+import { DateUtils } from '../utils/dateUtils';
 
 const router = Router();
 
@@ -14,8 +15,8 @@ router.get('/', async (req: Request, res: Response) => {
 
     if (startDate && endDate) {
       where.date = {
-        gte: new Date(startDate as string),
-        lte: new Date(endDate as string)
+        gte: DateUtils.getStartOfDay(startDate as string),
+        lte: DateUtils.getEndOfDay(endDate as string)
       };
     }
 
@@ -83,8 +84,9 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Check if analyst already has a schedule for this date
+    const storageDate = DateUtils.asStorageDate(date);
     const existingSchedule = await prisma.schedule.findUnique({
-      where: { analystId_date: { analystId, date: new Date(date) } }
+      where: { analystId_date: { analystId, date: storageDate } }
     });
 
     if (existingSchedule) {
@@ -95,7 +97,7 @@ router.post('/', async (req: Request, res: Response) => {
     if (isScreener) {
       const existingScreener = await prisma.schedule.findFirst({
         where: {
-          date: new Date(date),
+          date: storageDate,
           shiftType,
           isScreener: true
         }
@@ -174,7 +176,7 @@ router.post('/', async (req: Request, res: Response) => {
     const schedule = await prisma.schedule.create({
       data: {
         analystId,
-        date: new Date(date),
+        date: storageDate,
         shiftType,
         isScreener
       },
@@ -350,7 +352,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       where: { id },
       data: {
         analystId,
-        date: date ? new Date(date) : undefined,
+        date: date ? DateUtils.asStorageDate(date) : undefined,
         shiftType,
         isScreener
       },
@@ -456,7 +458,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
         const schedule = await prisma.schedule.create({
           data: {
             analystId,
-            date: new Date(date),
+            date: DateUtils.asStorageDate(date),
             shiftType,
             isScreener
           },
@@ -640,7 +642,7 @@ router.post('/apply-auto-fix', async (req: Request, res: Response) => {
         const schedule = await prisma.schedule.create({
           data: {
             analystId,
-            date: new Date(date),
+            date: DateUtils.asStorageDate(date),
             shiftType,
             isScreener
           },

@@ -1,104 +1,63 @@
-/**
- * Date utility functions for proper timezone handling
- * 
- * The main issue: new Date('2025-11-01') creates a UTC date that gets converted to local time,
- * causing day shifts. For example, '2025-11-01' becomes Friday 7 PM CDT instead of Saturday midnight.
- * 
- * Solution: Always append 'T00:00:00' to ensure local timezone interpretation.
- */
+import moment from 'moment-timezone';
 
-/**
- * Creates a Date object from a date string in local timezone
- * @param dateString - Date string in format 'YYYY-MM-DD'
- * @returns Date object representing local midnight of that date
- */
-export function createLocalDate(dateString: string): Date {
-  if (!dateString || typeof dateString !== 'string') {
-    throw new Error('Invalid date string provided');
+export class DateUtils {
+  /**
+   * Returns a Date object set to UTC Midnight (00:00:00Z) for the given date.
+   * This represents the "Calendar Date" regardless of time.
+   */
+  static asCalendarDate(date: string | Date): Date {
+    return moment.utc(date).startOf('day').toDate();
   }
-  
-  // Ensure the date string is in the correct format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    throw new Error('Date string must be in format YYYY-MM-DD');
+
+  /**
+   * Returns a Date object set to UTC Noon (12:00:00Z) for the given date.
+   * Useful for storage to avoid timezone rollover issues.
+   */
+  static asStorageDate(date: string | Date): Date {
+    return moment.utc(date).startOf('day').add(12, 'hours').toDate();
   }
-  
-  // Append 'T00:00:00' to ensure local timezone interpretation
-  return new Date(dateString + 'T00:00:00');
-}
 
-/**
- * Creates a Date object from a date string in UTC timezone
- * @param dateString - Date string in format 'YYYY-MM-DD'
- * @returns Date object representing UTC midnight of that date
- */
-export function createUTCDate(dateString: string): Date {
-  if (!dateString || typeof dateString !== 'string') {
-    throw new Error('Invalid date string provided');
+  /**
+   * Returns the start of the day in UTC (00:00:00.000Z).
+   */
+  static getStartOfDay(date: string | Date): Date {
+    return moment.utc(date).startOf('day').toDate();
   }
-  
-  // Ensure the date string is in the correct format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    throw new Error('Date string must be in format YYYY-MM-DD');
+
+  /**
+   * Returns the end of the day in UTC (23:59:59.999Z).
+   */
+  static getEndOfDay(date: string | Date): Date {
+    return moment.utc(date).endOf('day').toDate();
   }
-  
-  // Append 'T00:00:00.000Z' to ensure UTC interpretation
-  return new Date(dateString + 'T00:00:00.000Z');
-}
 
-/**
- * Converts a Date object to a date string in format 'YYYY-MM-DD'
- * @param date - Date object
- * @returns Date string in format 'YYYY-MM-DD'
- */
-export function toDateString(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
-/**
- * Checks if a date is a weekend (Saturday or Sunday)
- * @param date - Date object
- * @returns true if the date is a weekend, false otherwise
- */
-export function isWeekend(date: Date): boolean {
-  const dayOfWeek = date.getDay();
-  return dayOfWeek === 0 || dayOfWeek === 6; // 0 = Sunday, 6 = Saturday
-}
-
-/**
- * Checks if a date is a weekday (Monday through Friday)
- * @param date - Date object
- * @returns true if the date is a weekday, false otherwise
- */
-export function isWeekday(date: Date): boolean {
-  return !isWeekend(date);
-}
-
-/**
- * Gets the day name for a given date
- * @param date - Date object
- * @returns Day name (Sunday, Monday, etc.)
- */
-export function getDayName(date: Date): string {
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return dayNames[date.getDay()];
-}
-
-/**
- * Validates that a date string is in the correct format
- * @param dateString - Date string to validate
- * @returns true if valid, false otherwise
- */
-export function isValidDateString(dateString: string): boolean {
-  if (!dateString || typeof dateString !== 'string') {
-    return false;
+  /**
+   * Formats a date as YYYY-MM-DD.
+   */
+  static formatDate(date: string | Date): string {
+    return moment.utc(date).format('YYYY-MM-DD');
   }
-  
-  // Check format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    return false;
+
+  /**
+   * Calculates the number of days between two dates (inclusive).
+   */
+  static getDurationInDays(startDate: string | Date, endDate: string | Date): number {
+    const start = moment.utc(startDate).startOf('day');
+    const end = moment.utc(endDate).startOf('day');
+    return end.diff(start, 'days') + 1;
   }
-  
-  // Check if it's a valid date
-  const date = new Date(dateString + 'T00:00:00');
-  return date.toISOString().split('T')[0] === dateString;
 }
+
+// Legacy functions for backward compatibility
+export const createLocalDate = (dateStr: string): Date => {
+  return moment.utc(dateStr).startOf('day').toDate();
+};
+
+export const isWeekend = (date: Date): boolean => {
+  const day = moment.utc(date).day();
+  return day === 0 || day === 6; // 0 is Sunday, 6 is Saturday
+};
+
+export const isValidDateString = (dateStr: string): boolean => {
+  return moment(dateStr, 'YYYY-MM-DD', true).isValid();
+};

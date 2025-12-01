@@ -435,6 +435,12 @@ export const apiService = {
     await apiClient.delete(`/vacations/${id}`);
   },
 
+  // Absence Impact Analysis
+  analyzeAbsenceImpact: async (data: { analystId: string; startDate: string; endDate: string; type: string }): Promise<any> => {
+    const response = await apiClient.post('/absences/impact', data);
+    return response.data;
+  },
+
   // Scheduling Constraints
   getConstraints: async (analystId?: string): Promise<SchedulingConstraint[]> => {
     const params = analystId ? { analystId } : {};

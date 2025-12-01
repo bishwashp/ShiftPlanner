@@ -4,10 +4,10 @@ import { cacheService } from '../lib/cache';
 import { AlgorithmRegistry } from '../services/scheduling/AlgorithmRegistry';
 import { fairnessEngine } from '../services/scheduling/algorithms/FairnessEngine';
 import { getDatabasePerformance } from '../lib/prisma';
-import { 
-  createAnalystLoader, 
-  createScheduleLoader, 
-  createVacationLoader, 
+import {
+  createAnalystLoader,
+  createScheduleLoader,
+  createVacationLoader,
   createConstraintLoader,
   createSchedulesByAnalystLoader,
   createVacationsByAnalystLoader,
@@ -75,7 +75,7 @@ const Query = {
       const cacheHealthy = await cacheService.healthCheck();
       const performanceMetrics = getDatabasePerformance();
       const cacheStats = await cacheService.getStats();
-      
+
       return {
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -108,7 +108,7 @@ const Query = {
   // Analysts
   analysts: async (_: any, { filter }: { filter?: any }) => {
     const where: any = {};
-    
+
     if (filter) {
       if (filter.isActive !== undefined) where.isActive = filter.isActive;
       if (filter.shiftType) where.shiftType = filter.shiftType;
@@ -144,7 +144,7 @@ const Query = {
   // Schedules
   schedules: async (_: any, { filter }: { filter?: any }) => {
     const where: any = {};
-    
+
     if (filter) {
       if (filter.startDate) where.date = { gte: filter.startDate };
       if (filter.endDate) where.date = { ...where.date, lte: filter.endDate };
@@ -311,7 +311,7 @@ const Query = {
   optimizationOpportunities: async (_: any, { dateRange }: { dateRange?: string }) => {
     const { AnalyticsEngine } = await import('../services/AnalyticsEngine');
     const analyticsEngine = new AnalyticsEngine(prisma, cacheService);
-    
+
     let schedules;
     if (dateRange) {
       const [startDate, endDate] = dateRange.split(',');
@@ -334,7 +334,7 @@ const Query = {
         include: { analyst: true },
       });
     }
-    
+
     return await analyticsEngine.identifyOptimizationOpportunities(schedules);
   },
 
@@ -348,22 +348,22 @@ const Query = {
   burnoutRiskAssessments: async (_: any, { includeLowRisk = false }: { includeLowRisk?: boolean }) => {
     const { PredictiveEngine } = await import('../services/PredictiveEngine');
     const predictiveEngine = new PredictiveEngine(prisma, cacheService);
-    
+
     const analysts = await prisma.analyst.findMany({
       where: { isActive: true },
     });
 
     const assessments = await predictiveEngine.identifyBurnoutRisk(analysts);
-    
-    return includeLowRisk 
-      ? assessments 
+
+    return includeLowRisk
+      ? assessments
       : assessments.filter(assessment => assessment.riskLevel !== 'LOW');
   },
 
   rotationSuggestions: async () => {
     const { PredictiveEngine } = await import('../services/PredictiveEngine');
     const predictiveEngine = new PredictiveEngine(prisma, cacheService);
-    
+
     const constraints = await prisma.schedulingConstraint.findMany();
     return await predictiveEngine.suggestOptimalRotations(constraints);
   },
@@ -379,11 +379,11 @@ const Query = {
     const { DashboardService } = await import('../services/DashboardService');
     const { AnalyticsEngine } = await import('../services/AnalyticsEngine');
     const { PredictiveEngine } = await import('../services/PredictiveEngine');
-    
+
     const analyticsEngine = new AnalyticsEngine(prisma, cacheService);
     const predictiveEngine = new PredictiveEngine(prisma, cacheService);
     const dashboardService = new DashboardService(prisma, cacheService, analyticsEngine, predictiveEngine);
-    
+
     return await dashboardService.generateRealTimeDashboard();
   },
 
@@ -392,11 +392,11 @@ const Query = {
     const { DashboardService } = await import('../services/DashboardService');
     const { AnalyticsEngine } = await import('../services/AnalyticsEngine');
     const { PredictiveEngine } = await import('../services/PredictiveEngine');
-    
+
     const analyticsEngine = new AnalyticsEngine(prisma, cacheService);
     const predictiveEngine = new PredictiveEngine(prisma, cacheService);
     const dashboardService = new DashboardService(prisma, cacheService, analyticsEngine, predictiveEngine);
-    
+
     return await dashboardService.createCustomReport(config);
   },
 
@@ -404,11 +404,11 @@ const Query = {
     const { DashboardService } = await import('../services/DashboardService');
     const { AnalyticsEngine } = await import('../services/AnalyticsEngine');
     const { PredictiveEngine } = await import('../services/PredictiveEngine');
-    
+
     const analyticsEngine = new AnalyticsEngine(prisma, cacheService);
     const predictiveEngine = new PredictiveEngine(prisma, cacheService);
     const dashboardService = new DashboardService(prisma, cacheService, analyticsEngine, predictiveEngine);
-    
+
     return await dashboardService.exportAnalytics(format, filters);
   },
 
@@ -440,7 +440,7 @@ const Query = {
     let currentConsecutive = 1;
 
     for (let i = 1; i < sortedDates.length; i++) {
-      const daysDiff = (sortedDates[i].getTime() - sortedDates[i-1].getTime()) / (1000 * 60 * 60 * 24);
+      const daysDiff = (sortedDates[i].getTime() - sortedDates[i - 1].getTime()) / (1000 * 60 * 60 * 24);
       if (daysDiff === 1) {
         currentConsecutive++;
         maxConsecutive = Math.max(maxConsecutive, currentConsecutive);
@@ -449,7 +449,7 @@ const Query = {
       }
     }
 
-    const averageWorkloadPerWeek = totalWorkDays / Math.max(1, (sortedDates.length > 0 ? 
+    const averageWorkloadPerWeek = totalWorkDays / Math.max(1, (sortedDates.length > 0 ?
       (sortedDates[sortedDates.length - 1].getTime() - sortedDates[0].getTime()) / (1000 * 60 * 60 * 24 * 7) : 1));
 
     // Convert Schedule objects to ProposedSchedule format for fairness calculation
@@ -476,6 +476,16 @@ const Query = {
       fairnessScore,
       recommendations: []
     };
+  },
+
+  analyzeAbsenceImpact: async (_: any, { analystId, startDate, endDate, type }: { analystId: string, startDate: Date, endDate: Date, type: string }) => {
+    const { absenceImpactAnalyzer } = await import('../services/AbsenceImpactAnalyzer');
+    return await absenceImpactAnalyzer.analyzeAbsenceImpact({
+      analystId,
+      startDate,
+      endDate,
+      type
+    });
   },
 
   // Fairness metrics
@@ -522,7 +532,7 @@ const Query = {
   // Calendar export
   calendarExport: async (_: any, { analystId, format, options }: { analystId: string, format: string, options?: any }) => {
     const calendarService = new CalendarExportService(prisma);
-    
+
     try {
       switch (format) {
         case 'ICAL':
@@ -532,7 +542,7 @@ const Query = {
             content: icalContent,
             filename: `schedule-${analystId}.ics`
           };
-        
+
         case 'GOOGLE_CALENDAR':
           const googleEvents = await calendarService.generateGoogleCalendarEvents(analystId, options);
           return {
@@ -540,7 +550,7 @@ const Query = {
             content: JSON.stringify(googleEvents),
             filename: `schedule-${analystId}-google.json`
           };
-        
+
         case 'OUTLOOK':
           const outlookEvents = await calendarService.generateOutlookEvents(analystId, options);
           return {
@@ -548,7 +558,7 @@ const Query = {
             content: JSON.stringify(outlookEvents),
             filename: `schedule-${analystId}-outlook.json`
           };
-        
+
         default:
           throw new GraphQLError(`Unsupported calendar format: ${format}`);
       }
@@ -560,7 +570,7 @@ const Query = {
   // Team calendar export
   teamCalendarExport: async (_: any, { format, options }: { format: string, options?: any }) => {
     const calendarService = new CalendarExportService(prisma);
-    
+
     try {
       if (format === 'ICAL') {
         const icalContent = await calendarService.generateTeamCalendar(options);
@@ -597,7 +607,7 @@ const Mutation = {
         constraints: true,
       }
     });
-    
+
     return analyst;
   },
 
@@ -620,13 +630,13 @@ const Mutation = {
         constraints: true,
       }
     });
-    
+
     return analyst;
   },
 
   deleteAnalyst: async (_: any, { id }: { id: string }) => {
     await prisma.analyst.delete({ where: { id } });
-    
+
     return true;
   },
 
@@ -641,7 +651,7 @@ const Mutation = {
       },
       include: { analyst: true }
     });
-    
+
     return vacation;
   },
 
@@ -656,13 +666,13 @@ const Mutation = {
       },
       include: { analyst: true }
     });
-    
+
     return vacation;
   },
 
   deleteVacation: async (_: any, { id }: { id: string }) => {
     await prisma.vacation.delete({ where: { id } });
-    
+
     return true;
   },
 
@@ -686,7 +696,7 @@ const Mutation = {
       },
       include: { analyst: true }
     });
-    
+
     return constraint;
   },
 
@@ -706,7 +716,7 @@ const Mutation = {
 
   deleteConstraint: async (_: any, { id }: { id: string }) => {
     await prisma.schedulingConstraint.delete({ where: { id } });
-    
+
     return true;
   },
 
@@ -721,7 +731,7 @@ const Mutation = {
       },
       include: { analyst: true }
     });
-    
+
     return schedule;
   },
 
@@ -735,13 +745,13 @@ const Mutation = {
       data: updateData,
       include: { analyst: true }
     });
-    
+
     return schedule;
   },
 
   deleteSchedule: async (_: any, { id }: { id: string }) => {
     await prisma.schedule.delete({ where: { id } });
-    
+
     return true;
   },
 
@@ -857,8 +867,8 @@ const Mutation = {
     // Apply schedules to database
     for (const schedule of result.proposedSchedules) {
       try {
-        const existing = existingSchedules.find(s => 
-          s.analystId === schedule.analystId && 
+        const existing = existingSchedules.find(s =>
+          s.analystId === schedule.analystId &&
           new Date(s.date).toISOString().split('T')[0] === schedule.date
         );
 
@@ -866,9 +876,9 @@ const Mutation = {
           if (overwriteExisting && (existing.shiftType !== schedule.shiftType || existing.isScreener !== schedule.isScreener)) {
             await prisma.schedule.update({
               where: { id: existing.id },
-              data: { 
-                shiftType: schedule.shiftType, 
-                isScreener: schedule.isScreener 
+              data: {
+                shiftType: schedule.shiftType,
+                isScreener: schedule.isScreener
               }
             });
           }
@@ -932,7 +942,7 @@ const Analyst = {
     const schedules = await prisma.schedule.findMany({
       where: { analystId: parent.id }
     });
-    
+
     // Convert Schedule objects to ProposedSchedule format
     const proposedSchedules = schedules.map(schedule => ({
       date: schedule.date.toISOString().split('T')[0],
@@ -942,7 +952,7 @@ const Analyst = {
       isScreener: schedule.isScreener,
       type: 'NEW_SCHEDULE' as const
     }));
-    
+
     return fairnessEngine.calculateIndividualFairnessScore(proposedSchedules, 1);
   },
 
@@ -968,7 +978,7 @@ const Analyst = {
     let currentConsecutive = 1;
 
     for (let i = 1; i < sortedDates.length; i++) {
-      const daysDiff = (sortedDates[i].getTime() - sortedDates[i-1].getTime()) / (1000 * 60 * 60 * 24);
+      const daysDiff = (sortedDates[i].getTime() - sortedDates[i - 1].getTime()) / (1000 * 60 * 60 * 24);
       if (daysDiff === 1) {
         currentConsecutive++;
         maxConsecutive = Math.max(maxConsecutive, currentConsecutive);
@@ -977,7 +987,7 @@ const Analyst = {
       }
     }
 
-    const averageWorkloadPerWeek = totalWorkDays / Math.max(1, (sortedDates.length > 0 ? 
+    const averageWorkloadPerWeek = totalWorkDays / Math.max(1, (sortedDates.length > 0 ?
       (sortedDates[sortedDates.length - 1].getTime() - sortedDates[0].getTime()) / (1000 * 60 * 60 * 24 * 7) : 1));
 
     // Convert Schedule objects to ProposedSchedule format

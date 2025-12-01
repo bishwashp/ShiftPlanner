@@ -33,6 +33,9 @@ model Analyst {
   constraints SchedulingConstraint[]
   patternContinuity PatternContinuity[]
   absences    Absence[]
+  fairnessDebts FairnessDebt[]
+  replacementAssignments ReplacementAssignment[] @relation("ReplacementAnalyst")
+  originalAssignments    ReplacementAssignment[] @relation("OriginalAnalyst")
   
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
@@ -210,11 +213,22 @@ model Absence {
   reason      String?  // Optional reason for absence
   isApproved  Boolean  @default(true) // Whether the absence is approved
   isPlanned   Boolean  @default(true) // Whether this is a planned absence
+  
+  // New fields for Phase 1
+  isPartialDay      Boolean  @default(false)
+  startTime         String?  // HH:MM format
+  endTime           String?  // HH:MM format
+  fractionalUnits   Float    @default(1.0) // Fairness weight
+  excludedHolidayDates String? // JSON array of excluded dates
+  workDaysCount     Int      @default(0)
+  impactScore       String   @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   // Relationships
   analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  fairnessDebts FairnessDebt[]
   
   // Performance indexes for absence queries
   @@index([analystId, startDate, endDate]) // For analyst absence lookups
@@ -295,4 +309,40 @@ model SystemEvent {
   @@index([eventType, createdAt])
   @@index([entityType, entityId])
   @@map("system_events")
+}
+
+model FairnessDebt {
+  id          String   @id @default(cuid())
+  analystId   String
+  absenceId   String?  // Link to absence that caused debt
+  debtAmount  Float    // Weighted workload units missed
+  reason      String   // "ABSENCE_COVERAGE", "WEEKEND_MISS", etc.
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime? // When debt was repaid
+  
+  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  absence     Absence? @relation(fields: [absenceId], references: [id])
+  
+  @@index([analystId, resolvedAt]) // For active debt queries
+  @@map("fairness_debts")
+}
+
+model ReplacementAssignment {
+  id                   String   @id @default(cuid())
+  originalAnalystId    String
+  replacementAnalystId String
+  date                 DateTime
+  shiftType            String   // MORNING, EVENING, WEEKEND
+  status               String   // ACTIVE, REASSIGNED, CANCELLED
+  reassignmentChain    String?  // JSON array of analyst IDs: ["A", "B", "C"]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  originalAnalyst      Analyst  @relation("OriginalAnalyst", fields: [originalAnalystId], references: [id], onDelete: Cascade)
+  replacementAnalyst   Analyst  @relation("ReplacementAnalyst", fields: [replacementAnalystId], references: [id], onDelete: Cascade)
+  
+  @@index([date, status])
+  @@index([originalAnalystId])
+  @@index([replacementAnalystId])
+  @@map("replacement_assignments")
 }

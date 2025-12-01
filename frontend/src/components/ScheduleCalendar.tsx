@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, memo, useRef } from 'react';
 import moment from 'moment-timezone';
+import { dateUtils } from '../utils/dateUtils';
 import { apiService, Schedule, Analyst } from '../services/api';
 import { View as AppView } from './layout/CollapsibleSidebar';
 import { useTheme } from 'react18-themes';
@@ -181,10 +182,13 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
   const { startDate, endDate } = useMemo(() => {
     const localDate = moment(date).tz(timezone);
     // Extend range to cover weeks that span multiple months
-    const start = localDate.clone().startOf('month').subtract(7, 'days').format('YYYY-MM-DD');
-    const end = localDate.clone().endOf('month').add(7, 'days').format('YYYY-MM-DD');
+    const start = localDate.clone().startOf('month').subtract(7, 'days');
+    const end = localDate.clone().endOf('month').add(7, 'days');
 
-    return { startDate: start, endDate: end };
+    return {
+      startDate: dateUtils.toApiDate(start.toDate()),
+      endDate: dateUtils.toApiDate(end.toDate())
+    };
   }, [date, timezone]);
 
   // Gesture handlers for mobile navigation
@@ -432,8 +436,9 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
     const validSchedules = filteredSchedules.filter((schedule: Schedule) => schedule.date);
 
     validSchedules.forEach((schedule: Schedule) => {
-      const scheduleDateUtc = moment.utc(schedule.date);
-      const dateString = scheduleDateUtc.format('YYYY-MM-DD');
+      // Use dateUtils to ensure we respect the UTC date from backend
+      // The backend sends YYYY-MM-DD string or ISO string which represents UTC Midnight/Noon
+      const dateString = dateUtils.toInputDate(schedule.date);
 
       events.push({
         id: schedule.id,

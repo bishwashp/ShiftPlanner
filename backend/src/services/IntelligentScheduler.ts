@@ -202,9 +202,13 @@ export class IntelligentScheduler implements SchedulingStrategy {
       this.name, 'WEEKEND_ROTATION', startDate, endDate, analysts, existingSchedules
     );
 
-    // Plan AM to PM rotation for weekdays
+    // 2. Plan AM to PM rotations (ensure 2 PMs per day)
     const amToPmRotationMap = await this.rotationManager.planAMToPMRotation(
-      startDate, endDate, morningAnalysts, existingSchedules
+      startDate,
+      endDate,
+      morningAnalysts,
+      existingSchedules,
+      this.absenceService
     );
 
     const currentMoment = moment.utc(startDate);
@@ -232,12 +236,9 @@ export class IntelligentScheduler implements SchedulingStrategy {
 
       for (const analyst of morningAnalysts) {
         const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
-        const onVacation = analyst.vacations?.some((v: any) =>
-          moment(v.startDate).isSameOrBefore(currentMoment, 'day') &&
-          moment(v.endDate).isSameOrAfter(currentMoment, 'day')
-        ) || false;
+        const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
 
-        if (shouldWork && !onVacation) {
+        if (shouldWork && !isAbsent) {
           // Check if this AM analyst is rotated to PM for today
           const rotatedToPm = amToPmRotationMap.get(dateStr)?.includes(analyst.id);
           const shiftType = rotatedToPm ? 'EVENING' : 'MORNING';
@@ -252,12 +253,9 @@ export class IntelligentScheduler implements SchedulingStrategy {
 
       for (const analyst of eveningAnalysts) {
         const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
-        const onVacation = analyst.vacations?.some((v: any) =>
-          moment(v.startDate).isSameOrBefore(currentMoment, 'day') &&
-          moment(v.endDate).isSameOrAfter(currentMoment, 'day')
-        ) || false;
+        const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
 
-        if (shouldWork && !onVacation) {
+        if (shouldWork && !isAbsent) {
           result.proposedSchedules.push({
             date: dateStr, analystId: analyst.id, analystName: analyst.name,
             shiftType: 'EVENING', isScreener: false, type: 'NEW_SCHEDULE'
@@ -293,17 +291,53 @@ export class IntelligentScheduler implements SchedulingStrategy {
       const eveningSchedules = daySchedules.filter(s => s.shiftType === 'EVENING');
 
       if (morningSchedules.length > 0) {
-        // Round Robin selection for guaranteed fairness
-        const index = morningScreenerIndex % morningSchedules.length;
-        result.proposedSchedules.push({ ...morningSchedules[index], isScreener: true });
-        morningScreenerIndex++;
+        // Filter out absent analysts from screener pool
+        const availableMorning = [];
+        for (const schedule of morningSchedules) {
+          const isAbsent = await this.absenceService.isAnalystAbsent(schedule.analystId, dateStr);
+          if (!isAbsent) {
+            availableMorning.push(schedule);
+          }
+        }
+
+        if (availableMorning.length > 0) {
+          // Round Robin selection for guaranteed fairness
+          const index = morningScreenerIndex % availableMorning.length;
+          // Find the original schedule to update
+          const selectedSchedule = availableMorning[index];
+          const originalIndex = result.proposedSchedules.findIndex(s => s === selectedSchedule);
+          if (originalIndex === -1) {
+            result.proposedSchedules.push({ ...selectedSchedule, isScreener: true });
+          } else {
+            result.proposedSchedules[originalIndex].isScreener = true;
+          }
+          // Only increment if we successfully assigned
+          morningScreenerIndex++;
+        }
       }
 
       if (eveningSchedules.length > 0) {
-        // Round Robin selection
-        const index = eveningScreenerIndex % eveningSchedules.length;
-        result.proposedSchedules.push({ ...eveningSchedules[index], isScreener: true });
-        eveningScreenerIndex++;
+        // Filter out absent analysts
+        const availableEvening = [];
+        for (const schedule of eveningSchedules) {
+          const isAbsent = await this.absenceService.isAnalystAbsent(schedule.analystId, dateStr);
+          if (!isAbsent) {
+            availableEvening.push(schedule);
+          }
+        }
+
+        if (availableEvening.length > 0) {
+          // Round Robin selection
+          const index = eveningScreenerIndex % availableEvening.length;
+          const selectedSchedule = availableEvening[index];
+          const originalIndex = result.proposedSchedules.findIndex(s => s === selectedSchedule);
+          if (originalIndex === -1) {
+            result.proposedSchedules.push({ ...selectedSchedule, isScreener: true });
+          } else {
+            result.proposedSchedules[originalIndex].isScreener = true;
+          }
+          eveningScreenerIndex++;
+        }
       }
 
       currentMoment.add(1, 'day');

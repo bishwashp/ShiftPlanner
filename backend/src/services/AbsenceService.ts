@@ -1,5 +1,7 @@
-import { PrismaClient } from '@prisma/client';
-import moment from 'moment-timezone';
+import { PrismaClient } from '../../generated/prisma';
+import { replacementService } from './ReplacementService';
+import { fairnessDebtService } from './FairnessDebtService';
+import { DateUtils } from '../utils/dateUtils';
 
 export interface AbsenceData {
   analystId: string;
@@ -34,8 +36,9 @@ export class AbsenceService {
     const { analystId, startDate, endDate, type, reason, isApproved, isPlanned } = absenceData;
 
     // Validate date range
-    const start = moment(startDate);
-    const end = moment(endDate);
+    // Normalize to UTC noon for storage
+    const start = DateUtils.asStorageDate(startDate);
+    const end = DateUtils.asStorageDate(endDate);
 
     if (start > end) {
       throw new Error('End date must be on or after start date');
@@ -56,22 +59,22 @@ export class AbsenceService {
         analystId,
         OR: [
           {
-            startDate: { lte: end.toDate() },
-            endDate: { gte: start.toDate() }
+            startDate: { lte: end },
+            endDate: { gte: start }
           }
         ]
       }
     });
 
     if (overlappingAbsence) {
-      throw new Error(`Analyst already has an absence during this period (${overlappingAbsence.type} from ${moment(overlappingAbsence.startDate).format('YYYY-MM-DD')} to ${moment(overlappingAbsence.endDate).format('YYYY-MM-DD')})`);
+      throw new Error(`Analyst already has an absence during this period (${overlappingAbsence.type} from ${DateUtils.formatDate(overlappingAbsence.startDate)} to ${DateUtils.formatDate(overlappingAbsence.endDate)})`);
     }
 
     const absence = await this.prisma.absence.create({
       data: {
         analystId,
-        startDate: start.toDate(),
-        endDate: end.toDate(),
+        startDate: start,
+        endDate: end,
         type,
         reason,
         isApproved: isApproved !== undefined ? isApproved : true,
@@ -97,20 +100,33 @@ export class AbsenceService {
   async updateAbsence(id: string, absenceData: Partial<AbsenceData>): Promise<any> {
     const updateData: any = {};
 
-    if (absenceData.startDate) updateData.startDate = moment(absenceData.startDate).toDate();
-    if (absenceData.endDate) updateData.endDate = moment(absenceData.endDate).toDate();
+    if (absenceData.startDate) {
+      updateData.startDate = DateUtils.asStorageDate(absenceData.startDate);
+    }
+    if (absenceData.endDate) {
+      updateData.endDate = DateUtils.asStorageDate(absenceData.endDate);
+    }
     if (absenceData.type) updateData.type = absenceData.type;
     if (absenceData.reason !== undefined) updateData.reason = absenceData.reason;
     if (absenceData.isApproved !== undefined) updateData.isApproved = absenceData.isApproved;
     if (absenceData.isPlanned !== undefined) updateData.isPlanned = absenceData.isPlanned;
 
     // Validate date range if both dates are provided
-    if (absenceData.startDate && absenceData.endDate) {
-      const start = moment(absenceData.startDate);
-      const end = moment(absenceData.endDate);
-
-      if (start > end) {
+    if (updateData.startDate && updateData.endDate) {
+      if (updateData.startDate > updateData.endDate) {
         throw new Error('End date must be on or after start date');
+      }
+    } else if (updateData.startDate) {
+      // Fetch existing end date to validate
+      const current = await this.prisma.absence.findUnique({ where: { id }, select: { endDate: true } });
+      if (current && updateData.startDate > current.endDate) {
+        throw new Error('Start date cannot be after end date');
+      }
+    } else if (updateData.endDate) {
+      // Fetch existing start date to validate
+      const current = await this.prisma.absence.findUnique({ where: { id }, select: { startDate: true } });
+      if (current && current.startDate > updateData.endDate) {
+        throw new Error('End date cannot be before start date');
       }
     }
 
@@ -152,7 +168,7 @@ export class AbsenceService {
       if (startDate) {
         where.OR.push({
           endDate: {
-            gte: moment(startDate).toDate()
+            gte: DateUtils.getStartOfDay(startDate)
           }
         });
       }
@@ -160,7 +176,7 @@ export class AbsenceService {
       if (endDate) {
         where.OR.push({
           startDate: {
-            lte: moment(endDate).toDate()
+            lte: DateUtils.getEndOfDay(endDate)
           }
         });
       }
@@ -180,8 +196,8 @@ export class AbsenceService {
       where: {
         OR: [
           {
-            startDate: { lte: moment(endDate).toDate() },
-            endDate: { gte: moment(startDate).toDate() }
+            startDate: { lte: DateUtils.getEndOfDay(endDate) },
+            endDate: { gte: DateUtils.getStartOfDay(startDate) }
           }
         ],
         isApproved: true
@@ -203,13 +219,11 @@ export class AbsenceService {
    * Check if an analyst is absent on a specific date
    */
   async isAnalystAbsent(analystId: string, date: string): Promise<boolean> {
-    const momentDate = moment(date);
-
     const absence = await this.prisma.absence.findFirst({
       where: {
         analystId,
-        startDate: { lte: momentDate.endOf('day').toDate() },
-        endDate: { gte: momentDate.startOf('day').toDate() },
+        startDate: { lte: DateUtils.getEndOfDay(date) },
+        endDate: { gte: DateUtils.getStartOfDay(date) },
         isApproved: true
       }
     });
@@ -221,12 +235,10 @@ export class AbsenceService {
    * Get absent analysts for a specific date
    */
   async getAbsentAnalysts(date: string): Promise<any[]> {
-    const momentDate = moment(date);
-
     const absences = await this.prisma.absence.findMany({
       where: {
-        startDate: { lte: momentDate.endOf('day').toDate() },
-        endDate: { gte: momentDate.startOf('day').toDate() },
+        startDate: { lte: DateUtils.getEndOfDay(date) },
+        endDate: { gte: DateUtils.getStartOfDay(date) },
         isApproved: true
       },
       include: {
@@ -251,16 +263,16 @@ export class AbsenceService {
     const conflicts: AbsenceConflict[] = [];
     const { analystId, startDate, endDate } = absenceData;
 
-    const start = moment(startDate);
-    const end = moment(endDate);
+    const start = DateUtils.getStartOfDay(startDate);
+    const end = DateUtils.getEndOfDay(endDate);
 
     // Check for overlapping schedules
     const existingSchedules = await this.prisma.schedule.findMany({
       where: {
         analystId,
         date: {
-          gte: start.startOf('day').toDate(),
-          lte: end.endOf('day').toDate()
+          gte: start,
+          lte: end
         }
       },
       include: {
@@ -276,7 +288,7 @@ export class AbsenceService {
     if (existingSchedules.length > 0) {
       conflicts.push({
         type: 'OVERLAPPING_SCHEDULE',
-        date: start.format('YYYY-MM-DD'),
+        date: DateUtils.formatDate(start),
         description: `Absence conflicts with ${existingSchedules.length} existing schedule(s)`,
         severity: 'HIGH',
         affectedAnalysts: existingSchedules.map((s: any) => s.analyst.name),
@@ -289,8 +301,8 @@ export class AbsenceService {
       analystId,
       OR: [
         {
-          startDate: { lte: end.toDate() },
-          endDate: { gte: start.toDate() }
+          startDate: { lte: end },
+          endDate: { gte: start }
         }
       ]
     };
@@ -306,7 +318,7 @@ export class AbsenceService {
     if (overlappingAbsences.length > 0) {
       conflicts.push({
         type: 'OVERLAPPING_ABSENCE',
-        date: start.format('YYYY-MM-DD'),
+        date: DateUtils.formatDate(start),
         description: `Analyst already has ${overlappingAbsences.length} other absence(s) during this period`,
         severity: 'MEDIUM',
         affectedAnalysts: [analystId],
@@ -322,8 +334,8 @@ export class AbsenceService {
     // Get all absences during this period (including the new one)
     const allAbsences = await this.prisma.absence.findMany({
       where: {
-        startDate: { lte: end.endOf('day').toDate() },
-        endDate: { gte: start.startOf('day').toDate() },
+        startDate: { lte: end },
+        endDate: { gte: start },
         isApproved: true
       }
     });
@@ -348,7 +360,7 @@ export class AbsenceService {
     if (availableAnalysts < 2) { // Minimum staff requirement
       conflicts.push({
         type: 'INSUFFICIENT_STAFF',
-        date: start.format('YYYY-MM-DD'),
+        date: DateUtils.formatDate(start),
         description: `Only ${availableAnalysts} analysts available during absence period`,
         severity: 'CRITICAL',
         suggestedResolution: 'Consider hiring temporary staff or adjusting absence dates'
@@ -376,6 +388,29 @@ export class AbsenceService {
       }
     });
 
+    if (isApproved) {
+      // Trigger replacement logic
+      await replacementService.distributeMultiDayReplacement(
+        absence.id,
+        absence.startDate,
+        absence.endDate,
+        absence.analystId
+      );
+
+      // Create Fairness Debt if Vacation
+      if (absence.type === 'VACATION' || absence.isPlanned) {
+        const days = DateUtils.getDurationInDays(absence.startDate, absence.endDate);
+
+        await fairnessDebtService.createDebt(
+          absence.analystId,
+          days * 1.0, // Simplified debt calculation
+          `Vacation from ${DateUtils.formatDate(absence.startDate)} to ${DateUtils.formatDate(absence.endDate)}`,
+          absence.id,
+          absence.type
+        );
+      }
+    }
+
     return absence;
   }
 
@@ -383,9 +418,9 @@ export class AbsenceService {
    * Get absence statistics for an analyst
    */
   async getAnalystAbsenceStats(analystId: string, year?: number): Promise<any> {
-    const currentYear = year || moment().year();
-    const startOfYear = moment(`${currentYear}-01-01`).toDate();
-    const endOfYear = moment(`${currentYear}-12-31`).endOf('day').toDate();
+    const currentYear = year || new Date().getFullYear();
+    const startOfYear = DateUtils.getStartOfDay(`${currentYear}-01-01`);
+    const endOfYear = DateUtils.getEndOfDay(`${currentYear}-12-31`);
 
     const absences = await this.prisma.absence.findMany({
       where: {
@@ -404,9 +439,7 @@ export class AbsenceService {
     };
 
     absences.forEach((absence: any) => {
-      const start = moment(absence.startDate);
-      const end = moment(absence.endDate);
-      const days = end.diff(start, 'days') + 1;
+      const days = DateUtils.getDurationInDays(absence.startDate, absence.endDate);
 
       stats.totalDays += days;
 
@@ -418,7 +451,7 @@ export class AbsenceService {
       stats.byType[absence.type].days += days;
 
       // Count by month
-      const month = start.format('YYYY-MM');
+      const month = DateUtils.formatDate(absence.startDate).substring(0, 7); // YYYY-MM
       stats.byMonth[month] = (stats.byMonth[month] || 0) + days;
     });
 

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { cacheService } from '../lib/cache';
 import AbsenceService from '../services/AbsenceService';
+import { absenceImpactAnalyzer } from '../services/AbsenceImpactAnalyzer';
 
 const router = Router();
 const absenceService = new AbsenceService(prisma);
@@ -10,10 +11,10 @@ const absenceService = new AbsenceService(prisma);
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { analystId, type, isApproved, isPlanned, startDate, endDate } = req.query;
-    
+
     // Create cache key based on filters
     const filters = `analyst:${analystId || 'all'}_type:${type || 'all'}_approved:${isApproved || 'all'}_planned:${isPlanned || 'all'}`;
-    
+
     // Try to get from cache first
     const cachedAbsences = await cacheService.get(`absences:${filters}`);
     if (cachedAbsences) {
@@ -22,26 +23,26 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Build query conditions
     const where: any = {};
-    
+
     if (analystId) {
       where.analystId = analystId as string;
     }
-    
+
     if (type) {
       where.type = type as string;
     }
-    
+
     if (isApproved !== undefined) {
       where.isApproved = isApproved === 'true';
     }
-    
+
     if (isPlanned !== undefined) {
       where.isPlanned = isPlanned === 'true';
     }
-    
+
     if (startDate || endDate) {
       where.OR = [];
-      
+
       if (startDate) {
         where.OR.push({
           endDate: {
@@ -49,7 +50,7 @@ router.get('/', async (req: Request, res: Response) => {
           }
         });
       }
-      
+
       if (endDate) {
         where.OR.push({
           startDate: {
@@ -75,11 +76,15 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Cache the result
     await cacheService.set(`absences:${filters}`, absences, 300); // Cache for 5 minutes
-    
+
     res.json(absences);
   } catch (error) {
     console.error('Error fetching absences:', error);
-    res.status(500).json({ error: 'Failed to fetch absences' });
+    res.status(500).json({
+      error: 'Failed to fetch absences',
+      details: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
   }
 });
 
@@ -87,7 +92,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     // Try to get from cache first
     const cachedAbsence = await cacheService.get(`absence:${id}`);
     if (cachedAbsence) {
@@ -106,14 +111,14 @@ router.get('/:id', async (req: Request, res: Response) => {
         }
       }
     });
-    
+
     if (!absence) {
       return res.status(404).json({ error: 'Absence not found' });
     }
 
     // Cache the result
     await cacheService.set(`absence:${id}`, absence, 300);
-    
+
     res.json(absence);
   } catch (error) {
     console.error('Error fetching absence:', error);
@@ -134,7 +139,7 @@ router.post('/', async (req: Request, res: Response) => {
     // Validate date range
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     if (start > end) {
       return res.status(400).json({ error: 'End date must be on or after start date' });
     }
@@ -143,7 +148,7 @@ router.post('/', async (req: Request, res: Response) => {
     const analyst = await prisma.analyst.findUnique({
       where: { id: analystId }
     });
-    
+
     if (!analyst) {
       return res.status(404).json({ error: 'Analyst not found' });
     }
@@ -162,7 +167,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     if (overlappingAbsence) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Analyst already has an absence during this period',
         conflictingAbsence: {
           id: overlappingAbsence.id,
@@ -237,7 +242,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
 
     const updateData: any = {};
-    
+
     if (startDate) updateData.startDate = new Date(startDate);
     if (endDate) updateData.endDate = new Date(endDate);
     if (type) updateData.type = type;
@@ -249,7 +254,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (start > end) {
         return res.status(400).json({ error: 'End date must be on or after start date' });
       }
@@ -267,7 +272,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         isApproved: isApproved !== undefined ? isApproved : true,
         isPlanned: isPlanned !== undefined ? isPlanned : true
       };
-      
+
       conflicts = await absenceService.checkAbsenceConflicts(conflictData, id);
     }
 
@@ -345,10 +350,10 @@ router.get('/analyst/:analystId', async (req: Request, res: Response) => {
   try {
     const { analystId } = req.params;
     const { startDate, endDate, isApproved } = req.query;
-    
+
     // Create cache key
     const cacheKey = `analyst:${analystId}:absences:${startDate || 'all'}:${endDate || 'all'}:${isApproved || 'all'}`;
-    
+
     // Try to get from cache first
     const cachedAbsences = await cacheService.get(cacheKey);
     if (cachedAbsences) {
@@ -357,10 +362,10 @@ router.get('/analyst/:analystId', async (req: Request, res: Response) => {
 
     // Build query conditions
     const where: any = { analystId };
-    
+
     if (startDate || endDate) {
       where.OR = [];
-      
+
       if (startDate) {
         where.OR.push({
           endDate: {
@@ -368,7 +373,7 @@ router.get('/analyst/:analystId', async (req: Request, res: Response) => {
           }
         });
       }
-      
+
       if (endDate) {
         where.OR.push({
           startDate: {
@@ -377,7 +382,7 @@ router.get('/analyst/:analystId', async (req: Request, res: Response) => {
         });
       }
     }
-    
+
     if (isApproved !== undefined) {
       where.isApproved = isApproved === 'true';
     }
@@ -389,7 +394,7 @@ router.get('/analyst/:analystId', async (req: Request, res: Response) => {
 
     // Cache the result
     await cacheService.set(cacheKey, absences, 300); // Cache for 5 minutes
-    
+
     res.json(absences);
   } catch (error) {
     console.error('Error fetching analyst absences:', error);
@@ -407,19 +412,8 @@ router.patch('/:id/approve', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'isApproved must be a boolean' });
     }
 
-    const absence = await prisma.absence.update({
-      where: { id },
-      data: { isApproved },
-      include: {
-        analyst: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      }
-    });
+    // Use absenceService.approveAbsence to trigger replacement logic
+    const absence = await absenceService.approveAbsence(id, isApproved);
 
     // Invalidate relevant caches
     await cacheService.invalidatePattern('absences:*');
@@ -434,6 +428,29 @@ router.patch('/:id/approve', async (req: Request, res: Response) => {
     } else {
       res.status(500).json({ error: 'Failed to update absence approval' });
     }
+  }
+});
+
+// Analyze absence impact
+router.post('/impact', async (req: Request, res: Response) => {
+  try {
+    const { analystId, startDate, endDate, type } = req.body;
+
+    if (!analystId || !startDate || !endDate || !type) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const report = await absenceImpactAnalyzer.analyzeAbsenceImpact({
+      analystId,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      type
+    });
+
+    res.json(report);
+  } catch (error) {
+    console.error('Error analyzing absence impact:', error);
+    res.status(500).json({ error: 'Failed to analyze absence impact' });
   }
 });
 

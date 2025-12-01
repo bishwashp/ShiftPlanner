@@ -604,6 +604,27 @@ export const typeDefs = gql`
     isScreener: Boolean
   }
 
+  type ReplacementPlanItem {
+    date: String!
+    shiftType: String!
+    originalAnalystId: String!
+    replacementAnalystId: String
+    replacementAnalystName: String
+    confidence: Float!
+    concerns: [String!]!
+  }
+
+  type AbsenceImpactReport {
+    teamAvailability: Float!
+    coverageRisk: String!
+    fairnessImpact: Float!
+    rotationDisruption: Boolean!
+    concurrentAbsences: Int!
+    replacementPlan: [ReplacementPlanItem!]!
+    recommendation: String!
+    concerns: [String!]!
+  }
+
   # Queries
   type Query {
     # Health and system
@@ -635,6 +656,7 @@ export const typeDefs = gql`
     # Analytics
     analyticsData(analystId: ID, startDate: DateTime, endDate: DateTime): [AnalyticsData!]!
     workloadAnalysis(analystId: ID): WorkloadAnalysis
+    analyzeAbsenceImpact(analystId: ID!, startDate: DateTime!, endDate: DateTime!, type: String!): AbsenceImpactReport!
     
     # Advanced Analytics
     monthlyTallies(month: Int!, year: Int!): [MonthlyTally!]!

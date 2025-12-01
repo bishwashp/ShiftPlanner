@@ -100,8 +100,8 @@ export const WorkloadTrendChart: React.FC<WorkloadTrendChartProps> = ({
             const timeStats: Record<string, { name: string, regular: number, screener: number, weekend: number, total: number }> = {};
 
             // Fill gaps logic
-            // Calculate base date with offset
-            const baseDate = moment.utc().add(dateOffset, period === 'WEEKLY' ? 'weeks' : period === 'MONTHLY' ? 'months' : period === 'QUARTERLY' ? 'quarters' : 'years');
+            // Calculate base date with offset (use local time to match Analytics.tsx)
+            const baseDate = moment().add(dateOffset, period === 'WEEKLY' ? 'weeks' : period === 'MONTHLY' ? 'months' : period === 'QUARTERLY' ? 'quarters' : 'years');
 
             let start = baseDate.clone();
             let end = baseDate.clone();
