@@ -152,14 +152,14 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
     if (diffDays === 0) return; // No change in date
 
     // Update all schedules in the group
-    const updatedSchedules = draggedGroup.shifts.map(schedule => {
+    const updatedSchedules = draggedGroup.shifts.map((schedule: Schedule) => {
       const newDate = moment(schedule.date).add(diffDays, 'days').format('YYYY-MM-DD');
       return { ...schedule, date: newDate };
     });
 
     try {
       // Update each schedule via API
-      await Promise.all(updatedSchedules.map(async (schedule) => {
+      await Promise.all(updatedSchedules.map(async (schedule: Schedule) => {
         await apiService.updateSchedule(schedule.id, {
           date: schedule.date,
           shiftType: schedule.shiftType,
