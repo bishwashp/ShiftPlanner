@@ -18,12 +18,14 @@ interface WorkloadTrendChartProps {
     schedules: Schedule[];
     analysts: Analyst[];
     period: Period;
+    dateOffset: number;
 }
 
 export const WorkloadTrendChart: React.FC<WorkloadTrendChartProps> = ({
     schedules,
     analysts,
-    period
+    period,
+    dateOffset
 }) => {
     const [selectedAnalyst, setSelectedAnalyst] = useState<string>('ALL');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -98,13 +100,16 @@ export const WorkloadTrendChart: React.FC<WorkloadTrendChartProps> = ({
             const timeStats: Record<string, { name: string, regular: number, screener: number, weekend: number, total: number }> = {};
 
             // Fill gaps logic
-            let start = moment.utc();
-            let end = moment.utc();
+            // Calculate base date with offset
+            const baseDate = moment.utc().add(dateOffset, period === 'WEEKLY' ? 'weeks' : period === 'MONTHLY' ? 'months' : period === 'QUARTERLY' ? 'quarters' : 'years');
 
-            if (period === 'WEEKLY') { start = moment.utc().startOf('week'); end = moment.utc().endOf('week'); }
-            else if (period === 'MONTHLY') { start = moment.utc().startOf('month'); end = moment.utc().endOf('month'); }
-            else if (period === 'QUARTERLY') { start = moment.utc().startOf('quarter'); end = moment.utc().endOf('quarter'); }
-            else if (period === 'YEARLY') { start = moment.utc().startOf('year'); end = moment.utc().endOf('year'); }
+            let start = baseDate.clone();
+            let end = baseDate.clone();
+
+            if (period === 'WEEKLY') { start = baseDate.clone().startOf('week'); end = baseDate.clone().endOf('week'); }
+            else if (period === 'MONTHLY') { start = baseDate.clone().startOf('month'); end = baseDate.clone().endOf('month'); }
+            else if (period === 'QUARTERLY') { start = baseDate.clone().startOf('quarter'); end = baseDate.clone().endOf('quarter'); }
+            else if (period === 'YEARLY') { start = baseDate.clone().startOf('year'); end = baseDate.clone().endOf('year'); }
 
             // Iterate through time range
             for (let m = start.clone(); m.isSameOrBefore(end); m.add(1, unit)) {
@@ -154,16 +159,16 @@ export const WorkloadTrendChart: React.FC<WorkloadTrendChartProps> = ({
             avgScreener: count > 0 ? totalScreener / count : 0,
             avgWeekend: count > 0 ? totalWeekend / count : 0
         };
-    }, [schedules, analysts, period, selectedAnalyst]);
+    }, [schedules, analysts, period, selectedAnalyst, dateOffset]);
 
     // Dynamic Subtitle
     const subtitle = useMemo(() => {
-        const now = moment();
+        const now = moment().add(dateOffset, period === 'WEEKLY' ? 'weeks' : period === 'MONTHLY' ? 'months' : period === 'QUARTERLY' ? 'quarters' : 'years');
         if (period === 'WEEKLY') return `Week ${now.format('w, YYYY')}`;
         if (period === 'MONTHLY') return now.format('MMMM YYYY');
         if (period === 'QUARTERLY') return `Q${now.quarter()} ${now.format('YYYY')}`;
         return now.format('YYYY');
-    }, [period]);
+    }, [period, dateOffset]);
 
     return (
         <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col relative overflow-visible">

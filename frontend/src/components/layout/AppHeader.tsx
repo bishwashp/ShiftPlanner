@@ -54,7 +54,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   filterHook
 }) => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const { period, setPeriod } = usePeriod();
+  const { period, setPeriod, dateOffset, setDateOffset } = usePeriod();
 
   const handlePrev = () => {
     const momentDate = moment(date).tz(timezone);
@@ -224,24 +224,64 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             </>
           )}
 
-          {/* Global Period Toggle - Only for Analytics */}
+          {/* Global Period Toggle & Navigation - Only for Analytics */}
           {activeView === 'analytics' && (
-            <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-800/50 rounded-lg p-1 mr-2 border border-gray-200 dark:border-gray-700">
-              {(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'] as const).map((p) => (
+            <div className="flex items-center space-x-2">
+              {/* Navigation Controls */}
+              <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-800/50 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
                 <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`
-                    px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200
-                    ${period === p
-                      ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                    }
-                  `}
+                  onClick={() => setDateOffset(prev => prev - 1)}
+                  className="p-1.5 rounded-md hover:bg-white dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-all shadow-sm hover:shadow"
+                  aria-label="Previous Period"
                 >
-                  {p.charAt(0) + p.slice(1).toLowerCase()}
+                  <CaretLeft className="h-4 w-4" weight="bold" />
                 </button>
-              ))}
+
+                <span className="px-3 text-xs font-bold text-gray-700 dark:text-gray-300 min-w-[100px] text-center select-none">
+                  {(() => {
+                    const baseDate = moment().add(dateOffset, period === 'WEEKLY' ? 'weeks' : period === 'MONTHLY' ? 'months' : period === 'QUARTERLY' ? 'quarters' : 'years');
+                    if (period === 'WEEKLY') {
+                      const startOfWeek = baseDate.clone().startOf('week').format('MMM D');
+                      const endOfWeek = baseDate.clone().endOf('week').format('MMM D');
+                      return `${startOfWeek} - ${endOfWeek}`;
+                    } else if (period === 'MONTHLY') {
+                      return baseDate.format('MMMM YYYY');
+                    } else if (period === 'QUARTERLY') {
+                      return `Q${baseDate.quarter()} ${baseDate.format('YYYY')}`;
+                    } else if (period === 'YEARLY') {
+                      return baseDate.format('YYYY');
+                    }
+                    return '';
+                  })()}
+                </span>
+
+                <button
+                  onClick={() => setDateOffset(prev => prev + 1)}
+                  className="p-1.5 rounded-md hover:bg-white dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-all shadow-sm hover:shadow"
+                  aria-label="Next Period"
+                >
+                  <CaretRight className="h-4 w-4" weight="bold" />
+                </button>
+              </div>
+
+              {/* Period Toggle */}
+              <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-800/50 rounded-lg p-1 mr-2 border border-gray-200 dark:border-gray-700">
+                {(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`
+                      px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200
+                      ${period === p
+                        ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                      }
+                    `}
+                  >
+                    {p.charAt(0) + p.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

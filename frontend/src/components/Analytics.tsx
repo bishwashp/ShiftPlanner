@@ -33,7 +33,7 @@ import { motion } from 'framer-motion';
 
 const Analytics: React.FC = () => {
   // State
-  const { period, setPeriod } = usePeriod();
+  const { period, setPeriod, dateOffset } = usePeriod();
   const [loading, setLoading] = useState(true);
   const [tallyData, setTallyData] = useState<MonthlyTally[]>([]);
   const [fairnessData, setFairnessData] = useState<FairnessReport | null>(null);
@@ -48,7 +48,7 @@ const Analytics: React.FC = () => {
   // Refs
   const deepDiveRef = useRef<HTMLDivElement>(null);
 
-  // Date ranges based on Period
+  // Date ranges based on Period and Offset
   useEffect(() => {
     const fetchData = async () => {
       // Only show full loading screen on initial mount
@@ -57,28 +57,27 @@ const Analytics: React.FC = () => {
       }
 
       try {
-        const now = moment();
-        const currentMonth = now.month() + 1;
-        const currentYear = now.year();
-        const startOfMonth = now.clone().startOf('month').format('YYYY-MM-DD');
-        const endOfMonth = now.clone().endOf('month').format('YYYY-MM-DD');
+        // Calculate base date with offset
+        const baseDate = moment().add(dateOffset, period === 'WEEKLY' ? 'weeks' : period === 'MONTHLY' ? 'months' : period === 'QUARTERLY' ? 'quarters' : 'years');
 
-        // Determine date range based on period
-        let startStr = startOfMonth;
-        let endStr = endOfMonth;
+        let startStr, endStr;
 
         if (period === 'WEEKLY') {
-          startStr = now.clone().startOf('week').format('YYYY-MM-DD');
-          endStr = now.clone().endOf('week').format('YYYY-MM-DD');
+          startStr = baseDate.clone().startOf('week').format('YYYY-MM-DD');
+          endStr = baseDate.clone().endOf('week').format('YYYY-MM-DD');
         } else if (period === 'MONTHLY') {
-          startStr = now.clone().startOf('month').format('YYYY-MM-DD');
-          endStr = now.clone().endOf('month').format('YYYY-MM-DD');
+          startStr = baseDate.clone().startOf('month').format('YYYY-MM-DD');
+          endStr = baseDate.clone().endOf('month').format('YYYY-MM-DD');
         } else if (period === 'QUARTERLY') {
-          startStr = now.clone().startOf('quarter').format('YYYY-MM-DD');
-          endStr = now.clone().endOf('quarter').format('YYYY-MM-DD');
+          startStr = baseDate.clone().startOf('quarter').format('YYYY-MM-DD');
+          endStr = baseDate.clone().endOf('quarter').format('YYYY-MM-DD');
         } else if (period === 'YEARLY') {
-          startStr = now.clone().startOf('year').format('YYYY-MM-DD');
-          endStr = now.clone().endOf('year').format('YYYY-MM-DD');
+          startStr = baseDate.clone().startOf('year').format('YYYY-MM-DD');
+          endStr = baseDate.clone().endOf('year').format('YYYY-MM-DD');
+        } else {
+          // Fallback
+          startStr = baseDate.clone().startOf('month').format('YYYY-MM-DD');
+          endStr = baseDate.clone().endOf('month').format('YYYY-MM-DD');
         }
 
         const [fairness, scheds, analystList] = await Promise.all([
@@ -191,7 +190,7 @@ const Analytics: React.FC = () => {
     };
 
     fetchData();
-  }, [period]);
+  }, [period, dateOffset]); // Re-fetch when period or offset changes
 
   // Client-side burnout calculation that respects the selected period
   const calculateBurnoutRisk = (schedules: Schedule[], analysts: Analyst[], selectedPeriod: string) => {
@@ -399,7 +398,7 @@ const Analytics: React.FC = () => {
   // Process Heatmap Data
   // Period-aware heatmap data generation
   const getHeatmapData = (analystId: string) => {
-    const now = moment();
+    const now = moment().add(dateOffset, period === 'WEEKLY' ? 'weeks' : period === 'MONTHLY' ? 'months' : period === 'QUARTERLY' ? 'quarters' : 'years');
     let startDate, endDate;
     let aggregationType: 'daily' | 'weekly' | 'monthly' = 'daily';
 
@@ -652,9 +651,8 @@ const Analytics: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-8"
         >
-          {/* Header Section with Period Toggle */}
+          {/* Header Section with Navigation - Moved to AppHeader */}
           <div className="flex justify-end items-center mb-6">
-            {/* Period Toggle moved to AppHeader */}
           </div>
           {/* Hero: Fairness Rings */}
           <section
@@ -849,6 +847,7 @@ const Analytics: React.FC = () => {
               schedules={schedules}
               analysts={analysts}
               period={period}
+              dateOffset={dateOffset}
             />
             <TrendChart
               data={trendsData}

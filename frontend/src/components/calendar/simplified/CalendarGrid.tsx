@@ -40,14 +40,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   // Smart stacking configuration based on mockup specs
   const STACKING_CONFIG = {
     desktop: {
-      maxVisible: 4, // Show max 4 name boxes, then "+N more"
-      nameBoxHeight: 20, // ~20% fill per box
+      maxVisible: 12, // Show max 12 name boxes (circles)
+      nameBoxHeight: 32, // Matches NameBox medium size (h-8)
       cellPadding: 8,
       minCellHeight: 100
     },
     mobile: {
-      maxVisible: 2, // Show max 2 name boxes on mobile
-      nameBoxHeight: 16,
+      maxVisible: 6, // Show max 6 name boxes on mobile
+      nameBoxHeight: 24, // Matches NameBox small size (h-6)
       cellPadding: 4,
       minCellHeight: 60
     }
@@ -125,18 +125,17 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     const visibleEvents = dayEvents.slice(0, config.maxVisible);
     const overflowCount = Math.max(0, dayEvents.length - config.maxVisible);
 
-    // Dynamic sizing based on number of events
+    // Dynamic sizing based on number of events - kept for compatibility but less critical with circles
     const getNameBoxSize = (eventCount: number): 'small' | 'medium' | 'large' => {
       if (isMobile) return 'small';
-      if (eventCount > 3) return 'small';
-      if (eventCount > 1) return 'medium';
+      if (eventCount > 8) return 'small'; // Switch to small if very crowded
       return 'medium';
     };
 
     const boxSize = getNameBoxSize(dayEvents.length);
 
     return (
-      <div className="flex flex-col gap-1 h-full justify-start">
+      <div className="flex flex-row flex-wrap gap-1 h-full content-start">
         {visibleEvents.map((event, index) => (
           <NameBox
             key={event.id}
@@ -154,23 +153,25 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           />
         ))}
 
-        {/* Overflow indicator */}
+        {/* Overflow indicator - Circular style */}
         {overflowCount > 0 && (
           <button
             className={`
-              w-full text-center text-gray-700 dark:text-gray-200 bg-muted/50 rounded-md border-dashed border
+              flex items-center justify-center rounded-full
+              text-gray-700 dark:text-gray-200 bg-muted/50 border-dashed border
               cursor-pointer hover:bg-muted/70 focus:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-primary transition-colors
-              ${isMobile ? 'text-xs py-0.5 px-1' : 'text-xs py-1 px-2'}
+              ${boxSize === 'small' ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-xs'}
             `}
             title={`${overflowCount} more shifts on ${dayDate.format('MMMM D')}`}
             aria-label={`View ${overflowCount} additional shifts for ${dayDate.format('MMMM D')}`}
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent cell click
               console.log('Overflow clicked:', dayDate.format('YYYY-MM-DD'), overflowCount);
               // Switch to week view with this day highlighted
               onShowMoreClick?.(dayDate.toDate());
             }}
           >
-            +{overflowCount} more
+            +{overflowCount}
           </button>
         )}
       </div>
@@ -262,12 +263,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
           <div key={weekIndex} className="grid grid-cols-7 gap-1" role="row">
             {week.map((day, dayIndex) => {
               const { isSelected, description, dateString } = getDateAccessibilityInfo(day);
-              // Dynamic cell height based on content and config
-              const cellHeight = Math.max(
-                config.minCellHeight,
-                config.cellPadding * 2 +
-                (day.events.length > 0 ? Math.min(day.events.length, config.maxVisible) * (config.nameBoxHeight + 4) : 0)
-              );
+              // Dynamic cell height - simplified for horizontal layout
+              // We rely on min-height and let flex-wrap expand the cell if needed
+              const cellHeight = config.minCellHeight;
 
               return (
                 <div

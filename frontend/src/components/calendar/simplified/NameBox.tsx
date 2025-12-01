@@ -25,6 +25,21 @@ export const NameBox: React.FC<NameBoxProps> = ({
     return dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
   })() : false;
 
+  // Helper to get initials
+  const getInitials = (fullName: string) => {
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length > 1) {
+      // First letter of first and last name
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    } else if (parts.length === 1 && parts[0].length > 0) {
+      // First two letters of the single name
+      return parts[0].substring(0, 2).toUpperCase();
+    }
+    return '??';
+  };
+
+  const initials = getInitials(name);
+
   // Generate accessible descriptions
   const getAccessibleDescription = () => {
     let description = `${name} - ${shiftType} shift`;
@@ -93,16 +108,16 @@ export const NameBox: React.FC<NameBoxProps> = ({
     }
   };
 
-  // Size classes
+  // Size classes - adjusted for circular shape
   const getSizeClasses = (size: string) => {
     switch (size) {
       case 'small':
-        return 'text-xs px-1 py-0.5 min-h-[16px]';
+        return 'text-[10px] w-6 h-6';
       case 'large':
-        return 'text-sm px-3 py-2 min-h-[32px]';
+        return 'text-sm w-10 h-10';
       case 'medium':
       default:
-        return 'text-xs px-2 py-1 min-h-[20px]';
+        return 'text-xs w-8 h-8';
     }
   };
 
@@ -111,8 +126,8 @@ export const NameBox: React.FC<NameBoxProps> = ({
 
   const MotionDiv = onClick ? motion.div : 'div';
   const motionProps = onClick ? {
-    whileHover: { scale: 1.05, y: -1 },
-    whileTap: { scale: 0.98 },
+    whileHover: { scale: 1.1 },
+    whileTap: { scale: 0.95 },
     transition: { type: 'spring', stiffness: 400, damping: 20 }
   } : {};
 
@@ -123,10 +138,10 @@ export const NameBox: React.FC<NameBoxProps> = ({
         ${colorScheme.text}
         ${colorScheme.border}
         ${sizeClasses}
-        border rounded-full truncate font-medium
+        border rounded-full
         backdrop-blur-sm
         transition-all duration-200
-        flex items-center justify-center relative
+        flex items-center justify-center relative flex-shrink-0
         ${onClick ? `cursor-pointer ${colorScheme.glow} hover:shadow-md focus:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1` : ''}
       `}
       onClick={onClick}
@@ -152,26 +167,17 @@ export const NameBox: React.FC<NameBoxProps> = ({
           This person has screener responsibilities for this shift
         </span>
       )}
-      <span className="truncate text-center leading-tight font-semibold" aria-hidden="true">
-        {name}
+      <span className="font-bold leading-none select-none" aria-hidden="true">
+        {initials}
       </span>
 
-      {/* Screener indicator */}
-      {isScreener && size !== 'small' && (
+      {/* Screener indicator - small dot for circular design */}
+      {isScreener && (
         <span
-          className="ml-1 text-[10px] opacity-75"
+          className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 border-2 border-white dark:border-gray-900 rounded-full"
           aria-label="Screener role indicator"
           role="img"
-        >
-          📋
-        </span>
-      )}
-
-      {/* Accessibility enhancements for small size screeners */}
-      {isScreener && size === 'small' && (
-        <span className="sr-only">
-          (Screener)
-        </span>
+        />
       )}
     </MotionDiv>
   );
