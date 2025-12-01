@@ -1,13 +1,15 @@
-# ShiftPlanner V0.7 MVP
+# ShiftPlanner v0.9.7
 
-An advanced, production-ready scheduling system designed to automate the creation of equitable work schedules for Analysts working in morning and evening shifts, with intelligent Screener role assignment.
+An advanced, production-ready scheduling system designed to automate the creation of equitable work schedules for Analysts working in morning and evening shifts, with intelligent Screener role assignment and comprehensive absence management.
 
-## 🚀 V0.7 MVP Highlights
+## 🚀 v0.9.7 Highlights
 
 - **⚡ 8-28ms Response Times** - Ultra-fast performance with optimized SQLite + in-memory caching
 - **🎯 Zero External Dependencies** - Self-contained architecture with no Redis or PostgreSQL requirements
 - **🧠 Intelligent Scheduling** - Advanced algorithms with fairness optimization and constraint handling
-- **📊 Real-time Analytics** - Comprehensive dashboard with workload distribution and performance metrics
+- **📊 Enhanced Analytics** - Analyst fairness distribution, weekend tracking, and workload trend analysis
+- **🏖️ Absence Management** - Automatic shift reassignment with disruptive shift detection
+- **📅 AM-to-PM Rotation** - Implemented rotation strategy for workload balance
 - **🔒 Production Security** - Helmet, CORS, rate limiting, and comprehensive audit logging
 - **📡 GraphQL + REST APIs** - Dual API architecture for maximum flexibility
 
@@ -16,21 +18,26 @@ An advanced, production-ready scheduling system designed to automate the creatio
 ### Scheduling Engine
 - **Automated Schedule Generation** - Creates equitable work schedules based on complex constraints
 - **Multiple Shift Patterns** - Sunday-Thursday, Monday-Friday, Tuesday-Saturday rotations
+- **AM-to-PM Rotation** - Intelligent rotation from morning to evening shifts for fairness
 - **Intelligent Screener Assignment** - Fairness algorithms ensure equitable distribution
+- **Absence Management** - Automatic schedule updates for approved absences with replacement logic
 - **Constraint Management** - Vacation handling, blackout dates, preferences, and availability
 - **Algorithm Registry** - Extensible system supporting multiple scheduling algorithms
 
 ### Analytics & Monitoring
-- **Real-time Dashboard** - Workload distribution, fairness metrics, and performance insights
+- **Analyst Fairness Distribution** - Weighted workload analysis with fairness scoring
+- **Weekend Tracking** - Dedicated metrics for weekend shift distribution
+- **Workload Trend Analysis** - Historical tracking of shift assignments and patterns
 - **Performance Monitoring** - Query optimization, cache hit rates, and response time tracking
 - **Audit Logging** - Comprehensive security and activity monitoring
 - **Health Checks** - Database, cache, and GraphQL endpoint monitoring
 
 ### User Experience
-- **Modern React UI** - Responsive design with Tailwind CSS
+- **Modern React 19 UI** - Responsive design with Tailwind CSS and Roboto Flex typography
 - **Interactive Calendar** - Full-featured schedule viewing and management
-- **Dark/Light Themes** - Professional UI with theme switching
+- **Dark/Light Themes** - Professional UI with seamless theme switching
 - **Real-time Updates** - Live data synchronization across users
+- **Glass Morphism Design** - Premium UI aesthetics with modern design patterns
 
 ## 🏗️ Architecture
 
@@ -46,7 +53,8 @@ An advanced, production-ready scheduling system designed to automate the creatio
 - **React 19** with **TypeScript** - Modern component architecture
 - **Tailwind CSS** - Utility-first styling with responsive design
 - **Framer Motion** - Smooth animations and transitions
-- **Lucide React** - Consistent icon system
+- **Heroicons** - Consistent icon system
+- **Recharts** - Advanced data visualization
 - **Moment.js** - Advanced date/time handling with timezone support
 
 ### Performance Architecture
@@ -111,7 +119,9 @@ An advanced, production-ready scheduling system designed to automate the creatio
 
 ### Quick Commands
 ```bash
-# Start full application
+# From project root:
+
+# Start full application (both frontend and backend)
 npm run full:start
 
 # Backend only
@@ -125,6 +135,24 @@ npm run build
 
 # Kill all processes
 npm run full:kill
+
+# Restart services
+npm run full:restart
+```
+
+### Script Organization
+All operational scripts are now organized in the `scripts/` directory:
+
+```bash
+# Production scripts
+./scripts/start.sh      # Start backend services
+./scripts/stop.sh       # Stop running services
+./scripts/restart.sh    # Restart services
+
+# Development scripts (scripts/dev/)
+# - Database maintenance utilities
+# - Testing and debugging tools
+# - Data cleanup scripts
 ```
 
 ### Environment Setup
@@ -154,6 +182,10 @@ GET    /api/schedules             # Get schedules with date filtering
 POST   /api/schedules             # Create schedule entry
 POST   /api/schedules/bulk        # Bulk schedule operations
 
+GET    /api/absences              # Get absence requests
+POST   /api/absences              # Submit absence request
+PUT    /api/absences/:id/approve  # Approve absence (triggers auto-reassignment)
+
 GET    /api/algorithms            # Get algorithm configurations
 POST   /api/algorithms            # Create algorithm config
 POST   /api/algorithms/:id/activate  # Activate scheduling algorithm
@@ -173,7 +205,7 @@ POST   /health/warm-cache         # Warm cache with frequent data
 
 ### GraphQL API
 
-Access the interactive GraphQL Playground at `/graphql`:
+Access the interactive GraphQL Playground at `/graphql`
 
 #### Sample Queries
 ```graphql
@@ -186,7 +218,7 @@ query SystemHealth {
   }
 }
 
-# Analyst Management
+# Analyst Management with Fairness Metrics
 query GetAnalysts {
   analysts {
     id name email shiftType isActive
@@ -218,6 +250,9 @@ ShiftPlanner/
 │   │   ├── 📁 routes/             # REST API route handlers
 │   │   ├── 📁 graphql/            # GraphQL schema and resolvers
 │   │   ├── 📁 services/           # Business logic services  
+│   │   │   ├── AbsenceService.ts  # Absence request handling
+│   │   │   ├── ReplacementService.ts # Auto-replacement logic
+│   │   │   └── SchedulingService.ts  # Schedule generation
 │   │   ├── 📁 lib/                # Database and cache utilities
 │   │   ├── app.ts                 # Express application setup
 │   │   └── index.ts               # Server entry point
@@ -230,19 +265,35 @@ ShiftPlanner/
 │   ├── 📁 src/
 │   │   ├── 📁 components/         # React components
 │   │   │   ├── 📁 layout/         # Layout components
-│   │   │   ├── 📁 ui/             # UI components
-│   │   │   └── 📁 icons/          # Icon components
+│   │   │   │   ├── Dashboard.tsx  # Main dashboard
+│   │   │   │   ├── Analytics.tsx  # Analytics page
+│   │   │   │   └── Calendar.tsx   # Calendar view
+│   │   │   ├── 📁 ui/             # Reusable UI components
+│   │   │   └── 📁 widgets/        # Dashboard widgets
 │   │   ├── 📁 services/           # API integration
 │   │   ├── 📁 utils/              # Utility functions
 │   │   └── App.tsx                # Main application component
+│   ├── 📁 public/                 # Static assets
+│   │   └── SP.png                 # App icon
 │   └── package.json               # Frontend dependencies
+│
+├── 📁 scripts/                     # Operational scripts
+│   ├── start.sh                   # Start services
+│   ├── stop.sh                    # Stop services
+│   ├── restart.sh                 # Restart services
+│   ├── 📁 dev/                    # Development utilities
+│   └── 📁 archive/                # Historical scripts
+│
+├── 📁 docs/                        # Documentation
+│   └── 📁 archive/                # Historical planning documents
 │
 ├── 📁 monitoring/                  # Optional monitoring stack
 │   ├── prometheus.yml             # Metrics collection
 │   └── grafana/                   # Performance dashboards
 │
 ├── package.json                   # Root project configuration
-└── README.md                      # This documentation
+├── README.md                      # This documentation
+└── shiftPlannerRequirements.md    # Detailed requirements
 ```
 
 ## ⚡ Performance & Optimization
@@ -284,15 +335,23 @@ curl http://localhost:4000/health
 
 ### Available Algorithms
 - **WeekendRotationAlgorithm** - Optimized weekend shift distribution
+- **AM-to-PM Rotation** - Automatic rotation from morning to evening shifts
 - **ConstraintEngine** - Advanced constraint satisfaction
 - **FairnessEngine** - Workload equity optimization
 - **OptimizationEngine** - Multi-objective schedule optimization
 
 ### Algorithm Features
-- **Fairness Scoring** - Mathematical fairness calculation
+- **Fairness Scoring** - Mathematical fairness calculation with weighted workload
 - **Constraint Satisfaction** - Vacation, preference, and availability handling
+- **Absence Handling** - Automatic shift reassignment for approved absences
 - **Performance Optimization** - Sub-100ms algorithm execution
 - **Extensible Architecture** - Plugin system for custom algorithms
+
+### Absence Management
+- **Disruptive Shift Detection** - Identifies screener and weekend shifts
+- **Automatic Replacement** - Intelligent analyst reassignment
+- **Fairness Preservation** - Maintains overall schedule equity
+- **Conflict Prevention** - Validates replacement availability
 
 ## 🚦 Production Deployment
 
@@ -303,6 +362,9 @@ cd frontend && npm run build
 
 # Backend production build  
 cd backend && npm run build && npm start
+
+# Or use convenience scripts
+npm run build
 ```
 
 ### Production Considerations
@@ -321,6 +383,8 @@ cd backend && npm run build && npm start
 - API response times and error rates
 - GraphQL query performance and complexity analysis
 - Security event logging and audit trails
+- Analyst fairness distribution and workload trends
+- Weekend shift tracking and rotation metrics
 
 ### Health Check Endpoints
 - `/health` - Overall system status
@@ -342,12 +406,34 @@ cd backend && npm run build && npm start
 - Add tests for new features
 - Update documentation for API changes
 - Ensure performance benchmarks are maintained
+- Run linting before committing
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🚀 V0.7 MVP Status
+## 🚀 Version History
+
+### v0.9.7 (Current)
+- ✅ Repository cleanup and organization
+- ✅ Enhanced analytics with fairness distribution
+- ✅ Improved absence management
+- ✅ AM-to-PM rotation implementation
+- ✅ UI/UX refinements with Roboto Flex typography
+- ✅ Organized scripts and documentation structure
+
+### v0.9.6
+- Analytics refactoring
+- Weekend tracking implementation
+- Calendar UI improvements
+
+### v0.7 (MVP)
+- Initial production release
+- Core scheduling engine
+- GraphQL + REST APIs
+- Zero-dependency architecture
+
+---
 
 **Production Ready** ✅
 - Zero external dependencies for core functionality
@@ -355,6 +441,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Comprehensive security and monitoring
 - SQLite + in-memory architecture optimized
 - Full GraphQL + REST API coverage
-- Modern React UI with professional design
-
-**Next Roadmap**: Advanced analytics, mobile responsiveness, and extended algorithm library.
+- Modern React UI with professional glass-morphism design
+- Advanced absence management with auto-replacement
+- Analyst fairness distribution tracking
