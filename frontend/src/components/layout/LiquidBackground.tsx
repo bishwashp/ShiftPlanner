@@ -6,16 +6,24 @@ const LiquidBackground = () => {
             {/* Large animated gradient blobs - big enough to overlap, small enough to see movement */}
 
             {/* Blob 1 - Purple (top left) */}
-            <div className="absolute -top-20 -left-20 w-[60%] h-[60%] bg-purple-300 dark:bg-purple-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob" />
+            <div
+                className="absolute -top-20 -left-20 w-[66%] h-[66%] bg-purple-300 dark:bg-purple-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob-1"
+            />
 
             {/* Blob 2 - Orange/Yellow (top right) */}
-            <div className="absolute -top-20 -right-20 w-[65%] h-[65%] bg-orange-300 dark:bg-amber-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob animation-delay-2000" />
+            <div
+                className="absolute -top-20 -right-20 w-[72%] h-[72%] bg-orange-300 dark:bg-amber-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob-2"
+            />
 
             {/* Blob 3 - Pink (bottom left) */}
-            <div className="absolute -bottom-20 left-20 w-[70%] h-[70%] bg-pink-300 dark:bg-pink-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob animation-delay-4000" />
+            <div
+                className="absolute -bottom-20 left-20 w-[77%] h-[77%] bg-pink-300 dark:bg-pink-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob-3"
+            />
 
             {/* Blob 4 - Blue (bottom right) */}
-            <div className="absolute -bottom-20 right-20 w-[65%] h-[65%] bg-blue-300 dark:bg-blue-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob animation-delay-6000" />
+            <div
+                className="absolute -bottom-20 right-20 w-[72%] h-[72%] bg-blue-300 dark:bg-blue-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob-4"
+            />
 
             {/* Noise texture overlay */}
             <div

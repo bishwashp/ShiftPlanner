@@ -299,18 +299,18 @@ const AbsenceManagement: React.FC = () => {
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 mr-4">
             <button
               onClick={() => setActiveTab('manage')}
-              className={`px - 4 py - 1.5 text - sm font - medium rounded - md transition - colors ${activeTab === 'manage'
-                  ? 'bg-white dark:bg-gray-700 text-primary shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'manage'
+                ? 'bg-white dark:bg-gray-700 text-primary shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 } `}
             >
               Manage Absences
             </button>
             <button
               onClick={() => setActiveTab('approval')}
-              className={`px - 4 py - 1.5 text - sm font - medium rounded - md transition - colors ${activeTab === 'approval'
-                  ? 'bg-white dark:bg-gray-700 text-primary shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'approval'
+                ? 'bg-white dark:bg-gray-700 text-primary shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 } `}
             >
               Approval Dashboard
@@ -579,7 +579,7 @@ const AbsenceManagement: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline - flex px - 2 py - 1 text - xs font - semibold rounded - full ${getAbsenceTypeColor(absence.type)} `}>
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getAbsenceTypeColor(absence.type)} `}>
                               {getAbsenceTypeLabel(absence.type)}
                             </span>
                           </td>
@@ -601,9 +601,9 @@ const AbsenceManagement: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-1">
-                              <span className={`inline - flex items - center px - 2 py - 1 text - xs font - semibold rounded - full ${absence.isApproved
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                              <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${absence.isApproved
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
                                 } `}>
                                 {absence.isApproved ? (
                                   <>
@@ -617,9 +617,9 @@ const AbsenceManagement: React.FC = () => {
                                   </>
                                 )}
                               </span>
-                              <div className={`inline - flex items - center px - 2 py - 1 text - xs font - semibold rounded - full ${absence.isPlanned
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                                  : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
+                              <div className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${absence.isPlanned
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
                                 } `}>
                                 {absence.isPlanned ? 'Planned' : 'Unplanned'}
                               </div>

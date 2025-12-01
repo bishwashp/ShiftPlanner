@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Airplane, CalendarX } from '@phosphor-icons/react';
 import { apiService } from '../../../services/api';
+import { dateUtils } from '../../../utils/dateUtils';
 import moment from 'moment';
 
 const UpcomingOOO: React.FC = () => {
@@ -45,6 +46,22 @@ const UpcomingOOO: React.FC = () => {
                             const isOngoing = moment().isBetween(absence.startDate, absence.endDate, 'day', '[]');
                             const daysAway = moment(absence.startDate).diff(moment(), 'days');
 
+                            const formatLeaveType = (type: string) => {
+                                const mapping: Record<string, string> = {
+                                    'SICK_LEAVE': 'SICK LEAVE',
+                                    'VACATION': 'VACATION',
+                                    'TRAINING': 'TRAINING',
+                                    'PERSONAL': 'PERSONAL',
+                                    'BEREAVEMENT': 'BEREAVEMENT',
+                                    'JURY_DUTY': 'JURY DUTY',
+                                    'MATERNITY': 'MATERNITY',
+                                    'PATERNITY': 'PATERNITY',
+                                    'UNPAID': 'UNPAID',
+                                    'OTHER': 'OTHER'
+                                };
+                                return mapping[type] || type.replace(/_/g, ' ');
+                            };
+
                             return (
                                 <div key={absence.id || index} className="flex items-center justify-between p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                                     <div className="flex items-center gap-3">
@@ -56,19 +73,24 @@ const UpcomingOOO: React.FC = () => {
                                                 {absence.analyst?.name}
                                             </p>
                                             <p className="text-[10px] text-gray-500">
-                                                {moment(absence.startDate).format('MMM D')} - {moment(absence.endDate).format('MMM D')}
+                                                {dateUtils.formatDisplayDate(absence.startDate, 'MMM D')} - {dateUtils.formatDisplayDate(absence.endDate, 'MMM D')}
                                             </p>
                                         </div>
                                     </div>
 
                                     {isOngoing ? (
-                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300">
-                                            ON LEAVE
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 uppercase whitespace-nowrap">
+                                            {formatLeaveType(absence.type || 'ON LEAVE')}
                                         </span>
                                     ) : (
-                                        <span className="text-[10px] text-gray-400">
-                                            in {daysAway} days
-                                        </span>
+                                        <div className="flex flex-col items-end">
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300 uppercase mb-0.5 whitespace-nowrap">
+                                                {formatLeaveType(absence.type || 'PLANNED')}
+                                            </span>
+                                            <span className="text-[9px] text-gray-400">
+                                                in {daysAway} days
+                                            </span>
+                                        </div>
                                     )}
                                 </div>
                             );

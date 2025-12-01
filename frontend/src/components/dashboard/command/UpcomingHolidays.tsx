@@ -54,7 +54,7 @@ const UpcomingHolidays: React.FC = () => {
                                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                         {holiday.name}
                                     </p>
-                                    <p className="text-[10px] text-gray-500">
+                                    <p className="text-xs font-bold text-purple-600 dark:text-purple-300 uppercase">
                                         {moment(holiday.date).fromNow()}
                                     </p>
                                 </div>

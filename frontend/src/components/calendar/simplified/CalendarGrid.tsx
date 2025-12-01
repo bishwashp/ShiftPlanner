@@ -160,7 +160,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
               flex items-center justify-center rounded-full
               text-gray-700 dark:text-gray-200 bg-muted/50 border-dashed border
               cursor-pointer hover:bg-muted/70 focus:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-primary transition-colors
-              ${boxSize === 'small' ? 'w-6 h-6 text-[10px]' : 'w-8 h-8 text-xs'}
+              ${boxSize === 'small' ? 'w-6 h-6 text-[10pt]' : 'w-8 h-8 text-xs'}
             `}
             title={`${overflowCount} more shifts on ${dayDate.format('MMMM D')}`}
             aria-label={`View ${overflowCount} additional shifts for ${dayDate.format('MMMM D')}`}
@@ -327,8 +327,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                       text-sm font-semibold mb-1 flex items-center justify-center w-7 h-7 rounded-full transition-colors
                       ${day.isToday
                         ? 'bg-[#F00046] text-white shadow-sm'
-                        : day.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}
-                    `}>
+                        : day.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                       <span>{day.date.date()}</span>
                     </div>
 

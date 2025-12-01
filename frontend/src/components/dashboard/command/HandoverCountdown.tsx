@@ -67,7 +67,7 @@ const HandoverCountdown: React.FC = () => {
             {/* Main Content: Timer (left) + Phases (right) */}
             <div className="flex items-center justify-between flex-1">
                 {/* Large Timer */}
-                <div className="text-4xl font-bold text-gray-900 dark:text-white leading-none [font-stretch:condensed]" style={{ fontStretch: 'condensed' }}>
+                <div className="text-4xl font-display font-bold text-gray-900 dark:text-white leading-none [font-stretch:condensed]" style={{ fontVariationSettings: '"wdth" 70' }}>
                     {timeLeft}
                 </div>
 

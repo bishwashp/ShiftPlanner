@@ -121,15 +121,15 @@ module.exports = {
         'glass-hover': '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
       },
       animation: {
-
-
         'fade-in': 'fadeIn 0.2s ease-out',
         'pulse-soft': 'pulseSoft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'blob': 'blob 20s infinite',
+        'blob': 'blob 15s ease-in-out infinite',
+        'blob-1': 'blob1 24s ease-in-out infinite',
+        'blob-2': 'blob2 22s ease-in-out infinite',
+        'blob-3': 'blob3 26s ease-in-out infinite',
+        'blob-4': 'blob4 23s ease-in-out infinite',
       },
       keyframes: {
-
-
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
@@ -139,10 +139,34 @@ module.exports = {
           '50%': { opacity: '0.8' },
         },
         blob: {
-          '0%': { transform: 'translate(0px, 0px) scale(1)' },
-          '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
-          '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-          '100%': { transform: 'translate(0px, 0px) scale(1)' },
+          '0%, 100%': { transform: 'translate(0px, 0px) scale(1)' },
+          '25%': { transform: 'translate(100px, -100px) scale(1.15)' },
+          '50%': { transform: 'translate(-80px, 80px) scale(0.9)' },
+          '75%': { transform: 'translate(80px, 120px) scale(1.05)' },
+        },
+        blob1: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '25%': { transform: 'translate(50vw, 20vh) scale(1.1)' },
+          '50%': { transform: 'translate(30vw, 60vh) scale(0.95)' },
+          '75%': { transform: 'translate(-10vw, 30vh) scale(1.05)' },
+        },
+        blob2: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '25%': { transform: 'translate(-40vw, 50vh) scale(1.15)' },
+          '50%': { transform: 'translate(20vw, -20vh) scale(0.9)' },
+          '75%': { transform: 'translate(-20vw, 70vh) scale(1.08)' },
+        },
+        blob3: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '25%': { transform: 'translate(-30vw, -40vh) scale(1.12)' },
+          '50%': { transform: 'translate(40vw, 30vh) scale(0.88)' },
+          '75%': { transform: 'translate(10vw, -50vh) scale(1.1)' },
+        },
+        blob4: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '25%': { transform: 'translate(35vw, -30vh) scale(1.08)' },
+          '50%': { transform: 'translate(-45vw, 40vh) scale(0.92)' },
+          '75%': { transform: 'translate(15vw, 50vh) scale(1.15)' },
         },
       },
     },

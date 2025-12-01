@@ -170,15 +170,6 @@ export const NameBox: React.FC<NameBoxProps> = ({
       <span className="font-bold leading-none select-none" aria-hidden="true">
         {initials}
       </span>
-
-      {/* Screener indicator - small dot for circular design */}
-      {isScreener && (
-        <span
-          className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-500 border-2 border-white dark:border-gray-900 rounded-full"
-          aria-label="Screener role indicator"
-          role="img"
-        />
-      )}
     </MotionDiv>
   );
 };

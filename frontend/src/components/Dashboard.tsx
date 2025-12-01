@@ -53,7 +53,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bg
           <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
         ) : (
           <div className="flex items-baseline">
-            <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{value}</p>
+            <p className="text-3xl font-display font-bold text-gray-900 dark:text-white leading-none [font-stretch:condensed]" style={{ fontVariationSettings: '"wdth" 70' }}>{value}</p>
           </div>
         )}
       </div>

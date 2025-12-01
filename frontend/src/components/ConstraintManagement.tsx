@@ -142,6 +142,7 @@ const ConstraintManagement: React.FC = () => {
                     />
                 </HeaderActionPortal>
 
+                {/* Add/Edit Modal */}
                 {(showAddForm || editingConstraint) && ReactDOM.createPortal(
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                         <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -203,25 +204,36 @@ const ConstraintManagement: React.FC = () => {
                     document.body
                 )}
 
-                <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-border">
-                        <h2 className="text-lg font-semibold text-foreground">Constraints ({constraints.length})</h2>
+                {/* Info Row */}
+                <div className="mb-6 flex items-center space-x-4 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10">
+                    <div className="text-sm text-gray-700 dark:text-gray-200">
+                        <span className="font-medium">{constraints.length}</span>
+                        <span className="opacity-70"> Constraints in record</span>
                     </div>
+                    <div className="h-4 w-px bg-gray-300 dark:bg-gray-700" />
+                    <div className="text-sm text-gray-700 dark:text-gray-200">
+                        <span className="opacity-70">GEO: </span>
+                        <span className="font-medium">AMR</span>
+                    </div>
+                </div>
+
+                {/* Constraints List */}
+                <div className="relative overflow-hidden rounded-xl border bg-white/40 dark:bg-gray-800/50 border-gray-300/50 dark:border-white/10 backdrop-blur-xl shadow-xl shadow-black/5 dark:shadow-black/20">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-white/10 dark:bg-black/10">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Analyst</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Type</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Dates</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">Actions</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Analyst</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Type</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Dates</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
                                 {constraints.map(c => (
                                     <tr key={c.id} className="hover:bg-muted/50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{c.analystId ? analysts.find(a => a.id === c.analystId)?.name : 'Global'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-foreground">{c.analystId ? analysts.find(a => a.id === c.analystId)?.name : 'Global'}</div></td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{c.constraintType}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">{formatDateTime(c.startDate, moment.tz.guess(), 'MMM D, YYYY')} - {formatDateTime(c.endDate, moment.tz.guess(), 'MMM D, YYYY')}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">

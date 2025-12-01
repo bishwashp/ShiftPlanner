@@ -359,6 +359,8 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
 
+  const [selectedSchedules, setSelectedSchedules] = useState<Schedule[]>([]);
+
   // Enhanced event handlers matching original ScheduleView functionality
   const handleDateSelect = useCallback((date: Date) => {
     // Add haptic feedback for mobile
@@ -374,12 +376,19 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
   const handleEditSchedule = useCallback((event: CalendarEvent) => {
     console.log('Edit schedule:', event);
     setSelectedSchedule(event.resource);
+    setSelectedSchedules([event.resource]);
     setEditModalOpen(true);
   }, []);
 
-  const handleScheduleClick = useCallback((schedule: Schedule) => {
-    console.log('Schedule clicked:', schedule);
-    setSelectedSchedule(schedule);
+  const handleScheduleClick = useCallback((scheduleOrSchedules: Schedule | Schedule[]) => {
+    console.log('Schedule clicked:', scheduleOrSchedules);
+    if (Array.isArray(scheduleOrSchedules)) {
+      setSelectedSchedules(scheduleOrSchedules);
+      setSelectedSchedule(scheduleOrSchedules[0]);
+    } else {
+      setSelectedSchedule(scheduleOrSchedules);
+      setSelectedSchedules([scheduleOrSchedules]);
+    }
     setEditModalOpen(true);
   }, []);
 
@@ -501,6 +510,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
           analysts={analysts}
           onScheduleUpdate={handleScheduleUpdate}
           onScheduleClick={handleScheduleClick}
+          onDateClick={handleDateSelect}
         />
         <CreateScheduleModal
           isOpen={createModalOpen}
@@ -520,6 +530,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
             onSuccess?.('Schedule updated successfully');
           }}
           schedule={selectedSchedule}
+          schedules={selectedSchedules}
           analysts={analysts}
         />
       </>
@@ -619,6 +630,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
           onSuccess?.('Schedule updated successfully');
         }}
         schedule={selectedSchedule}
+        schedules={selectedSchedules}
         analysts={analysts}
       />
 

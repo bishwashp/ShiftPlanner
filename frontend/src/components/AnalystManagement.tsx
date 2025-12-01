@@ -163,7 +163,20 @@ const AnalystManagement: React.FC = () => {
           />
         </HeaderActionPortal>
 
-        {/* Add/Edit Modal */}
+        {/* Info Row */}
+        <div className="mb-6 flex items-center space-x-4 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10">
+          <div className="text-sm text-gray-700 dark:text-gray-200">
+            <span className="font-medium">{analysts.length}</span>
+            <span className="opacity-70"> Analysts in record</span>
+          </div>
+          <div className="h-4 w-px bg-gray-300 dark:bg-gray-700" />
+          <div className="text-sm text-gray-700 dark:text-gray-200">
+            <span className="opacity-70">GEO: </span>
+            <span className="font-medium">AMR</span>
+          </div>
+        </div>
+
+        {/* Analysts List */}
         {(showAddForm || editingAnalyst) && ReactDOM.createPortal(
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -273,36 +286,33 @@ const AnalystManagement: React.FC = () => {
         )}
 
         {/* Analysts List */}
-        <div className="relative overflow-hidden rounded-xl border bg-white/90 dark:bg-gray-900/90 border-gray-200 dark:border-gray-700 backdrop-blur-xl shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200/50 dark:border-white/10">
-            <h2 className="text-lg font-semibold text-foreground">Analysts ({analysts.length})</h2>
-          </div>
+        <div className="relative overflow-hidden rounded-xl border bg-white/40 dark:bg-gray-800/50 border-gray-300/50 dark:border-white/10 backdrop-blur-xl shadow-xl shadow-black/5 dark:shadow-black/20">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-white/10 dark:bg-black/10">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
                     Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
                     Shift Type
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                    Employee Type
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
+                    Analyst Type
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
                     Skills
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
                     Custom Attributes
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
                     Actions
                   </th>
                 </tr>
@@ -311,7 +321,7 @@ const AnalystManagement: React.FC = () => {
                 {analysts.map((analyst) => (
                   <tr key={analyst.id} className="hover:bg-muted/50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-foreground p-6 relative z-10">{analyst.name}</div>
+                      <div className="text-sm font-medium text-foreground">{analyst.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-700 dark:text-gray-200">{analyst.email}</div>

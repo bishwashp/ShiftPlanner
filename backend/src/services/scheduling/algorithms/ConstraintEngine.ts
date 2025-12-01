@@ -474,11 +474,11 @@ export class ConstraintEngine {
         // Check shift type mismatch
         if (schedule.analystShiftType && schedule.shiftType !== schedule.analystShiftType) {
             violations.push({
-                type: 'HARD',
-                severity: 'CRITICAL',
-                description: `Analyst ${schedule.analystName} is assigned to ${schedule.analystShiftType} shift, cannot schedule for ${schedule.shiftType}`,
+                type: 'SOFT',
+                severity: 'MEDIUM',
+                description: `Analyst ${schedule.analystName} is assigned to ${schedule.analystShiftType} shift, but scheduled for ${schedule.shiftType}`,
                 affectedSchedules: [`${schedule.analystName} on ${schedule.date}`],
-                suggestedFix: `Schedule for ${schedule.analystShiftType} instead`
+                suggestedFix: `Change the Shift Type to ${schedule.analystShiftType}`
             });
         }
 

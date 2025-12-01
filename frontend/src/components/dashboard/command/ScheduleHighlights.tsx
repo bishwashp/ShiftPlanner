@@ -13,9 +13,9 @@ const ScheduleHighlights: React.FC = () => {
             try {
                 // Get schedules to find the furthest date and last update time
                 const today = moment().format('YYYY-MM-DD');
-                // Limit lookahead to 3 months to capture relevant schedules
-                const nextThreeMonths = moment().add(3, 'months').format('YYYY-MM-DD');
-                const schedules = await apiService.getSchedules(today, nextThreeMonths);
+                // Limit lookahead to 24 months to capture relevant schedules
+                const nextTwoYears = moment().add(24, 'months').format('YYYY-MM-DD');
+                const schedules = await apiService.getSchedules(today, nextTwoYears);
 
                 if (schedules.length > 0) {
                     // 1. Calculate Scheduled Until

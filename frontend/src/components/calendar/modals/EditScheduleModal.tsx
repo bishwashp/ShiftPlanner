@@ -9,7 +9,8 @@ interface EditScheduleModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
-    schedule: Schedule | null;
+    schedule: Schedule | null; // Single schedule (legacy/month view)
+    schedules?: Schedule[];    // Multiple schedules (week view pills)
     analysts: Analyst[];
 }
 
@@ -18,9 +19,15 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
     onClose,
     onSuccess,
     schedule,
+    schedules,
     analysts
 }) => {
-    const [date, setDate] = useState('');
+    // Determine which schedules we are editing
+    const targetSchedules = schedules && schedules.length > 0 ? schedules : (schedule ? [schedule] : []);
+    const isMulti = targetSchedules.length > 1;
+
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [analystId, setAnalystId] = useState('');
     const [shiftType, setShiftType] = useState<'MORNING' | 'EVENING'>('MORNING');
     const [isScreener, setIsScreener] = useState(false);
@@ -33,33 +40,45 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
     const [isValidating, setIsValidating] = useState(false);
 
     useEffect(() => {
-        if (isOpen && schedule) {
-            setDate(moment.utc(schedule.date).format('YYYY-MM-DD'));
-            setAnalystId(schedule.analystId);
-            setShiftType(schedule.shiftType);
-            setIsScreener(schedule.isScreener);
+        if (isOpen && targetSchedules.length > 0) {
+            // Sort by date to find start/end
+            const sorted = [...targetSchedules].sort((a, b) =>
+                moment(a.date).valueOf() - moment(b.date).valueOf()
+            );
+
+            const first = sorted[0];
+            const last = sorted[sorted.length - 1];
+
+            setStartDate(moment.utc(first.date).format('YYYY-MM-DD'));
+            setEndDate(moment.utc(last.date).format('YYYY-MM-DD'));
+            setAnalystId(first.analystId);
+            setShiftType(first.shiftType);
+            setIsScreener(first.isScreener);
+
             setError(null);
             setShowDeleteConfirm(false);
             setValidationViolations([]);
         }
-    }, [isOpen, schedule]);
+    }, [isOpen, schedule, schedules]);
 
-    // Validation effect
+    // Validation effect (only validates the first schedule for now as a proxy)
     useEffect(() => {
         const validate = async () => {
-            if (!analystId || !date || !shiftType || !schedule) {
+            if (!analystId || !startDate || !shiftType || targetSchedules.length === 0) {
                 setValidationViolations([]);
                 return;
             }
 
             setIsValidating(true);
             try {
+                // Validate the first schedule as a representative
+                // In a real app, we might want to validate all or the new range
                 const result = await apiService.validateSchedule({
                     analystId,
-                    date,
+                    date: startDate,
                     shiftType,
                     isScreener,
-                    scheduleId: schedule.id
+                    scheduleId: targetSchedules[0].id
                 });
                 setValidationViolations(result.violations);
             } catch (err) {
@@ -71,19 +90,11 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
 
         const debounce = setTimeout(validate, 500);
         return () => clearTimeout(debounce);
-    }, [analystId, date, shiftType, isScreener, schedule]);
+    }, [analystId, startDate, shiftType, isScreener, targetSchedules]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!schedule || !analystId) return;
-
-        console.log('Submitting schedule update:', {
-            id: schedule.id,
-            analystId,
-            date,
-            shiftType,
-            isScreener
-        });
+        if (targetSchedules.length === 0 || !analystId) return;
 
         // Block if there are hard violations
         const hasHardViolations = validationViolations.some(v => v.type === 'HARD');
@@ -96,63 +107,61 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
         setError(null);
 
         try {
-            await apiService.updateSchedule(schedule.id, {
-                analystId,
-                date,
-                shiftType,
-                isScreener
-            });
+            // Calculate date shift if start date changed
+            const originalStart = moment.utc(targetSchedules[0].date);
+            const newStart = moment(startDate);
+            const diffDays = newStart.diff(originalStart, 'days');
+
+            await Promise.all(targetSchedules.map(async (s) => {
+                // Apply date shift
+                const sDate = moment.utc(s.date).add(diffDays, 'days').format('YYYY-MM-DD');
+
+                await apiService.updateSchedule(s.id, {
+                    analystId,
+                    date: sDate,
+                    shiftType,
+                    isScreener
+                });
+            }));
+
             onSuccess();
             onClose();
         } catch (err: any) {
-            console.error('Error updating schedule:', err);
-            const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Failed to update schedule';
-
-            // Check if it's a conflict error that should be shown as a validation flag
-            if (errorMessage.includes('already a screener') || errorMessage.includes('conflict') || errorMessage.includes('already has a schedule')) {
-                setValidationViolations(prev => [
-                    ...prev,
-                    {
-                        type: 'HARD',
-                        description: errorMessage,
-                        suggestedFix: 'Check other schedules for this date/shift.'
-                    }
-                ]);
-                // Don't set generic error if we're showing it as a violation
-            } else {
-                setError(errorMessage);
-            }
+            console.error('Error updating schedules:', err);
+            const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Failed to update schedules';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
     const handleDelete = async () => {
-        if (!schedule) return;
+        if (targetSchedules.length === 0) return;
 
         setDeleteLoading(true);
         setError(null);
 
         try {
-            await apiService.deleteSchedule(schedule.id);
+            await Promise.all(targetSchedules.map(s => apiService.deleteSchedule(s.id)));
             onSuccess();
             onClose();
         } catch (err: any) {
-            console.error('Error deleting schedule:', err);
-            setError(err.response?.data?.message || 'Failed to delete schedule');
+            console.error('Error deleting schedules:', err);
+            setError(err.response?.data?.message || 'Failed to delete schedules');
         } finally {
             setDeleteLoading(false);
         }
     };
 
-    if (!isOpen || !schedule) return null;
-
+    if (!isOpen || targetSchedules.length === 0) return null;
 
     return ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
             <GlassCard className="w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto bg-white/90 dark:bg-gray-900/90 shadow-2xl" interactive={false}>
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Schedule</h2>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {isMulti ? `Edit ${targetSchedules.length} Shifts` : 'Edit Schedule'}
+                    </h2>
                     <button onClick={onClose} className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
                         ✕
                     </button>
@@ -171,7 +180,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                         {validationViolations.map((violation, index) => {
                             // Simplify verbose messages
                             let description = violation.description;
-                            if (description.includes('assigned to') && description.includes('cannot schedule for')) {
+                            if (description.includes('assigned to') && description.includes('but scheduled for')) {
                                 const assignedShift = description.match(/assigned to (\w+) shift/)?.[1];
                                 if (assignedShift) {
                                     description = `Analyst is restricted to ${assignedShift} shifts only.`;
@@ -189,7 +198,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                                     <div className="font-medium">{description}</div>
                                     {violation.suggestedFix && (
                                         <div className="mt-1 text-xs opacity-90 font-medium">
-                                            💡 {violation.suggestedFix.replace(/Schedule for (\w+) instead/i, 'Change the Shift Type to $1')}
+                                            💡 {violation.suggestedFix}
                                         </div>
                                     )}
                                 </div>
@@ -201,7 +210,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                 {showDeleteConfirm ? (
                     <div className="space-y-4">
                         <p className="text-sm text-gray-700 dark:text-gray-200">
-                            Are you sure you want to delete this schedule? This action cannot be undone.
+                            Are you sure you want to delete {isMulti ? 'these schedules' : 'this schedule'}? This action cannot be undone.
                         </p>
                         <div className="flex justify-end space-x-3">
                             <Button
@@ -223,15 +232,26 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Date</label>
-                            <input
-                                type="date"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
-                                required
-                            />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Start Date</label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">End Date</label>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    disabled
+                                    className="w-full px-3 py-2 rounded-md border border-input bg-muted text-muted-foreground cursor-not-allowed"
+                                />
+                            </div>
                         </div>
 
                         <div>
@@ -302,7 +322,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                                 variant="danger"
                                 disabled={loading}
                             >
-                                Delete
+                                Delete {isMulti ? 'All' : ''}
                             </Button>
                             <div className="flex space-x-3">
                                 <Button

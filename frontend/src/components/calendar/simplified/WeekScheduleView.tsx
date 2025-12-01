@@ -1,14 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import moment from 'moment-timezone';
 import { apiService, Schedule, Analyst } from '../../../services/api';
-import { Clock, Warning } from '@phosphor-icons/react';
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  date: string; // YYYY-MM-DD format
-  resource: Schedule;
-}
+import { groupConsecutiveShifts, ShiftGroup, CalendarEvent } from '../../../utils/shiftGrouper';
+import { ShiftPill } from './ShiftPill';
 
 interface WeekScheduleViewProps {
   date: Date;
@@ -18,16 +12,9 @@ interface WeekScheduleViewProps {
   clickedDay?: Date; // Remember which day was clicked
   events: CalendarEvent[];
   analysts: Analyst[];
-  onScheduleUpdate?: (schedules: Schedule[]) => void;
-  onScheduleClick?: (schedule: Schedule) => void;
-}
-
-interface DaySchedule {
-  date: moment.Moment;
-  schedules: Schedule[];
-  morningSchedules: Schedule[];
-  eveningSchedules: Schedule[];
-  conflicts: string[];
+  onScheduleUpdate: (schedules: Schedule[]) => void;
+  onScheduleClick?: (schedule: Schedule | Schedule[]) => void;
+  onDateClick?: (date: Date) => void;
 }
 
 export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
@@ -39,9 +26,10 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
   events,
   analysts,
   onScheduleUpdate,
-  onScheduleClick
+  onScheduleClick,
+  onDateClick
 }) => {
-  const [draggedSchedule, setDraggedSchedule] = useState<Schedule | null>(null);
+  const [draggedGroup, setDraggedGroup] = useState<ShiftGroup | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
 
   // Calculate Sunday-Saturday week containing the clicked day or current date
@@ -51,94 +39,94 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
     return momentDate.startOf('week'); // Sunday start
   }, [date, clickedDay, timezone]);
 
-  // Debug logging for schedules data - removed to fix infinite loop
+  // Group consecutive shifts into pills
+  const pillGroups = useMemo(() => {
+    // Week boundaries as YYYY-MM-DD strings in the correct timezone
+    const weekStartStr = weekStart.format('YYYY-MM-DD');
+    const weekEndStr = weekStart.clone().endOf('week').format('YYYY-MM-DD');
 
-  const weekDays = useMemo(() => {
-    const days: DaySchedule[] = [];
+    // Pass events directly - they already have the correct YYYY-MM-DD date
+    // derived from the timezone-aware logic in the parent component
+    return groupConsecutiveShifts(events, weekStartStr, weekEndStr);
+  }, [events, weekStart]);
 
-    for (let i = 0; i < 7; i++) {
-      const dayDate = weekStart.clone().add(i, 'days');
-      const dayString = dayDate.format('YYYY-MM-DD');
+  // Smart stacking algorithm with requested sorting
+  const stackedPills = useMemo(() => {
+    interface PillPosition {
+      group: ShiftGroup;
+      colStart: number;
+      colSpan: number;
+    }
 
-      // Use same filtering logic as CalendarGrid
-      const dayEvents = events.filter(event =>
-        event.date === dayString
-      );
+    const SHIFT_PRIORITY: Record<string, number> = {
+      'MORNING': 1,
+      'EVENING': 2,
+      'NIGHT': 3
+    };
 
-      // Extract schedules from events
-      const daySchedules = dayEvents.map(event => event.resource);
+    // Sort groups: Shift Type -> Alphabetical
+    const sortedGroups = [...pillGroups].sort((a, b) => {
+      // 1. Shift Type
+      const typeA = SHIFT_PRIORITY[a.shiftType] || 99;
+      const typeB = SHIFT_PRIORITY[b.shiftType] || 99;
+      if (typeA !== typeB) return typeA - typeB;
 
-      const morningSchedules = daySchedules.filter(s => s.shiftType === 'MORNING');
-      const eveningSchedules = daySchedules.filter(s => s.shiftType === 'EVENING');
+      // 2. Alphabetical
+      return a.analystName.localeCompare(b.analystName);
+    });
 
-      // Context-aware conflict detection following backend logic
-      const conflicts: string[] = [];
-      const morningScreeners = morningSchedules.filter(s => s.isScreener);
-      const eveningScreeners = eveningSchedules.filter(s => s.isScreener);
-      const dayOfWeek = dayDate.day(); // 0 = Sunday, 6 = Saturday
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      const isPastDate = dayDate.isBefore(moment().startOf('day'));
+    const rows: PillPosition[][] = [];
+    // We use moment(YYYY-MM-DD) which creates a local date at 00:00:00
+    // This is consistent for all calculations
+    const weekStartMoment = moment(weekStart.format('YYYY-MM-DD'));
+    const weekEndMoment = moment(weekStart.clone().endOf('week').format('YYYY-MM-DD'));
 
-      // Don't show conflicts for past dates
-      if (isPastDate) {
-        // Past dates don't need conflict checking
-      } else {
-        // Check for multiple screeners (only on weekdays)
-        if (!isWeekend) {
-          if (morningScreeners.length > 1) {
-            conflicts.push('Multiple morning screeners');
-          }
-          if (eveningScreeners.length > 1) {
-            conflicts.push('Multiple evening screeners');
-          }
-        }
+    for (const group of sortedGroups) {
+      const groupStart = moment(group.startDate);
+      const groupEnd = moment(group.endDate);
 
-        // Only show coverage conflicts if there are existing schedules for this date
-        // This prevents showing conflicts when no schedules should exist
-        // Only show coverage conflicts if there are existing schedules for this date
-        // This prevents showing conflicts when no schedules should exist
-        if (daySchedules.length > 0) {
-          // Skip coverage checks on weekends as per business rules
-          if (!isWeekend) {
-            if (morningSchedules.length === 0) {
-              conflicts.push('No morning coverage');
-            }
-            if (eveningSchedules.length === 0) {
-              conflicts.push('No evening coverage');
-            }
-          }
+      // Calculate intersection with current week
+      const effectiveStart = moment.max(groupStart, weekStartMoment);
+      const effectiveEnd = moment.min(groupEnd, weekEndMoment);
 
-          // Check for missing screeners on weekdays (only if there are schedules)
-          if (!isWeekend && daySchedules.length > 0) {
-            if (morningSchedules.length > 0 && morningScreeners.length === 0) {
-              conflicts.push('Morning screener missing');
-            }
-            if (eveningSchedules.length > 0 && eveningScreeners.length === 0) {
-              conflicts.push('Evening screener missing');
-            }
-          }
+      // If no intersection, skip
+      if (effectiveStart.isAfter(effectiveEnd)) continue;
+
+      // Calculate grid column positions (1-7, Sunday=1)
+      const colStart = effectiveStart.day() + 1;
+      const daysSpan = effectiveEnd.diff(effectiveStart, 'days') + 1;
+      const colSpan = Math.max(1, Math.min(daysSpan, 7));
+
+      // Find first row without overlap
+      let placed = false;
+      for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
+        const row = rows[rowIdx];
+        const hasOverlap = row.some(pill => {
+          const pillEnd = pill.colStart + pill.colSpan - 1;
+          const newPillEnd = colStart + colSpan - 1;
+          // Standard interval overlap check
+          return colStart <= pillEnd && pill.colStart <= newPillEnd;
+        });
+
+        if (!hasOverlap) {
+          row.push({ group, colStart, colSpan });
+          placed = true;
+          break;
         }
       }
 
-      days.push({
-        date: dayDate,
-        schedules: daySchedules,
-        morningSchedules,
-        eveningSchedules,
-        conflicts
-      });
+      if (!placed) {
+        rows.push([{ group, colStart, colSpan }]);
+      }
     }
-    return days;
-  }, [weekStart, events]);
 
-  const getAnalystName = useCallback((analystId: string) => {
-    const analyst = analysts.find(a => a.id === analystId);
-    return analyst?.name || 'Unknown Analyst';
-  }, [analysts]);
+    return rows;
+  }, [pillGroups, weekStart]);
 
-  const handleDragStart = useCallback((e: React.DragEvent, schedule: Schedule) => {
-    setDraggedSchedule(schedule);
+  const handleDragStart = useCallback((e: React.DragEvent, group: ShiftGroup) => {
+    setDraggedGroup(group);
     e.dataTransfer.effectAllowed = 'move';
+    // Set transparent drag image or custom one if needed
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent, dayKey: string) => {
@@ -151,195 +139,147 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
     setDragOverDay(null);
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent, targetDay: moment.Moment) => {
+  const handleDrop = useCallback(async (e: React.DragEvent, targetDateStr: string) => {
     e.preventDefault();
+    setDragOverDay(null);
 
-    if (!draggedSchedule) return;
+    if (!draggedGroup || !onScheduleUpdate) return;
 
-    const newDate = targetDay.toDate();
+    const targetMoment = moment(targetDateStr);
+    const startMoment = moment(draggedGroup.startDate);
+    const diffDays = targetMoment.diff(startMoment, 'days');
+
+    if (diffDays === 0) return; // No change in date
+
+    // Update all schedules in the group
+    const updatedSchedules = draggedGroup.shifts.map(schedule => {
+      const newDate = moment(schedule.date).add(diffDays, 'days').format('YYYY-MM-DD');
+      return { ...schedule, date: newDate };
+    });
 
     try {
-      // Validate the move first
-      const validationResult = await apiService.validateSchedule({
-        analystId: draggedSchedule.analystId,
-        date: newDate.toISOString(),
-        shiftType: draggedSchedule.shiftType,
-        isScreener: draggedSchedule.isScreener,
-        scheduleId: draggedSchedule.id
-      });
+      // Update each schedule via API
+      await Promise.all(updatedSchedules.map(async (schedule) => {
+        await apiService.updateSchedule(schedule.id, {
+          date: schedule.date,
+          shiftType: schedule.shiftType,
+          isScreener: schedule.isScreener
+        });
+      }));
 
-      // Check for hard violations
-      const hardViolations = validationResult.violations.filter((v: any) => v.type === 'HARD');
-      if (hardViolations.length > 0) {
-        const messages = hardViolations.map((v: any) => `• ${v.description}`).join('\n');
-        alert(`Cannot move schedule due to critical conflicts:\n\n${messages}`);
-        return;
-      }
-
-      // Check for soft violations
-      const softViolations = validationResult.violations.filter((v: any) => v.type === 'SOFT');
-      if (softViolations.length > 0) {
-        const messages = softViolations.map((v: any) => `• ${v.description}`).join('\n');
-        const confirmed = window.confirm(`Warning: This move causes the following conflicts:\n\n${messages}\n\nDo you want to proceed anyway?`);
-        if (!confirmed) return;
-      }
-
-      // Update the schedule date
-      const updatedSchedule = {
-        ...draggedSchedule,
-        date: newDate.toISOString()
-      };
-
-      // Call API to update schedule
-      await apiService.updateSchedule(draggedSchedule.id, {
-        date: newDate.toISOString(),
-        shiftType: draggedSchedule.shiftType,
-        isScreener: draggedSchedule.isScreener
-      });
-
-      // Update local state - convert events back to schedules for the callback
-      const updatedSchedules = events.map(event =>
-        event.resource.id === draggedSchedule.id ? updatedSchedule : event.resource
-      );
-
-      onScheduleUpdate?.(updatedSchedules);
-
+      onScheduleUpdate(updatedSchedules);
     } catch (error) {
-      console.error('Failed to update schedule:', error);
-      alert('Failed to update schedule. Please try again.');
+      console.error('Failed to update schedules:', error);
+      alert('Failed to update schedules. Please try again.');
     } finally {
-      setDraggedSchedule(null);
-      setDragOverDay(null);
+      setDraggedGroup(null);
     }
-  }, [draggedSchedule, events, onScheduleUpdate]);
+  }, [draggedGroup, onScheduleUpdate]);
 
-
-
-  const isClickedDay = useCallback((dayDate: moment.Moment) => {
-    return clickedDay && moment(clickedDay).tz(timezone).isSame(dayDate, 'day');
-  }, [clickedDay, timezone]);
+  // Generate week days for the grid
+  const weekDays = useMemo(() => {
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      days.push(weekStart.clone().add(i, 'days'));
+    }
+    return days;
+  }, [weekStart]);
 
   return (
-    <div className="flex flex-col h-full relative z-10">
-      {/* Week Grid - Desktop: 7 columns, Mobile: Vertical stack */}
-      <div className="flex-1 overflow-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-7 h-full divide-x divide-gray-200 dark:divide-gray-700 border-x border-gray-200 dark:border-gray-700">
-          {weekDays.map((day) => {
-            const isToday = day.date.isSame(moment(), 'day');
-            return (
-              <div
-                key={day.date.format('YYYY-MM-DD')}
-                className={`
-                  p-3 min-h-[200px] text-card-foreground
-                  ${isClickedDay(day.date) ? 'bg-primary/5' : ''}
-                  ${dragOverDay === day.date.format('YYYY-MM-DD') ? 'bg-blue-50 dark:bg-blue-950/20' : ''}
-                  ${day.conflicts.length > 0 ? 'bg-red-50 dark:bg-red-950/20' : ''}
-                `}
-                onDragOver={(e) => handleDragOver(e, day.date.format('YYYY-MM-DD'))}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, day.date)}
-              >
-                {/* Day Header */}
-                <div className="flex flex-col items-center justify-center mb-4 pt-2">
-                  <div className="font-medium text-sm text-gray-500 dark:text-gray-400 uppercase mb-1">
-                    {day.date.format('ddd')}
-                  </div>
-                  <div className={`
-                    text-lg font-semibold w-8 h-8 flex items-center justify-center rounded-full
-                    ${isToday ? 'bg-[#F00046] text-white shadow-sm' : 'text-foreground'}
-                  `}>
-                    {day.date.format('D')}
-                  </div>
-
-                  {day.conflicts.length > 0 && (
-                    <Warning className="h-4 w-4 text-red-500 mt-1" />
-                  )}
-                </div>
-
-                {/* Morning Shift */}
-                <div className="mb-3">
-                  <div className="flex items-center space-x-1 mb-2">
-                    <Clock className="h-3 w-3 text-blue-500" />
-                    <span className="text-xs font-medium text-blue-700">Morning</span>
-                  </div>
-                  <div className="space-y-1">
-                    {day.morningSchedules.map((schedule) => {
-                      const isWeekend = day.date.day() === 0 || day.date.day() === 6;
-                      return (
-                        <div
-                          key={schedule.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, schedule)}
-                          onClick={() => onScheduleClick?.(schedule)}
-                          className={`
-                            px-3 py-1.5 rounded-full text-xs cursor-move transition-colors
-                            ${isWeekend
-                              ? 'bg-green-500/20 text-green-800 dark:text-green-200 border border-green-400/30'
-                              : schedule.isScreener
-                                ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
-                                : 'bg-blue-100 text-blue-800 border border-blue-200'
-                            }
-                            ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
-                            hover:opacity-80
-                          `}
-                        >
-                          <div className="font-medium">
-                            {getAnalystName(schedule.analystId)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Evening Shift */}
-                <div>
-                  <div className="flex items-center space-x-1 mb-2">
-                    <Clock className="h-3 w-3 text-purple-500" />
-                    <span className="text-xs font-medium text-purple-700">Evening</span>
-                  </div>
-                  <div className="space-y-1">
-                    {day.eveningSchedules.map((schedule) => {
-                      const isWeekend = day.date.day() === 0 || day.date.day() === 6;
-                      return (
-                        <div
-                          key={schedule.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, schedule)}
-                          onClick={() => onScheduleClick?.(schedule)}
-                          className={`
-                            px-3 py-1.5 rounded-full text-xs cursor-move transition-colors
-                            ${isWeekend
-                              ? 'bg-green-500/20 text-green-800 dark:text-green-200 border border-green-400/30'
-                              : schedule.isScreener
-                                ? 'bg-yellow-200 text-yellow-800 border border-yellow-300'
-                                : 'bg-purple-100 text-purple-800 border border-purple-200'
-                            }
-                            ${day.conflicts.length > 0 ? 'ring-1 ring-red-300' : ''}
-                            hover:opacity-80
-                          `}
-                        >
-                          <div className="font-medium">
-                            {getAnalystName(schedule.analystId)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Conflicts Display */}
-                {day.conflicts.length > 0 && (
-                  <div className="mt-3 p-2 bg-red-100 dark:bg-red-950/30 border border-red-300 dark:border-red-700 rounded text-xs">
-                    <div className="font-medium text-red-800 dark:text-red-200 mb-1">Conflicts:</div>
-                    {day.conflicts.map((conflict, index) => (
-                      <div key={index} className="text-red-700 dark:text-red-300">• {conflict}</div>
-                    ))}
-                  </div>
-                )}
+    <div className="flex flex-col h-full relative z-10 select-none p-4">
+      {/* Header Row - Separated for alignment and styling */}
+      <div className="grid grid-cols-7 mb-1">
+        {weekDays.map((day) => {
+          const isToday = day.isSame(moment(), 'day');
+          return (
+            <div key={day.format('YYYY-MM-DD')} className="text-center py-2">
+              <div className="font-medium text-sm text-gray-700 dark:text-gray-400 uppercase mb-1">
+                {day.format('ddd')}
               </div>
-            );
-          })}
+              <div className={`
+                text-lg font-semibold w-8 h-8 flex items-center justify-center rounded-full mx-auto transition-colors
+                ${isToday ? 'bg-[#F00046] text-white shadow-sm' : 'text-gray-900 dark:text-white'}
+              `}>
+                {day.format('D')}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Main Content Container with Rounded Corners and Glass Effect */}
+      <div className="flex-1 overflow-hidden relative rounded-2xl border border-gray-200/60 dark:border-gray-700/60 shadow-sm bg-white/40 dark:bg-gray-900/20 backdrop-blur-sm">
+        <div className="h-full overflow-y-auto relative custom-scrollbar">
+
+          {/* Background Grid (Columns) */}
+          <div className="absolute inset-0 grid grid-cols-7 divide-x divide-gray-200/50 dark:divide-gray-700/50 h-full min-h-[500px]">
+            {weekDays.map((day) => {
+              const dayStr = day.format('YYYY-MM-DD');
+              const isToday = day.isSame(moment(), 'day');
+
+              return (
+                <div
+                  key={dayStr}
+                  className={`
+                    h-full relative flex flex-col group
+                    ${isToday ? 'bg-primary/5' : 'bg-transparent'}
+                    ${dragOverDay === dayStr ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}
+                    hover:bg-white/60 dark:hover:bg-gray-800/40 transition-colors
+                  `}
+                  onClick={() => onDateClick?.(day.toDate())}
+                  onDragOver={(e) => handleDragOver(e, dayStr)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, dayStr)}
+                >
+                  {/* Full height click area */}
+                  <div className="flex-1 w-full" />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Content Layer (Pills) */}
+          <div className="relative z-10 pointer-events-none pt-1 px-1 min-h-[500px]">
+            {stackedPills.length > 0 && (
+              <div
+                className="grid grid-cols-7 gap-1"
+                style={{
+                  gridTemplateRows: `repeat(${stackedPills.length}, 28px)`,
+                  rowGap: '4px'
+                }}
+              >
+                {stackedPills.map((row, rowIdx) => (
+                  <React.Fragment key={rowIdx}>
+                    {row.map((pill) => (
+                      <div
+                        key={`${pill.group.analystId}-${pill.group.startDate}`}
+                        className="pointer-events-auto"
+                        style={{
+                          gridColumnStart: pill.colStart,
+                          gridColumnEnd: `span ${pill.colSpan}`,
+                          gridRowStart: rowIdx + 1
+                        }}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, pill.group)}
+                      >
+                        <ShiftPill
+                          group={pill.group}
+                          gridColumnStart={pill.colStart}
+                          gridColumnSpan={pill.colSpan}
+                          zIndex={rowIdx}
+                          onClick={() => {
+                            if (pill.group.shifts.length > 0) {
+                              onScheduleClick?.(pill.group.shifts);
+                            }
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
