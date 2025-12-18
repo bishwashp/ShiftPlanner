@@ -12,6 +12,7 @@ import holidayRoutes from './routes/holidays';
 import absenceRoutes from './routes/absences';
 import activityRoutes from './routes/activities';
 import scheduleSnapshotRoutes from './routes/schedule-snapshot';
+import notificationRoutes from './routes/notifications';
 
 const router = Router();
 
@@ -32,7 +33,7 @@ router.get('/monitoring-test', async (req, res) => {
       message: 'All core services are restored and working!',
       services: {
         monitoringService: '✅ Active',
-        alertingService: '✅ Active', 
+        alertingService: '✅ Active',
         securityService: '✅ Active',
         webhookService: '✅ Active',
         performanceOptimizer: '✅ Active',
@@ -76,7 +77,7 @@ router.get('/', (req, res) => {
       absences: '/absences',
       activities: '/activities'
     }
-    });
+  });
 });
 
 // Feature routes
@@ -92,6 +93,8 @@ router.use('/ml', mlRoutes);
 router.use('/holidays', holidayRoutes);
 router.use('/absences', absenceRoutes);
 router.use('/activities', activityRoutes);
+router.use('/activities', activityRoutes);
 router.use('/schedule-snapshot', scheduleSnapshotRoutes);
+router.use('/notifications', notificationRoutes);
 
 export default router;

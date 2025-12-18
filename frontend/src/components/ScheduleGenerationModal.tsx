@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import ReactDOM from 'react-dom';
 import { X, CalendarBlank, Warning, Info, ListBullets, ChartBar } from '@phosphor-icons/react';
 import moment from 'moment';
@@ -37,8 +38,11 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
   summary,
   isLoading
 }) => {
+  const { isManager } = useAuth();
   const [selectedSchedules, setSelectedSchedules] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'SUMMARY' | 'DETAILS'>('SUMMARY');
+
+
 
   // Initialize selection when schedules load
   React.useEffect(() => {
@@ -133,7 +137,9 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
     return Array.from(stats.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [generatedSchedules]);
 
-  if (!isOpen) return null;
+
+
+  if (!isOpen || !isManager) return null;
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">

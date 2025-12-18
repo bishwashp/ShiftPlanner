@@ -14,6 +14,98 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================================
+// AUTHENTICATION & AUTHORIZATION MODELS
+// ============================================================================
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String?  // Null for SSO-only users
+  firstName       String
+  lastName        String
+  role            String   // ANALYST, MANAGER, SUPER_ADMIN
+  authProvider    String   @default("local") // local, oidc
+  ssoIdentifier   String?  @unique // External IdP identifier
+  isActive        Boolean  @default(true)
+  emailVerified   Boolean  @default(false)
+  lastLogin       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Link to Analyst (if user is an analyst)
+  analystId       String?  @unique
+  analyst         Analyst? @relation(fields: [analystId], references: [id], onDelete: SetNull)
+  
+  // Sessions and tokens
+  sessions        Session[]
+  refreshTokens   RefreshToken[]
+  
+  @@index([email])
+  @@index([role, isActive])
+  @@index([authProvider])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model SSOConfig {
+  id                 String   @id @default(cuid())
+  provider           String   // oidc
+  providerName       String   // "Azure AD", "Okta", etc.
+  isActive           Boolean  @default(false)
+  
+  // OIDC configuration  
+  oidcIssuer         String?
+  oidcClientId       String?
+  oidcClientSecret   String?
+  oidcCallbackUrl    String?
+  oidcAuthUrl        String?
+  oidcTokenUrl       String?
+  
+  // Role mapping (JSON)
+  roleMapping        String?  // JSON: {"admin_group": "MANAGER", "analyst_group": "ANALYST"}
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  @@index([provider, isActive])
+  @@map("sso_configs")
+}
+
+// ============================================================================
+// SCHEDULING MODELS
+// ============================================================================
+
 model Analyst {
   id          String   @id @default(cuid())
   name        String
@@ -25,6 +117,9 @@ model Analyst {
   skills      String?  // Comma-separated skills for SQLite compatibility
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  // NEW: Link to User account
+  user        User?
   
   // Relationships
   preferences AnalystPreference[]
@@ -223,6 +318,10 @@ model Absence {
   workDaysCount     Int      @default(0)
   impactScore       String   @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
   
+  // Approval Workflow
+  denialReason      String?  // Reason for denial if rejected
+  status            String   @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -235,7 +334,34 @@ model Absence {
   @@index([startDate, endDate, isApproved]) // For date range queries with approval status
   @@index([type, isApproved]) // For absence type filtering
   @@index([isPlanned, isApproved]) // For planned vs unplanned absence queries
+  @@index([status]) // For status-based filtering
   @@map("absences")
+}
+
+model Notification {
+  id              String   @id @default(cuid())
+  userId          String?  // Optional link to User
+  analystId       String?  // Optional link to Analyst
+  type            String   // RECOMMENDATION, HISTORY, SYSTEM, SUCCESS, ANALYTICS, ALERT
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  title           String
+  message         String
+  isRead          Boolean  @default(false)
+  importanceScore Int      @default(5)
+  requiresAction  Boolean  @default(false)
+  autoExpire      Int?     // Milliseconds
+  metadata        String?  // JSON string
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relationships
+  // We don't strictly enforce foreign keys here to allow system notifications without users
+  // but we can add them if needed. For now, keeping it loose for flexibility.
+  
+  @@index([userId, isRead])
+  @@index([analystId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
 }
 
 model Activity {

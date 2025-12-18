@@ -93,6 +93,7 @@ export const TeamRadar: React.FC<TeamRadarProps> = ({ data }) => {
                 <ResponsiveContainer width="100%" height="100%">
                     <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
                         <PolarGrid stroke="#e5e7eb" strokeDasharray="3 3" />
+                        {/* @ts-ignore */}
                         <PolarAngleAxis
                             dataKey="subject"
                             tick={{ fill: '#6B7280', fontSize: 12, fontWeight: 600 }}

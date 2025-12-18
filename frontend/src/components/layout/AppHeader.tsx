@@ -1,14 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sidebar,
   CaretLeft,
   CaretRight,
   ArrowsClockwise,
   CaretDown,
-  Export
+  Export,
+  User,
+  SignOut,
+  Sun,
+  Moon,
+  Question,
+  Funnel
 } from '@phosphor-icons/react';
 import Button from '../ui/Button';
 import moment from 'moment-timezone';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from 'react18-themes';
+import TimezoneSelector from '../TimezoneSelector';
 
 import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks } from 'date-fns';
 import { View as SidebarView } from './CollapsibleSidebar';
@@ -110,6 +119,153 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         return 'ShiftPlanner';
     }
   }
+
+  // User Profile Menu Component (combined with Settings - with all features preserved)
+  const UserProfileMenu = () => {
+    const { user, logout, isManager } = useAuth();
+    const [isOpen, setIsOpen] = useState(false);
+    const { theme, setTheme } = useTheme();
+
+    const handleLogout = async () => {
+      await logout();
+      window.location.href = '/login';
+    };
+
+    // Sync theme with data-theme attribute
+    useEffect(() => {
+      if (theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+      }
+    }, [theme]);
+
+    const LegendItem: React.FC<{ color: string, label: string }> = ({ color, label }) => (
+      <div className="flex items-center space-x-2">
+        <div className={`w-3 h-3 rounded-full ${color}`}></div>
+        <span className="text-sm text-gray-700 dark:text-gray-200">{label}</span>
+      </div>
+    );
+
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`p-2 rounded-lg hover:bg-gray-200/50 dark:hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center text-gray-900 dark:text-white transition-colors ${isOpen ? 'ring-2 ring-primary' : ''}`}
+          aria-label="User menu and settings"
+        >
+          <User className="h-5 w-5" weight="bold" />
+        </button>
+
+        {isOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setIsOpen(false)}
+            />
+            <div className="absolute right-0 mt-2 w-80 bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+              {/* User Info Section */}
+              <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg">
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                      {user?.firstName}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {user?.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isManager
+                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                    : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                    }`}>
+                    {user?.role === 'SUPER_ADMIN' ? 'ADMIN' : user?.role}
+                  </span>
+                </div>
+              </div>
+
+              {/* Settings Section */}
+              <div className="p-4 space-y-4">
+                <h3 className="font-semibold text-sm text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">Settings</h3>
+
+                {/* Theme Switcher */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Theme</span>
+                  <div className="flex bg-gray-100 dark:bg-gray-700 rounded-md p-1">
+                    <button
+                      onClick={() => setTheme('light')}
+                      className={`p-1.5 rounded-sm transition-all ${theme === 'light' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900' : 'text-gray-500 dark:text-gray-400'}`}
+                      title="Light Mode"
+                    >
+                      <Sun className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setTheme('dark')}
+                      className={`p-1.5 rounded-sm transition-all ${theme === 'dark' ? 'bg-gray-800 shadow-sm text-white' : 'text-gray-500 dark:text-gray-400'}`}
+                      title="Dark Mode"
+                    >
+                      <Moon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter Toggle - only on schedule view */}
+                {activeView === 'schedule' && filterHook && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
+                    <button
+                      onClick={() => {
+                        filterHook.toggleSidebar();
+                        setIsOpen(false);
+                      }}
+                      className={`p-1.5 rounded-sm transition-all ${filterHook.filters.isOpen ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'}`}
+                      title="Toggle Filters"
+                    >
+                      <Funnel className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Timezone Selector */}
+                <div className="space-y-2">
+                  <span className="text-sm font-medium block text-gray-700 dark:text-gray-300">Timezone</span>
+                  <TimezoneSelector timezone={timezone} onTimezoneChange={onTimezoneChange} />
+                </div>
+
+                {/* Legend - only on schedule view */}
+                {activeView === 'schedule' && (
+                  <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <Question className="h-3.5 w-3.5" />
+                      <span>Legend</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <LegendItem color="bg-blue-500" label="Morning" />
+                      <LegendItem color="bg-purple-500" label="Evening" />
+                      <LegendItem color="bg-green-500" label="Weekend" />
+                      <LegendItem color="bg-amber-500" label="Screener" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors border-t border-gray-200 dark:border-gray-700"
+              >
+                <SignOut className="h-5 w-5 text-red-600 dark:text-red-400" weight="bold" />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">Sign Out</span>
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -285,13 +441,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             </div>
           )}
 
-          {/* View Settings Menu */}
-          <ViewSettingsMenu
-            timezone={timezone}
-            onTimezoneChange={onTimezoneChange}
-            showLegend={activeView === 'schedule'}
-            filterHook={activeView === 'schedule' ? filterHook : undefined}
-          />
+          {/* User Profile Menu with Settings */}
+          <UserProfileMenu />
         </div>
       </header>
 

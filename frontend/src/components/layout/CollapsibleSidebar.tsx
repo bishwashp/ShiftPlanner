@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   CalendarBlank,
   Users,
@@ -11,7 +11,7 @@ import {
   Faders
 } from '@phosphor-icons/react';
 import NotificationCenter from '../NotificationCenter';
-import { notificationService } from '../../services/notificationService';
+import { useNotifications } from '../../hooks/useNotifications';
 
 export type View = 'schedule' | 'dashboard' | 'analysts' | 'availability' | 'conflicts' | 'analytics' | 'constraints' | 'algorithms' | 'export';
 
@@ -27,21 +27,7 @@ interface CollapsibleSidebarProps {
 
 const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewChange, activeView, ...props }) => {
   const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (isOpen) {
-      // Update unread count initially
-      setUnreadCount(notificationService.getUnreadCount());
-
-      // Subscribe to notification changes
-      const unsubscribe = notificationService.subscribe(() => {
-        setUnreadCount(notificationService.getUnreadCount());
-      });
-
-      return unsubscribe;
-    }
-  }, [isOpen]);
+  const { unreadCount } = useNotifications();
 
 
   // Define navigation structure with groups

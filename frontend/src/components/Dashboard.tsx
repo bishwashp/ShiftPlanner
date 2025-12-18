@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { View } from './layout/CollapsibleSidebar';
 import {
@@ -28,6 +29,7 @@ import GlassCard from './common/GlassCard';
 import CommandCenter from './dashboard/command/CommandCenter';
 import SystemHealth from './dashboard/command/SystemHealth';
 import Button from './ui/Button';
+import CreateAbsenceModal from './modals/CreateAbsenceModal';
 
 interface StatCardProps {
   title: string;
@@ -77,9 +79,13 @@ interface DashboardProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   onConflictTabChange?: (tab: 'critical' | 'recommended') => void;
+  onAvailabilityTabChange?: (tab: 'holidays' | 'absences') => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess, isLoading, onRefresh, isRefreshing, onConflictTabChange }) => {
+
+
+const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess, isLoading, onRefresh, isRefreshing, onConflictTabChange, onAvailabilityTabChange }) => {
+  const { isManager } = useAuth();
   const { showCriticalPrompt, hasActivePrompts } = useActionPrompts();
   const [stats, setStats] = useState<DashboardStats>({
     totalAnalysts: 0,
@@ -95,6 +101,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [showFairnessReport, setShowFairnessReport] = useState(false);
+  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
+  const [analysts, setAnalysts] = useState<any[]>([]);
 
   // Schedule generation state
   const [showGenerationForm, setShowGenerationForm] = useState(false);
@@ -150,16 +158,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
     setLoading(false);
   };
 
+  const fetchAnalysts = async () => {
+    try {
+      const data = await apiService.getAnalysts();
+      setAnalysts(data);
+    } catch (err) {
+      console.error('Error fetching analysts:', err);
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData();
+    fetchAnalysts();
   }, []);
 
   // Handle refresh from header button
   useEffect(() => {
-    if (isRefreshing && onRefresh) {
+    if (isRefreshing) {
       handleRefresh();
     }
-  }, [isRefreshing, onRefresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRefreshing]);
 
   // Show action prompt for critical conflicts (but not for schedule existence conflicts)
   useEffect(() => {
@@ -174,7 +193,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
       conflict.type !== 'INCOMPLETE_SCHEDULES'
     );
 
-    if (actualConflicts.length > 0 && !loading && !hasNoScheduleConflict) {
+    if (actualConflicts.length > 0 && !loading && !hasNoScheduleConflict && isManager) {
       showCriticalPrompt(
         'Critical Schedule Conflicts Detected',
         `Found ${actualConflicts.length} critical conflict(s) that require immediate attention. These conflicts may affect operations and need to be resolved.`,
@@ -196,7 +215,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
         { relatedView: 'conflicts', conflictCount: actualConflicts.length }
       );
     }
-  }, [conflicts.critical.length, conflicts.critical, loading, showCriticalPrompt, onViewChange]);
+  }, [conflicts.critical.length, loading, isManager, showCriticalPrompt, onViewChange]);
 
   // Check if there's a "no schedule exists" or "incomplete schedules" conflict (now in recommended section)
   const hasNoScheduleConflict = conflicts.recommended.some(conflict =>
@@ -389,181 +408,230 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
         {/* Operational Command Center */}
         <CommandCenter key={refreshKey} onResolve={() => onViewChange('conflicts')} />
 
+        {/* Quick Actions - Role-specific */}
         <GlassCard className="mb-4 p-4">
           <div className="flex items-center gap-2 mb-3 text-gray-500 dark:text-gray-400">
             <Lightning className="w-4 h-4" weight="fill" />
             <h2 className="text-xs font-medium uppercase tracking-wider">Quick Actions</h2>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={handleAddAnalyst}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add New Analyst
-            </Button>
-            <Button
-              onClick={handleGenerateSchedule}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              <CalendarBlank className="w-4 h-4" />
-              Generate Schedule
-            </Button>
-            <Button
-              onClick={handleViewAnalytics}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              <ChartBar className="w-4 h-4" />
-              View Analytics
-            </Button>
-            <Button
-              onClick={() => setShowFairnessReport(true)}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Fairness Report
-            </Button>
+            {isManager ? (
+              // Manager Quick Actions
+              <>
+                <Button
+                  onClick={handleAddAnalyst}
+                  variant="secondary"
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add New Analyst
+                </Button>
+                <Button
+                  onClick={handleGenerateSchedule}
+                  variant="secondary"
+                  className="flex items-center gap-2"
+                >
+                  <CalendarBlank className="w-4 h-4" />
+                  Generate Schedule
+                </Button>
+                <Button
+                  onClick={handleViewAnalytics}
+                  variant="secondary"
+                  className="flex items-center gap-2"
+                >
+                  <ChartBar className="w-4 h-4" />
+                  View Analytics
+                </Button>
+                <Button
+                  onClick={() => setShowFairnessReport(true)}
+                  variant="secondary"
+                  className="flex items-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Fairness Report
+                </Button>
+              </>
+            ) : (
+              // Analyst Quick Actions
+              <>
+                <Button
+                  onClick={() => setShowAbsenceModal(true)}
+                  variant="primary"
+                  className="flex items-center gap-2"
+                >
+                  <CalendarBlank className="w-4 h-4" />
+                  Request Leave
+                </Button>
+                <Button
+                  onClick={() => {
+                    onViewChange('availability');
+                    onAvailabilityTabChange?.('absences');
+                  }}
+                  variant="secondary"
+                  className="flex items-center gap-2"
+                >
+                  <Clock className="w-4 h-4" />
+                  View Absences
+                </Button>
+                <Button
+                  onClick={() => onViewChange('schedule')}
+                  variant="secondary"
+                  className="flex items-center gap-2"
+                >
+                  <CalendarBlank className="w-4 h-4" />
+                  View Schedule
+                </Button>
+                <Button
+                  onClick={handleViewAnalytics}
+                  variant="secondary"
+                  className="flex items-center gap-2"
+                >
+                  <ChartBar className="w-4 h-4" />
+                  Shift Distribution
+                </Button>
+              </>
+            )}
           </div>
         </GlassCard>
 
-        <GlassCard className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-              <Clock className="w-4 h-4" weight="fill" />
-              <h2 className="text-xs font-medium uppercase tracking-wider">Recent Activity</h2>
-            </div>
-            <div className="flex bg-muted/50 rounded-lg p-1">
-              <Button
-                onClick={() => setActiveActivityTab('recent')}
-                variant={activeActivityTab === 'recent' ? 'primary' : 'ghost'}
-                size="sm"
-                className={activeActivityTab === 'recent' ? '' : 'text-muted-foreground hover:text-foreground'}
-              >
-                Recent
-              </Button>
-              <Button
-                onClick={() => setActiveActivityTab('all')}
-                variant={activeActivityTab === 'all' ? 'primary' : 'ghost'}
-                size="sm"
-                className={activeActivityTab === 'all' ? '' : 'text-muted-foreground hover:text-foreground'}
-              >
-                All Activities
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {loading ? (
-              // Loading skeleton
-              Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center">
-                    <div className="w-2.5 h-2.5 rounded-full mr-3 bg-muted animate-pulse"></div>
-                    <div className="h-4 bg-muted rounded animate-pulse w-64"></div>
-                  </div>
-                  <div className="h-4 bg-muted rounded animate-pulse w-16"></div>
+        {isManager && (
+          <>
+            <GlassCard className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                  <Clock className="w-4 h-4" weight="fill" />
+                  <h2 className="text-xs font-medium uppercase tracking-wider">Recent Activity</h2>
                 </div>
-              ))
-            ) : (() => {
-              const currentActivities = activeActivityTab === 'recent' ? recentActivity : allActivities;
-              const isEmpty = currentActivities.length === 0;
+                <div className="flex bg-muted/50 rounded-lg p-1">
+                  <Button
+                    onClick={() => setActiveActivityTab('recent')}
+                    variant={activeActivityTab === 'recent' ? 'primary' : 'ghost'}
+                    size="sm"
+                    className={activeActivityTab === 'recent' ? '' : 'text-muted-foreground hover:text-foreground'}
+                  >
+                    Recent
+                  </Button>
+                  <Button
+                    onClick={() => setActiveActivityTab('all')}
+                    variant={activeActivityTab === 'all' ? 'primary' : 'ghost'}
+                    size="sm"
+                    className={activeActivityTab === 'all' ? '' : 'text-muted-foreground hover:text-foreground'}
+                  >
+                    All Activities
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {loading ? (
+                  // Loading skeleton
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center">
+                        <div className="w-2.5 h-2.5 rounded-full mr-3 bg-muted animate-pulse"></div>
+                        <div className="h-4 bg-muted rounded animate-pulse w-64"></div>
+                      </div>
+                      <div className="h-4 bg-muted rounded animate-pulse w-16"></div>
+                    </div>
+                  ))
+                ) : (() => {
+                  const currentActivities = activeActivityTab === 'recent' ? recentActivity : allActivities;
+                  const isEmpty = currentActivities.length === 0;
 
-              if (isEmpty) {
-                return (
-                  <div className="text-center py-8">
-                    <p className="text-gray-700 dark:text-gray-200">
-                      {activeActivityTab === 'recent' ? 'No recent activity' : 'No activities found'}
-                    </p>
-                    <p className="text-sm text-gray-700 dark:text-gray-200/70 mt-1">
-                      {activeActivityTab === 'recent'
-                        ? 'Activities will appear here as you use the system'
-                        : 'Try adjusting your filters or check back later'
-                      }
-                    </p>
-                  </div>
-                );
-              }
-
-              return (
-                <div className="relative pl-4 border-l border-white/10 space-y-6">
-                  {currentActivities.map((activity, index) => {
-                    const ActivityIcon = getActivityIcon(activity.category);
+                  if (isEmpty) {
                     return (
-                      <motion.div
-                        key={activity.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="relative group"
-                      >
-                        {/* Timeline Dot */}
-                        <div className={`absolute -left-[21px] top-1.5 w-3 h-3 rounded-full border-2 border-background ${getActivityColor(activity)}`} />
-
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <ActivityIcon className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                {activity.title}
-                              </span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                {activeActivityTab === 'recent'
-                                  ? moment(activity.createdAt).fromNow()
-                                  : moment(activity.createdAt).format('MMM D, h:mm A')}
-                              </span>
-                            </div>
-
-                            <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">
-                              {activity.description}
-                            </p>
-
-                            {/* Action Button based on Category/Type */}
-                            {activity.category === 'SCHEDULE' && (
-                              <button
-                                onClick={() => onViewChange('schedule')}
-                                className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
-                              >
-                                View Schedule <CaretRight className="inline w-3 h-3" />
-                              </button>
-                            )}
-                            {activity.category === 'ANALYST' && (
-                              <button
-                                onClick={() => onViewChange('analysts')}
-                                className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
-                              >
-                                View Analyst <CaretRight className="inline w-3 h-3" />
-                              </button>
-                            )}
-                            {activity.category === 'CONFLICT' && (
-                              <button
-                                onClick={() => onViewChange('conflicts')}
-                                className="text-xs font-medium text-red-500 hover:text-red-400 flex items-center gap-1 transition-colors"
-                              >
-                                Resolve Conflict <CaretRight className="inline w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Impact Badge */}
-                          <div className={`flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${activity.impact === 'CRITICAL' ? 'bg-red-500/10 text-red-500' :
-                            activity.impact === 'HIGH' ? 'bg-orange-500/10 text-orange-500' :
-                              activity.impact === 'MEDIUM' ? 'bg-blue-500/10 text-blue-500' :
-                                'bg-green-500/10 text-green-500'
-                            }`}>
-                            {activity.impact}
-                          </div>
-                        </div>
-                      </motion.div>
+                      <div className="text-center py-8">
+                        <p className="text-gray-700 dark:text-gray-200">
+                          {activeActivityTab === 'recent' ? 'No recent activity' : 'No activities found'}
+                        </p>
+                        <p className="text-sm text-gray-700 dark:text-gray-200/70 mt-1">
+                          {activeActivityTab === 'recent'
+                            ? 'Activities will appear here as you use the system'
+                            : 'Try adjusting your filters or check back later'
+                          }
+                        </p>
+                      </div>
                     );
-                  })}
-                </div>
-              );
-            })()}
-          </div>
-        </GlassCard>
+                  }
+
+                  return (
+                    <div className="relative pl-4 border-l border-white/10 space-y-6">
+                      {currentActivities.map((activity, index) => {
+                        const ActivityIcon = getActivityIcon(activity.category);
+                        return (
+                          <motion.div
+                            key={activity.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="relative group"
+                          >
+                            {/* Timeline Dot */}
+                            <div className={`absolute -left-[21px] top-1.5 w-3 h-3 rounded-full border-2 border-background ${getActivityColor(activity)}`} />
+
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <ActivityIcon className="w-4 h-4 text-muted-foreground" />
+                                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                    {activity.title}
+                                  </span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                    {activeActivityTab === 'recent'
+                                      ? moment(activity.createdAt).fromNow()
+                                      : moment(activity.createdAt).format('MMM D, h:mm A')}
+                                  </span>
+                                </div>
+
+                                <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 mb-2">
+                                  {activity.description}
+                                </p>
+
+                                {/* Action Button based on Category/Type */}
+                                {activity.category === 'SCHEDULE' && (
+                                  <button
+                                    onClick={() => onViewChange('schedule')}
+                                    className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+                                  >
+                                    View Schedule <CaretRight className="inline w-3 h-3" />
+                                  </button>
+                                )}
+                                {activity.category === 'ANALYST' && (
+                                  <button
+                                    onClick={() => onViewChange('analysts')}
+                                    className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+                                  >
+                                    View Analyst <CaretRight className="inline w-3 h-3" />
+                                  </button>
+                                )}
+                                {activity.category === 'CONFLICT' && (
+                                  <button
+                                    onClick={() => onViewChange('conflicts')}
+                                    className="text-xs font-medium text-red-500 hover:text-red-400 flex items-center gap-1 transition-colors"
+                                  >
+                                    Resolve Conflict <CaretRight className="inline w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Impact Badge */}
+                              <div className={`flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${activity.impact === 'CRITICAL' ? 'bg-red-500/10 text-red-500' :
+                                activity.impact === 'HIGH' ? 'bg-orange-500/10 text-orange-500' :
+                                  activity.impact === 'MEDIUM' ? 'bg-blue-500/10 text-blue-500' :
+                                    'bg-green-500/10 text-green-500'
+                                }`}>
+                                {activity.impact}
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            </GlassCard>
+          </>
+        )}
       </div>
 
       {showFairnessReport && (
@@ -609,6 +677,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
           estimatedTime: '0ms'
         }}
         isLoading={isGenerating}
+      />
+
+      {/* Absence Request Modal */}
+      <CreateAbsenceModal
+        isOpen={showAbsenceModal}
+        onClose={() => setShowAbsenceModal(false)}
+        onSuccess={() => setShowAbsenceModal(false)}
+        analysts={analysts}
       />
     </div>
   );

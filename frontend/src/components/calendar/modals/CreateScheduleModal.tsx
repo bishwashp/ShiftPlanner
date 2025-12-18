@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import ReactDOM from 'react-dom';
 import { Analyst, apiService } from '../../../services/api';
 import moment from 'moment';
@@ -20,7 +21,10 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     initialDate,
     analysts
 }) => {
+    const { isManager } = useAuth();
     const [date, setDate] = useState(moment(initialDate).format('YYYY-MM-DD'));
+
+
     const [analystId, setAnalystId] = useState('');
     const [shiftType, setShiftType] = useState<'MORNING' | 'EVENING'>('MORNING');
     const [isScreener, setIsScreener] = useState(false);
@@ -102,7 +106,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
         }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen || !isManager) return null;
 
     return ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

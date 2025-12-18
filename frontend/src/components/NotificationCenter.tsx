@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { notificationService, Notification, NotificationType } from '../services/notificationService';
+import { useNavigate } from 'react-router-dom';
+import { useNotifications } from '../hooks/useNotifications';
+import { Notification, NotificationType } from '../services/notificationService';
 import { X, Check, Warning, CalendarBlank, Gear, CheckCircle, ChartBar } from '@phosphor-icons/react';
 
 interface NotificationCenterProps {
@@ -8,17 +10,25 @@ interface NotificationCenterProps {
 }
 
 const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose }) => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const navigate = useNavigate();
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    removeNotification,
+    clearAll,
+    refresh
+  } = useNotifications();
+
   const [filter, setFilter] = useState<'all' | 'unread'>('unread');
 
+  // Refresh notifications when opening the center
   useEffect(() => {
     if (isOpen) {
-      const unsubscribe = notificationService.subscribe(setNotifications);
-      setNotifications(notificationService.getNotifications());
-
-      return unsubscribe;
+      refresh();
     }
-  }, [isOpen]);
+  }, [isOpen, refresh]);
 
   const getNotificationIcon = (type: NotificationType, priority: string) => {
     const iconProps = {
@@ -63,20 +73,23 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
     return date.toLocaleDateString();
   };
 
-  const handleMarkAsRead = (id: string) => {
-    notificationService.markAsRead(id);
-  };
 
-  const handleMarkAllAsRead = () => {
-    notificationService.markAllAsRead();
-  };
 
-  const handleRemove = (id: string) => {
-    notificationService.removeNotification(id);
-  };
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.isRead) {
+      markAsRead(notification.id);
+    }
 
-  const handleClearAll = () => {
-    notificationService.clearAll();
+    if (notification.metadata?.link) {
+      navigate(notification.metadata.link);
+      onClose();
+    } else if (notification.metadata?.category === 'ABSENCE_REQUEST' || notification.metadata?.category === 'ABSENCE_RESUBMISSION') {
+      navigate('/absences?tab=approval');
+      onClose();
+    } else if (notification.metadata?.category === 'ABSENCE_UPDATE') {
+      navigate('/absences');
+      onClose();
+    }
   };
 
   // Handle click outside to close
@@ -113,9 +126,9 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-card-foreground">Notifications</h3>
-            {notificationService.getUnreadCount() > 0 && (
+            {unreadCount > 0 && (
               <span className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded-full">
-                {notificationService.getUnreadCount()}
+                {unreadCount}
               </span>
             )}
           </div>
@@ -136,7 +149,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               : 'text-gray-700 dark:text-gray-200 hover:text-foreground'
               }`}
           >
-            Unread ({notificationService.getUnreadCount()})
+            Unread ({unreadCount})
           </button>
           <button
             onClick={() => setFilter('all')}
@@ -152,16 +165,16 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
         {/* Action buttons */}
         {filteredNotifications.length > 0 && (
           <div className="flex gap-2 p-2 border-b border-border">
-            {filter === 'unread' && notificationService.getUnreadCount() > 0 && (
+            {filter === 'unread' && unreadCount > 0 && (
               <button
-                onClick={handleMarkAllAsRead}
+                onClick={() => markAllAsRead()}
                 className="flex-1 px-3 py-1 text-xs bg-muted hover:bg-muted/80 rounded-md transition-colors"
               >
                 Mark all read
               </button>
             )}
             <button
-              onClick={handleClearAll}
+              onClick={() => clearAll()}
               className="flex-1 px-3 py-1 text-xs bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-md transition-colors"
             >
               Clear all
@@ -185,7 +198,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
               {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 hover:bg-muted/50 transition-colors ${!notification.isRead ? 'bg-primary/5' : ''
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`p-4 hover:bg-muted/50 transition-colors cursor-pointer ${!notification.isRead ? 'bg-primary/5' : ''
                     }`}
                 >
                   <div className="flex items-start gap-3">
@@ -211,7 +225,10 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                         <div className="flex items-center gap-1">
                           {!notification.isRead && (
                             <button
-                              onClick={() => handleMarkAsRead(notification.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notification.id);
+                              }}
                               className="p-1 hover:bg-muted rounded transition-colors"
                               title="Mark as read"
                             >
@@ -219,7 +236,10 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                             </button>
                           )}
                           <button
-                            onClick={() => handleRemove(notification.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeNotification(notification.id);
+                            }}
                             className="p-1 hover:bg-muted rounded transition-colors"
                             title="Remove"
                           >

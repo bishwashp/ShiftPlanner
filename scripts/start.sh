@@ -1,5 +1,6 @@
 #!/bin/bash
 echo "Starting ShiftPlanner application..."
+cd ..
 
 # Start backend server
 echo "Starting backend server..."

@@ -10,10 +10,10 @@ const absenceService = new AbsenceService(prisma);
 // Get all absences with optional filters
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { analystId, type, isApproved, isPlanned, startDate, endDate } = req.query;
+    const { analystId, type, isApproved, isPlanned, startDate, endDate, status } = req.query;
 
     // Create cache key based on filters
-    const filters = `analyst:${analystId || 'all'}_type:${type || 'all'}_approved:${isApproved || 'all'}_planned:${isPlanned || 'all'}`;
+    const filters = `analyst:${analystId || 'all'}_type:${type || 'all'}_approved:${isApproved || 'all'}_planned:${isPlanned || 'all'}_status:${status || 'all'}`;
 
     // Try to get from cache first
     const cachedAbsences = await cacheService.get(`absences:${filters}`);
@@ -30,6 +30,10 @@ router.get('/', async (req: Request, res: Response) => {
 
     if (type) {
       where.type = type as string;
+    }
+
+    if (status) {
+      where.status = status as string;
     }
 
     if (isApproved !== undefined) {
@@ -129,53 +133,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create new absence
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { analystId, startDate, endDate, type, reason, isApproved, isPlanned } = req.body;
+    const { analystId, startDate, endDate, type, reason, isApproved, isPlanned, status } = req.body;
 
     // Validate required fields
     if (!analystId || !startDate || !endDate || !type) {
       return res.status(400).json({ error: 'analystId, startDate, endDate, and type are required' });
-    }
-
-    // Validate date range
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    if (start > end) {
-      return res.status(400).json({ error: 'End date must be on or after start date' });
-    }
-
-    // Verify analyst exists
-    const analyst = await prisma.analyst.findUnique({
-      where: { id: analystId }
-    });
-
-    if (!analyst) {
-      return res.status(404).json({ error: 'Analyst not found' });
-    }
-
-    // Check for overlapping absences
-    const overlappingAbsence = await prisma.absence.findFirst({
-      where: {
-        analystId,
-        OR: [
-          {
-            startDate: { lte: end },
-            endDate: { gte: start }
-          }
-        ]
-      }
-    });
-
-    if (overlappingAbsence) {
-      return res.status(400).json({
-        error: 'Analyst already has an absence during this period',
-        conflictingAbsence: {
-          id: overlappingAbsence.id,
-          startDate: overlappingAbsence.startDate,
-          endDate: overlappingAbsence.endDate,
-          type: overlappingAbsence.type
-        }
-      });
     }
 
     // Check for scheduling conflicts
@@ -185,29 +147,20 @@ router.post('/', async (req: Request, res: Response) => {
       endDate,
       type,
       reason,
-      isApproved: isApproved !== undefined ? isApproved : true,
+      isApproved: isApproved !== undefined ? isApproved : false,
       isPlanned: isPlanned !== undefined ? isPlanned : true
     });
 
-    const absence = await prisma.absence.create({
-      data: {
-        analystId,
-        startDate: start,
-        endDate: end,
-        type,
-        reason,
-        isApproved: isApproved !== undefined ? isApproved : true,
-        isPlanned: isPlanned !== undefined ? isPlanned : true
-      },
-      include: {
-        analyst: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      }
+    // Use service to create (handles notifications)
+    const absence = await absenceService.createAbsence({
+      analystId,
+      startDate,
+      endDate,
+      type,
+      reason,
+      isApproved,
+      isPlanned,
+      status
     });
 
     // Invalidate relevant caches
@@ -221,7 +174,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error creating absence:', error);
-    res.status(500).json({ error: 'Failed to create absence' });
+    res.status(500).json({ error: 'Failed to create absence', details: error.message });
   }
 });
 
@@ -229,7 +182,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { startDate, endDate, type, reason, isApproved, isPlanned } = req.body;
+    const { startDate, endDate, type, reason, isApproved, isPlanned, status, denialReason } = req.body;
 
     // Get current absence to check for conflicts
     const currentAbsence = await prisma.absence.findUnique({
@@ -239,25 +192,6 @@ router.put('/:id', async (req: Request, res: Response) => {
 
     if (!currentAbsence) {
       return res.status(404).json({ error: 'Absence not found' });
-    }
-
-    const updateData: any = {};
-
-    if (startDate) updateData.startDate = new Date(startDate);
-    if (endDate) updateData.endDate = new Date(endDate);
-    if (type) updateData.type = type;
-    if (reason !== undefined) updateData.reason = reason;
-    if (isApproved !== undefined) updateData.isApproved = isApproved;
-    if (isPlanned !== undefined) updateData.isPlanned = isPlanned;
-
-    // Validate date range if both dates are provided
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-
-      if (start > end) {
-        return res.status(400).json({ error: 'End date must be on or after start date' });
-      }
     }
 
     // Check for scheduling conflicts if dates or type are being updated
@@ -276,18 +210,17 @@ router.put('/:id', async (req: Request, res: Response) => {
       conflicts = await absenceService.checkAbsenceConflicts(conflictData, id);
     }
 
-    const absence = await prisma.absence.update({
-      where: { id },
-      data: updateData,
-      include: {
-        analyst: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      }
+    // Use service to update (handles notifications)
+    const absence = await absenceService.updateAbsence(id, {
+      analystId: currentAbsence.analystId, // Required by type but not used for update
+      startDate,
+      endDate,
+      type,
+      reason,
+      isApproved,
+      isPlanned,
+      status,
+      denialReason
     });
 
     // Invalidate relevant caches
@@ -302,10 +235,10 @@ router.put('/:id', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error updating absence:', error);
-    if (error.code === 'P2025') {
+    if (error.code === 'P2025' || error.message === 'Absence not found') {
       res.status(404).json({ error: 'Absence not found' });
     } else {
-      res.status(500).json({ error: 'Failed to update absence' });
+      res.status(500).json({ error: 'Failed to update absence', details: error.message });
     }
   }
 });

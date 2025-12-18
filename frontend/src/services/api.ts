@@ -108,6 +108,23 @@ apiClient.request = function (config) {
   return throttledRequest(config);
 };
 
+// Add Authorization header with JWT token
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      // Ensure headers object exists
+      config.headers = config.headers || {};
+      // Use non-null assertion since we just initialized it
+      config.headers!.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Request interceptor for logging
 apiClient.interceptors.request.use(
   (config) => {
@@ -422,23 +439,46 @@ export const apiService = {
   },
 
   createVacation: async (data: { analystId: string; startDate: string; endDate: string; reason?: string; isApproved?: boolean }): Promise<Vacation> => {
-    const response = await apiClient.post('/vacations', data);
+    const response = await apiClient.post('/absences', data);
     return response.data as Vacation;
   },
 
-  updateVacation: async (id: string, data: { startDate?: string; endDate?: string; reason?: string; isApproved?: boolean }): Promise<Vacation> => {
-    const response = await apiClient.put(`/vacations/${id}`, data);
+  updateVacation: async (id: string, data: { startDate?: string; endDate?: string; reason?: string; isApproved?: boolean; denialReason?: string; status?: string }): Promise<Vacation> => {
+    const response = await apiClient.put(`/absences/${id}`, data);
     return response.data as Vacation;
   },
 
   deleteVacation: async (id: string): Promise<void> => {
-    await apiClient.delete(`/vacations/${id}`);
+    await apiClient.delete(`/absences/${id}`);
   },
 
   // Absence Impact Analysis
   analyzeAbsenceImpact: async (data: { analystId: string; startDate: string; endDate: string; type: string }): Promise<any> => {
     const response = await apiClient.post('/absences/impact', data);
     return response.data;
+  },
+
+  // Notifications
+  getNotifications: async (userId?: string, analystId?: string, unreadOnly?: boolean): Promise<any[]> => {
+    const params: any = {};
+    if (userId) params.userId = userId;
+    if (analystId) params.analystId = analystId;
+    if (unreadOnly) params.unreadOnly = unreadOnly;
+
+    const response = await apiClient.get('/notifications', { params });
+    return response.data as any[];
+  },
+
+  markNotificationRead: async (id: string): Promise<void> => {
+    await apiClient.put(`/notifications/${id}/read`);
+  },
+
+  markAllNotificationsRead: async (userId?: string, analystId?: string): Promise<void> => {
+    await apiClient.put('/notifications/read-all', { userId, analystId });
+  },
+
+  deleteNotification: async (id: string): Promise<void> => {
+    await apiClient.delete(`/notifications/${id}`);
   },
 
   // Scheduling Constraints
@@ -897,7 +937,7 @@ export const apiService = {
 
 
   // Absences
-  getAbsences: async (analystId?: string, type?: string, isApproved?: boolean, isPlanned?: boolean, startDate?: string, endDate?: string): Promise<any[]> => {
+  getAbsences: async (analystId?: string, type?: string, isApproved?: boolean, isPlanned?: boolean, startDate?: string, endDate?: string, status?: string): Promise<any[]> => {
     const params: any = {};
     if (analystId) params.analystId = analystId;
     if (type) params.type = type;
@@ -905,6 +945,7 @@ export const apiService = {
     if (isPlanned !== undefined) params.isPlanned = isPlanned;
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
+    if (status) params.status = status;
 
     const response = await apiClient.get('/absences', { params });
     return response.data as any[];

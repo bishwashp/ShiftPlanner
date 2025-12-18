@@ -36,6 +36,7 @@ export const ShiftRadar: React.FC<ShiftRadarProps> = ({ data, analystName }) => 
             <ResponsiveContainer width="100%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
                     <PolarGrid stroke="#e5e7eb" strokeOpacity={0.5} />
+                    {/* @ts-ignore */}
                     <PolarAngleAxis
                         dataKey="subject"
                         tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}

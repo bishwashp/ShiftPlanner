@@ -12,13 +12,23 @@ const UpcomingOOO: React.FC = () => {
         const fetchAbsences = async () => {
             try {
                 const today = moment().format('YYYY-MM-DD');
-                const nextMonth = moment().add(30, 'days').format('YYYY-MM-DD');
+                const futureLimit = moment().add(45, 'days').format('YYYY-MM-DD');
 
-                // Fetch all absences for next 30 days
-                const data = await apiService.getAbsences(undefined, undefined, true, undefined, today, nextMonth);
+                // Fetch all absences for next 45 days
+                const data = await apiService.getAbsences(undefined, undefined, true, undefined, today, futureLimit);
+
+                // Filter out past leaves - only show leaves that haven't ended yet or are upcoming
+                const upcomingLeaves = data.filter((absence: any) => {
+                    const endDate = moment(absence.endDate);
+                    const startDate = moment(absence.startDate);
+                    const now = moment();
+
+                    // Include if the leave hasn't ended yet (ongoing or future)
+                    return endDate.isSameOrAfter(now, 'day') || startDate.isAfter(now, 'day');
+                });
 
                 // Sort by start date and take top 5
-                const sorted = data.sort((a: any, b: any) => moment(a.startDate).diff(moment(b.startDate))).slice(0, 5);
+                const sorted = upcomingLeaves.sort((a: any, b: any) => moment(a.startDate).diff(moment(b.startDate))).slice(0, 5);
                 setAbsences(sorted);
             } catch (error) {
                 console.error('Failed to fetch absences', error);

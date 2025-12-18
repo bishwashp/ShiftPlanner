@@ -6,6 +6,7 @@ import Checkbox from './ui/Checkbox';
 import HeaderActionPortal from './layout/HeaderActionPortal';
 import HeaderActionButton from './layout/HeaderActionButton';
 import Button from './ui/Button';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Holiday {
   id: string;
@@ -35,6 +36,7 @@ interface HolidayManagementProps {
 }
 
 const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'America/New_York' }) => {
+  const { isManager } = useAuth();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -213,22 +215,24 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
 
   return (
     <div className="p-6">
-      <HeaderActionPortal>
-        <div className="flex items-center space-x-2">
-          <HeaderActionButton
-            icon={Plus}
-            label="Add New"
-            onClick={() => setShowAddForm(true)}
-          />
-          <Button
-            onClick={initializeDefaultHolidays}
-            variant="secondary"
-            size="sm"
-          >
-            Initialize Defaults
-          </Button>
-        </div>
-      </HeaderActionPortal>
+      {isManager && (
+        <HeaderActionPortal>
+          <div className="flex items-center space-x-2">
+            <HeaderActionButton
+              icon={Plus}
+              label="Add New"
+              onClick={() => setShowAddForm(true)}
+            />
+            <Button
+              onClick={initializeDefaultHolidays}
+              variant="secondary"
+              size="sm"
+            >
+              Initialize Defaults
+            </Button>
+          </div>
+        </HeaderActionPortal>
+      )}
 
       {/* Filters */}
       <div className="mb-6 flex items-center space-x-4 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10">
@@ -388,9 +392,11 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                  Actions
-                </th>
+                {isManager && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    Actions
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -447,25 +453,27 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                         )}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          onClick={() => startEdit(holiday)} // Changed handleEditClick to startEdit
-                          variant="ghost"
-                          size="sm"
-                          className="mr-2"
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          onClick={() => handleDeleteHoliday(holiday.id)}
-                          variant="danger"
-                          size="sm"
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
+                    {isManager && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            onClick={() => startEdit(holiday)} // Changed handleEditClick to startEdit
+                            variant="ghost"
+                            size="sm"
+                            className="mr-2"
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            onClick={() => handleDeleteHoliday(holiday.id)}
+                            variant="danger"
+                            size="sm"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
