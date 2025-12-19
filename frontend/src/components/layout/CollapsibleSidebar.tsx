@@ -87,7 +87,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
       relative
       ${isOpen ? 'w-64' : 'w-16'}
       m-3
-      transition-all duration-300 ease-in-out
+      transition-[width] duration-300 ease-out
       z-50
     `}>
       {/* Floating Glass Sidebar */}
@@ -95,21 +95,18 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
         className={`
           w-full h-full
           flex flex-col
-          rounded-[32px]
-          bg-white/60 dark:bg-gray-900/50 backdrop-blur-xl
-          border border-gray-300/50 dark:border-white/10
-          shadow-2xl shadow-black/20
+          surface-shell
           overflow-hidden
           max-h-[calc(100vh-24px)]
         `}
       >
         {/* Header */}
-        <div className={`flex items-center mb-4 p-4 ${isOpen ? 'space-x-2' : 'justify-center'} transition-all duration-300`}>
+        <div className={`flex items-center mb-4 p-4 ${isOpen ? 'space-x-3' : 'justify-center'}`}>
           <div className="w-8 h-8 flex items-center justify-center">
-            <img src="/SP.png" alt="ShiftPlanner Logo" className="w-full h-full object-contain" />
+            <img src="/sine-icon.png" alt="Sine Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className={`text-lg font-bold transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>
-            ShiftPlanner
+          <h1 className={`text-3xl brand-text transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>
+            Sine
           </h1>
         </div>
 
@@ -120,7 +117,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
               <div key={group.id}>
                 {/* Group Label - Only show when open */}
                 <div className={`
-                  px-3 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider transition-all duration-300
+                  px-3 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider transition-opacity duration-200
                   ${isOpen ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}
                 `}>
                   {group.label}
@@ -137,18 +134,18 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
                         <button
                           onClick={() => onViewChange(item.view as View)}
                           className={`
-                            w-full flex items-center rounded-lg text-sm font-medium transition-all duration-200
+                            w-full flex items-center rounded-lg text-sm font-medium transition-colors duration-150
                             ${isOpen ? 'space-x-3 px-3 py-2' : 'justify-center p-3'}
                             ${isActive
-                              ? 'bg-primary/20 text-primary border-l-2 border-primary shadow-lg shadow-primary/20'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-300/60 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white hover:translate-x-0.5'
+                              ? 'bg-primary/10 text-primary font-medium'
+                              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-200'
                             }
                             min-height-44px
                           `}
                           title={!isOpen ? item.label : ''}
                         >
                           <item.icon className="h-5 w-5 flex-shrink-0" weight="duotone" />
-                          <span className={`transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'} flex-1 text-left`}>
+                          <span className={`transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'} flex-1 text-left`}>
                             {item.label}
                           </span>
                         </button>
@@ -168,7 +165,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
                                     }
                                   }}
                                   className={`
-                                    w-full flex items-center rounded-md text-sm transition-all duration-200 px-3 py-1.5
+                                    w-full flex items-center rounded-md text-sm transition-colors duration-150 px-3 py-1.5
                                     ${(item.view === 'availability' && props.activeAvailabilityTab === subItem.id) ||
                                       (item.view === 'conflicts' && props.activeConflictTab === subItem.id)
                                       ? 'text-primary font-medium bg-primary/5'
@@ -201,24 +198,24 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
           <button
             onClick={() => setNotificationCenterOpen(!notificationCenterOpen)}
             className={`
-              relative w-full flex items-center rounded-lg text-sm font-medium transition-all duration-200
+              relative w-full flex items-center rounded-lg text-sm font-medium transition-colors duration-150
               ${isOpen ? 'space-x-3 px-3 py-2' : 'justify-center p-3'}
               ${notificationCenterOpen
-                ? 'bg-primary/20 text-primary shadow-lg shadow-primary/20'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
+                ? 'bg-primary/10 text-primary'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'
               }
               min-height-44px
             `}
             title={!isOpen ? "Notifications" : ''}
           >
             <Bell className="h-5 w-5 flex-shrink-0" weight="duotone" />
-            <span className={`transition-all duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
+            <span className={`transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
               Notifications
             </span>
             {unreadCount > 0 && (
               <span className={`
                 absolute bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center
-                transition-all duration-300
+                transition-[width,height] duration-200
                 ${isOpen ? '-top-1 -right-1 h-5 w-5' : 'top-0 right-0 h-4 w-4'}
               `}>
                 {unreadCount > 9 ? '9+' : unreadCount}

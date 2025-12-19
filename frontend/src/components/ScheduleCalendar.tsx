@@ -557,7 +557,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
       {...(isMobile ? swipeHandlers : {})}
       onWheel={handleWheel}
       role="application"
-      aria-label="ShiftPlanner Simplified Schedule Calendar"
+      aria-label="Sine Simplified Schedule Calendar"
     >
       {/* Filter toggle removed - moved to View Settings */}
 

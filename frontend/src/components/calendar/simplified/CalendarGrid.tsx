@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback } from 'react';
+import { usePerformance } from '../../../contexts/PerformanceContext';
 import moment from 'moment-timezone';
 import { NameBox } from './NameBox';
 
@@ -35,6 +36,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   onDateSelect,
   onShowMoreClick
 }) => {
+  const { flags } = usePerformance();
   const gridRef = useRef<HTMLDivElement>(null);
   const [focusedDate, setFocusedDate] = React.useState<string | null>(null);
   // Smart stacking configuration based on mockup specs
@@ -121,6 +123,15 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   // Smart name box stacking logic
   const renderNameBoxes = (dayEvents: CalendarEvent[], dayDate: moment.Moment) => {
     if (dayEvents.length === 0) return null;
+
+    // Performance Optimization: Simplified view
+    if (flags.simplifyCalendar) {
+      return (
+        <div className="text-xs text-gray-500 dark:text-gray-400 p-1">
+          {dayEvents.length} shifts
+        </div>
+      );
+    }
 
     const visibleEvents = dayEvents.slice(0, config.maxVisible);
     const overflowCount = Math.max(0, dayEvents.length - config.maxVisible);
@@ -272,10 +283,14 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                   key={dayIndex}
                   className={`
                     relative border rounded-lg cursor-pointer
-                    backdrop-blur-sm
+                    ${flags.disableGlassEffects ? '' : 'backdrop-blur-sm'}
                     ${day.isCurrentMonth
-                      ? 'bg-white/60 dark:bg-gray-800/40 border-gray-300/50 dark:border-gray-600/40 hover:bg-white/80 dark:hover:bg-gray-900/80 focus-within:bg-white/80 dark:focus-within:bg-gray-800/60'
-                      : 'bg-gray-100/40 dark:bg-gray-900/20 border-gray-200/40 dark:border-gray-700/30 text-gray-500 dark:text-gray-400'
+                      ? flags.useSolidSurfaces
+                        ? 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                        : 'bg-white/60 dark:bg-gray-800/40 border-gray-300/50 dark:border-gray-600/40 hover:bg-white/80 dark:hover:bg-gray-900/80 focus-within:bg-white/80 dark:focus-within:bg-gray-800/60'
+                      : flags.useSolidSurfaces
+                        ? 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
+                        : 'bg-gray-100/40 dark:bg-gray-900/20 border-gray-200/40 dark:border-gray-700/30 text-gray-500 dark:text-gray-400'
                     }
                     ${day.isToday
                       ? '' // Removed cell styling for today

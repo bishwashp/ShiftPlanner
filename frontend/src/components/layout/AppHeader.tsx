@@ -116,7 +116,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       case 'algorithms':
         return 'Algorithm Management';
       default:
-        return 'ShiftPlanner';
+        return 'Sine';
     }
   }
 
@@ -270,14 +270,12 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   return (
     <>
       <header className={`
-        mx-3 mt-3 rounded-[32px]
-        bg-white/60 dark:bg-gray-900/50 backdrop-blur-xl
-        border border-gray-300/50 dark:border-white/10
-        shadow-lg shadow-black/10 dark:shadow-black/30
+        mx-3 mt-3
+        surface-shell
         flex items-center justify-between
         px-3 py-2 sm:px-4 sm:py-2
         ${sidebarOpen ? 'pl-2 sm:pl-4' : 'pl-4'}
-        transition-all duration-300
+        transition-[padding] duration-200
         z-50
       `}>
         {/* Left Section */}

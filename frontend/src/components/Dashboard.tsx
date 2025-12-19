@@ -31,44 +31,6 @@ import SystemHealth from './dashboard/command/SystemHealth';
 import Button from './ui/Button';
 import CreateAbsenceModal from './modals/CreateAbsenceModal';
 
-interface StatCardProps {
-  title: string;
-  value: number | string;
-  icon: React.ElementType;
-  color: string;
-  bgColor: string;
-  highlight?: string;
-  loading?: boolean;
-  onClick?: () => void;
-}
-
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon: Icon, color, bgColor, highlight = '', loading = false, onClick }) => (
-  <GlassCard
-    onClick={onClick}
-    className={`p-0 ${highlight}`}
-    interactive={!!onClick}
-  >
-    <div className="p-6 flex items-center h-full relative z-10">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 truncate">{title}</p>
-        {loading ? (
-          <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-        ) : (
-          <div className="flex items-baseline">
-            <p className="text-3xl font-display font-bold text-gray-900 dark:text-white leading-none [font-stretch:condensed]" style={{ fontVariationSettings: '"wdth" 70' }}>{value}</p>
-          </div>
-        )}
-      </div>
-
-      <motion.div
-        className={`w-12 h-12 rounded-xl flex items-center justify-center ${bgColor} shadow-inner ml-4 flex-shrink-0`}
-      >
-        <Icon className={`w-6 h-6 ${color}`} weight="duotone" />
-      </motion.div>
-    </div>
-  </GlassCard>
-);
-
 
 
 interface DashboardProps {
@@ -87,12 +49,7 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess, isLoading, onRefresh, isRefreshing, onConflictTabChange, onAvailabilityTabChange }) => {
   const { isManager } = useAuth();
   const { showCriticalPrompt, hasActivePrompts } = useActionPrompts();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalAnalysts: 0,
-    activeAnalysts: 0,
-    scheduledShifts: 0,
-    pendingSchedules: 0,
-  });
+
   const [conflicts, setConflicts] = useState<{ critical: any[]; recommended: any[] }>({ critical: [], recommended: [] });
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
@@ -120,13 +77,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
       // Use dynamic date range based on current month (matching Analytics)
       const startDate = moment().startOf('month').format('YYYY-MM-DD');
       const endDate = moment().endOf('month').format('YYYY-MM-DD');
-
-      // Fetch data sequentially to avoid rate limiting
-      const stats = await apiService.getDashboardStats();
-      setStats(stats);
-
-      // Add a small delay between requests
-      await new Promise(resolve => setTimeout(resolve, 100));
 
       const conflictsData = await apiService.getAllConflicts(startDate, endDate);
       setConflicts(conflictsData);
@@ -222,47 +172,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
     conflict.type === 'NO_SCHEDULE_EXISTS' || conflict.type === 'INCOMPLETE_SCHEDULES'
   );
 
-  const conflictCard = {
-    title: 'Schedule Conflicts',
-    value: conflicts.critical.length + conflicts.recommended.length,
-    icon: conflicts.critical.length > 0 ? Warning : CheckCircle,
-    color: conflicts.critical.length > 0 ? 'text-destructive' : 'text-green-600',
-    bgColor: conflicts.critical.length > 0 ? 'bg-destructive/10' : 'bg-green-600/10',
-    // Add yellow highlight when no schedules exist
-    highlight: hasNoScheduleConflict ? 'ring-2 ring-yellow-500 ring-opacity-50' : '',
-  };
-
   const handleNavigateToConflicts = () => {
     onViewChange('conflicts');
   };
-
-  const statCards = [
-    {
-      title: 'Total Analysts',
-      value: stats.totalAnalysts,
-      icon: Users,
-      color: 'text-blue-600 dark:text-blue-400',
-      bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-      onClick: () => onViewChange('analysts')
-    },
-    {
-      title: 'Active Analysts',
-      value: stats.activeAnalysts,
-      icon: CheckCircle,
-      color: 'text-emerald-600 dark:text-emerald-400',
-      bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
-      onClick: () => onViewChange('analysts')
-    },
-    {
-      title: 'Scheduled Shifts',
-      value: stats.scheduledShifts,
-      icon: CalendarBlank,
-      color: 'text-violet-600 dark:text-violet-400',
-      bgColor: 'bg-violet-100 dark:bg-violet-900/30',
-      onClick: () => onViewChange('schedule')
-    },
-    { ...conflictCard, onClick: handleNavigateToConflicts },
-  ];
 
   const getActivityColor = (activity: Activity): string => {
     switch (activity.impact) {

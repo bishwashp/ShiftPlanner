@@ -35,7 +35,14 @@ const SystemHealth: React.FC<{
         fetchConflicts();
     }, []);
 
-    if (loading) return null;
+    if (loading) {
+        return (
+            <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0 animate-pulse">
+                <div className="h-8 bg-gray-200 dark:bg-white/5 rounded-full w-48" />
+                <div className="h-8 bg-gray-200 dark:bg-white/5 rounded-full w-32 ml-auto" />
+            </div>
+        );
+    }
 
     const showRecommended = recommendedCount > 0 && !dismissedRecommended;
     const showCritical = criticalCount > 0;

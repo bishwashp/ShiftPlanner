@@ -29,11 +29,13 @@ export const Login: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4">
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
-                        <img src="/SP.png" alt="ShiftPlanner Logo" className="w-full h-full object-contain" />
+                    <div className="inline-flex items-center justify-center space-x-3 mb-4">
+                        <div className="w-12 h-12 flex items-center justify-center">
+                            <img src="/sine-icon.png" alt="Sine Logo" className="w-full h-full object-contain" />
+                        </div>
+                        <h2 className="text-5xl brand-text text-gray-900 dark:text-white">Sine</h2>
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-900 dark:text-white">ShiftPlanner</h2>
-                    <p className="text-gray-600 dark:text-gray-400 mt-2">Welcome back! Please sign in.</p>
+                    <p className="text-gray-600 dark:text-gray-400">Welcome back! Please sign in.</p>
                 </div>
 
                 {error && (

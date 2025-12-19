@@ -139,10 +139,10 @@ export const NameBox: React.FC<NameBoxProps> = ({
         ${colorScheme.border}
         ${sizeClasses}
         border rounded-full
-        backdrop-blur-sm
-        transition-all duration-200
+        /* OPTIMIZATION: Flattened rendering (no blur, no isolation) */
+        transition-transform duration-200
         flex items-center justify-center relative flex-shrink-0
-        ${onClick ? `cursor-pointer ${colorScheme.glow} hover:shadow-md focus:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1` : ''}
+        ${onClick ? `cursor-pointer ${colorScheme.glow} hover:shadow-sm` : ''}
       `}
       onClick={onClick}
       onKeyDown={(e: React.KeyboardEvent) => {

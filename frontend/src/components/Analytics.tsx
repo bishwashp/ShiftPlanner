@@ -763,10 +763,7 @@ const Analytics: React.FC = () => {
               icon={<Siren className="h-6 w-6" />}
               color="red"
               backContent={
-                <div className="text-center py-8">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Click card for detailed breakdown
-                  </p>
+                <div className="flex items-center justify-center h-full">
                   <button
                     onClick={() => setIsBurnoutModalOpen(true)}
                     className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
