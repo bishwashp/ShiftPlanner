@@ -1,6 +1,22 @@
 import React from 'react';
+import { usePerformance } from '../../contexts/PerformanceContext';
 
 const LiquidBackground = () => {
+    const { flags } = usePerformance();
+
+    // GPU optimization hints for animated elements
+    const blobStyle = {
+        willChange: 'transform',
+        contain: 'strict',
+        backfaceVisibility: 'hidden' as const,
+    };
+
+    if (flags.disableLiquidBackground) {
+        return (
+            <div className="fixed inset-0 -z-50 overflow-hidden bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50 dark:from-black dark:via-gray-950 dark:to-slate-950" />
+        );
+    }
+
     return (
         <div className="fixed inset-0 -z-50 overflow-hidden bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50 dark:from-black dark:via-gray-950 dark:to-slate-950">
             {/* Large animated gradient blobs - big enough to overlap, small enough to see movement */}
@@ -8,21 +24,25 @@ const LiquidBackground = () => {
             {/* Blob 1 - Purple (top left) */}
             <div
                 className="absolute -top-20 -left-20 w-[66%] h-[66%] bg-purple-300 dark:bg-purple-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob-1"
+                style={blobStyle}
             />
 
             {/* Blob 2 - Orange/Yellow (top right) */}
             <div
                 className="absolute -top-20 -right-20 w-[72%] h-[72%] bg-orange-300 dark:bg-amber-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob-2"
+                style={blobStyle}
             />
 
             {/* Blob 3 - Pink (bottom left) */}
             <div
                 className="absolute -bottom-20 left-20 w-[77%] h-[77%] bg-pink-300 dark:bg-pink-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob-3"
+                style={blobStyle}
             />
 
             {/* Blob 4 - Blue (bottom right) */}
             <div
                 className="absolute -bottom-20 right-20 w-[72%] h-[72%] bg-blue-300 dark:bg-blue-900/50 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] opacity-70 dark:opacity-30 animate-blob-4"
+                style={blobStyle}
             />
 
             {/* Noise texture overlay */}

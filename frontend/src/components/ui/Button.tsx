@@ -23,7 +23,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         const IconLeft = leftIcon || icon;
         const IconRight = rightIcon;
 
-        const baseStyles = "relative inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-95";
+        const baseStyles = "relative inline-flex items-center justify-center rounded-xl font-medium transition-[background-color,box-shadow,transform] duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none active:scale-95";
 
         const variants = {
             primary: "bg-primary text-primary-foreground shadow-lg hover:shadow-primary/25 hover:bg-primary/90 border border-transparent",

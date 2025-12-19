@@ -3,8 +3,11 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PeriodProvider } from './context/PeriodContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { Login } from './components/Login';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -12,9 +15,23 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <PeriodProvider>
-      <App />
-    </PeriodProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <PeriodProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <App />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </PeriodProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );
 

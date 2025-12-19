@@ -19,6 +19,7 @@ export interface Notification {
     conflictId?: string;
     category?: string;
     tags?: string[];
+    link?: string;
   };
 }
 
@@ -46,7 +47,7 @@ class NotificationService {
 
     // Store all notifications (recommendations, history, system status)
     this.notifications.unshift(newNotification);
-    
+
     // Limit the number of notifications
     if (this.notifications.length > this.maxNotifications) {
       this.notifications = this.notifications.slice(0, this.maxNotifications);
@@ -54,7 +55,7 @@ class NotificationService {
 
     this.saveToStorage();
     this.notifyListeners();
-    
+
     return id;
   }
 
@@ -148,7 +149,7 @@ class NotificationService {
   // Calculate importance score based on notification type and content
   private calculateImportanceScore(notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>): number {
     let score = 5; // Base score
-    
+
     // Adjust based on type
     switch (notification.type) {
       case 'system':
@@ -167,7 +168,7 @@ class NotificationService {
         score = 4;
         break;
     }
-    
+
     // Adjust based on priority
     switch (notification.priority) {
       case 'high':
@@ -180,7 +181,7 @@ class NotificationService {
         score -= 1;
         break;
     }
-    
+
     // Adjust based on content keywords
     const content = (notification.title + ' ' + notification.message).toLowerCase();
     if (content.includes('error') || content.includes('critical') || content.includes('failed')) {
@@ -189,7 +190,7 @@ class NotificationService {
     if (content.includes('success') || content.includes('completed')) {
       score -= 1;
     }
-    
+
     return Math.max(1, Math.min(10, score));
   }
 
@@ -198,39 +199,39 @@ class NotificationService {
     setInterval(() => {
       const now = Date.now();
       const initialCount = this.notifications.length;
-      
+
       this.notifications = this.notifications.filter(notification => {
         // Don't expire high-importance notifications
         if (notification.importanceScore >= 8) {
           return true;
         }
-        
+
         // Don't expire unread notifications that require action
         if (!notification.isRead && notification.requiresAction) {
           return true;
         }
-        
+
         // Check auto-expiration
         if (notification.autoExpire) {
           const age = now - notification.timestamp.getTime();
           return age < notification.autoExpire;
         }
-        
+
         // Auto-expire low-importance notifications after 24 hours
         if (notification.importanceScore <= 3) {
           const age = now - notification.timestamp.getTime();
           return age < 24 * 60 * 60 * 1000; // 24 hours
         }
-        
+
         // Auto-expire medium-importance notifications after 7 days
         if (notification.importanceScore <= 6) {
           const age = now - notification.timestamp.getTime();
           return age < 7 * 24 * 60 * 60 * 1000; // 7 days
         }
-        
+
         return true;
       });
-      
+
       if (this.notifications.length !== initialCount) {
         this.saveToStorage();
         this.notifyListeners();

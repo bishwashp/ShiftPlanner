@@ -2,8 +2,44 @@ import React, { useState, useEffect } from 'react';
 import moment from 'moment-timezone';
 import { Timer, CaretRight } from '@phosphor-icons/react';
 
+// Rolling digit component - uses a vertical strip of 0-9
+// tabular-nums ensures monospaced behavior to prevent horizontal jitter
+const RollingDigit: React.FC<{ digit: string }> = ({ digit }) => {
+    const num = parseInt(digit, 10) || 0;
+
+    return (
+        <div className="relative inline-block h-[1.1em] overflow-hidden leading-none align-middle" style={{ width: '0.65em' }}>
+            <div
+                className="transition-transform duration-500 cubic-bezier(0.45, 0, 0.55, 1)"
+                style={{ transform: `translateY(-${num * 10}%)` }}
+            >
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                    <div key={n} className="h-[1.1em] flex items-center justify-center">
+                        {n}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// Component to display time with rolling animation
+const RollingTime: React.FC<{ value: string }> = ({ value }) => {
+    return (
+        <div className="flex items-center" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {value.split('').map((char, index) => (
+                char === ':' ? (
+                    <span key={index} className="mx-0.5 opacity-40 font-display flex items-center justify-center" style={{ width: '0.3em', fontSize: '0.8em' }}>:</span>
+                ) : (
+                    <RollingDigit key={index} digit={char} />
+                )
+            ))}
+        </div>
+    );
+};
+
 const HandoverCountdown: React.FC = () => {
-    const [timeLeft, setTimeLeft] = useState<string>('00:00:00');
+    const [timeLeft, setTimeLeft] = useState({ hours: '00', minutes: '00', seconds: '00' });
     const [nextHandoverLabel, setNextHandoverLabel] = useState<string>('');
     const [targetTimeDisplay, setTargetTimeDisplay] = useState<string>('');
 
@@ -38,11 +74,11 @@ const HandoverCountdown: React.FC = () => {
             const diff = nextHandover.time.diff(now);
             const duration = moment.duration(diff);
 
-            const hours = Math.floor(duration.asHours()).toString().padStart(2, '0');
-            const minutes = duration.minutes().toString().padStart(2, '0');
-            const seconds = duration.seconds().toString().padStart(2, '0');
-
-            setTimeLeft(`${hours}:${minutes}:${seconds}`);
+            setTimeLeft({
+                hours: Math.floor(duration.asHours()).toString().padStart(2, '0'),
+                minutes: duration.minutes().toString().padStart(2, '0'),
+                seconds: duration.seconds().toString().padStart(2, '0')
+            });
             setNextHandoverLabel(nextHandover.label);
             setTargetTimeDisplay(nextHandover.time.format('h:mm A z'));
         };
@@ -66,9 +102,16 @@ const HandoverCountdown: React.FC = () => {
 
             {/* Main Content: Timer (left) + Phases (right) */}
             <div className="flex items-center justify-between flex-1">
-                {/* Large Timer */}
-                <div className="text-4xl font-display font-bold text-gray-900 dark:text-white leading-none [font-stretch:condensed]" style={{ fontVariationSettings: '"wdth" 70' }}>
-                    {timeLeft}
+                {/* Large Timer with Odometer Style Animation */}
+                <div
+                    className="text-4xl font-display font-bold text-gray-900 dark:text-white flex items-center leading-none"
+                    style={{ fontVariationSettings: '"wdth" 85' }}
+                >
+                    <RollingTime value={timeLeft.hours} />
+                    <span className="mx-0.5 opacity-40 flex items-center justify-center" style={{ width: '0.3em', fontSize: '0.8em', transform: 'translateY(-0.05em)' }}>:</span>
+                    <RollingTime value={timeLeft.minutes} />
+                    <span className="mx-0.5 opacity-40 flex items-center justify-center" style={{ width: '0.3em', fontSize: '0.8em' }}>:</span>
+                    <RollingTime value={timeLeft.seconds} />
                 </div>
 
                 {/* Phase Transition (stacked on right) */}

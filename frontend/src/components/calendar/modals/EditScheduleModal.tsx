@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import ReactDOM from 'react-dom';
 import { Analyst, Schedule, apiService } from '../../../services/api';
 import moment from 'moment';
@@ -22,6 +23,10 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
     schedules,
     analysts
 }) => {
+    const { isManager } = useAuth();
+
+
+
     // Determine which schedules we are editing
     const targetSchedules = schedules && schedules.length > 0 ? schedules : (schedule ? [schedule] : []);
     const isMulti = targetSchedules.length > 1;
@@ -153,7 +158,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
         }
     };
 
-    if (!isOpen || targetSchedules.length === 0) return null;
+    if (!isOpen || targetSchedules.length === 0 || !isManager) return null;
 
     return ReactDOM.createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

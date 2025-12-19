@@ -1,6 +1,7 @@
 import { PrismaClient } from '../../generated/prisma';
 import { replacementService } from './ReplacementService';
 import { fairnessDebtService } from './FairnessDebtService';
+import { notificationService } from './NotificationService';
 import { DateUtils } from '../utils/dateUtils';
 
 export interface AbsenceData {
@@ -11,6 +12,8 @@ export interface AbsenceData {
   reason?: string;
   isApproved?: boolean;
   isPlanned?: boolean;
+  denialReason?: string;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 }
 
 export interface AbsenceConflict {
@@ -77,8 +80,9 @@ export class AbsenceService {
         endDate: end,
         type,
         reason,
-        isApproved: isApproved !== undefined ? isApproved : true,
-        isPlanned: isPlanned !== undefined ? isPlanned : true
+        isApproved: isApproved !== undefined ? isApproved : false, // Default to false (pending) if not specified
+        isPlanned: isPlanned !== undefined ? isPlanned : true,
+        status: isApproved ? 'APPROVED' : 'PENDING'
       },
       include: {
         analyst: {
@@ -90,6 +94,28 @@ export class AbsenceService {
         }
       }
     });
+
+    // Notify Managers about new request
+    if (!absence.isApproved) {
+      // In a real app, we'd find all managers. For now, we'll create a system notification 
+      // or a notification for a specific admin user if we had one.
+      // Since we don't have easy access to "all managers", we'll create a notification 
+      // that can be fetched by any manager (userId=null, but maybe a special type/metadata).
+
+      await notificationService.createNotification({
+        type: 'ALERT',
+        title: 'New Absence Request',
+        message: `${absence.analyst.name} requested ${absence.type} from ${DateUtils.formatDate(absence.startDate)} to ${DateUtils.formatDate(absence.endDate)}`,
+        priority: 'MEDIUM',
+        requiresAction: true,
+        metadata: {
+          category: 'ABSENCE_REQUEST',
+          absenceId: absence.id,
+          analystId: absence.analystId,
+          link: '/absences?tab=approval' // Frontend link
+        }
+      });
+    }
 
     return absence;
   }
@@ -108,8 +134,13 @@ export class AbsenceService {
     }
     if (absenceData.type) updateData.type = absenceData.type;
     if (absenceData.reason !== undefined) updateData.reason = absenceData.reason;
-    if (absenceData.isApproved !== undefined) updateData.isApproved = absenceData.isApproved;
+    if (absenceData.isApproved !== undefined) {
+      updateData.isApproved = absenceData.isApproved;
+      updateData.status = absenceData.isApproved ? 'APPROVED' : (absenceData.status || 'PENDING');
+    }
     if (absenceData.isPlanned !== undefined) updateData.isPlanned = absenceData.isPlanned;
+    if (absenceData.denialReason !== undefined) updateData.denialReason = absenceData.denialReason;
+    if (absenceData.status !== undefined) updateData.status = absenceData.status;
 
     // Validate date range if both dates are provided
     if (updateData.startDate && updateData.endDate) {
@@ -130,6 +161,16 @@ export class AbsenceService {
       }
     }
 
+    // Handle Resubmission Logic
+    // If status is being set to PENDING from REJECTED, it's a resubmission
+    const currentAbsence = await this.prisma.absence.findUnique({ where: { id } });
+    const isResubmission = currentAbsence?.status === 'REJECTED' && updateData.status === 'PENDING';
+
+    if (isResubmission) {
+      updateData.denialReason = null; // Clear previous denial reason
+      updateData.isApproved = false;
+    }
+
     const absence = await this.prisma.absence.update({
       where: { id },
       data: updateData,
@@ -143,6 +184,41 @@ export class AbsenceService {
         }
       }
     });
+
+    // Notify Manager on Resubmission
+    if (isResubmission) {
+      await notificationService.createNotification({
+        type: 'ALERT',
+        title: 'Absence Request Resubmitted',
+        message: `${absence.analyst.name} resubmitted their request for ${DateUtils.formatDate(absence.startDate)}`,
+        priority: 'MEDIUM',
+        requiresAction: true,
+        metadata: {
+          category: 'ABSENCE_RESUBMISSION',
+          absenceId: absence.id,
+          analystId: absence.analystId,
+          link: '/absences?tab=approval'
+        }
+      });
+    }
+
+    // Notify Analyst on Denial
+    if (updateData.status === 'REJECTED') {
+      console.log(`[AbsenceService] Creating denial notification for analyst ${absence.analystId}`);
+      await notificationService.createNotification({
+        analystId: absence.analystId,
+        type: 'ALERT',
+        title: 'Absence Request Denied',
+        message: `Your absence request for ${DateUtils.formatDate(absence.startDate)} was denied. Reason: ${absence.denialReason}`,
+        priority: 'HIGH',
+        requiresAction: true,
+        metadata: {
+          category: 'ABSENCE_DENIAL',
+          absenceId: absence.id,
+          link: '/absences' // Navigate to absence list to see denial
+        }
+      });
+    }
 
     return absence;
   }
@@ -373,10 +449,16 @@ export class AbsenceService {
   /**
    * Approve or reject an absence
    */
-  async approveAbsence(id: string, isApproved: boolean): Promise<any> {
+  async approveAbsence(id: string, isApproved: boolean, denialReason?: string): Promise<any> {
+    const status = isApproved ? 'APPROVED' : 'REJECTED';
+
     const absence = await this.prisma.absence.update({
       where: { id },
-      data: { isApproved },
+      data: {
+        isApproved,
+        status,
+        denialReason: isApproved ? null : denialReason
+      },
       include: {
         analyst: {
           select: {
@@ -409,6 +491,37 @@ export class AbsenceService {
           absence.type
         );
       }
+
+      // Notify Analyst of Approval
+      await notificationService.createNotification({
+        analystId: absence.analystId,
+        type: 'SUCCESS',
+        title: 'Absence Request Approved',
+        message: `Your request for ${absence.type} from ${DateUtils.formatDate(absence.startDate)} to ${DateUtils.formatDate(absence.endDate)} has been approved.`,
+        priority: 'LOW',
+        metadata: {
+          category: 'ABSENCE_UPDATE',
+          absenceId: absence.id,
+          status: 'APPROVED'
+        }
+      });
+
+    } else {
+      // Notify Analyst of Denial
+      await notificationService.createNotification({
+        analystId: absence.analystId,
+        type: 'ALERT',
+        title: 'Absence Request Denied',
+        message: `Your request for ${absence.type} from ${DateUtils.formatDate(absence.startDate)} has been denied. Reason: ${denialReason || 'No reason provided'}`,
+        priority: 'HIGH',
+        requiresAction: true,
+        metadata: {
+          category: 'ABSENCE_UPDATE',
+          absenceId: absence.id,
+          status: 'REJECTED',
+          denialReason
+        }
+      });
     }
 
     return absence;

@@ -22,6 +22,9 @@ import { notificationService } from './services/notificationService';
 
 import LiquidBackground from './components/layout/LiquidBackground';
 
+// Performance Context (used by LiquidBackground and CalendarGrid)
+import { PerformanceProvider } from './contexts/PerformanceContext';
+
 // Toast notification component for better UX
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => (
   <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${type === 'success' ? 'bg-green-500 text-white' :
@@ -40,7 +43,7 @@ const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 
 function App() {
   const { theme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeView, setActiveView] = useState<SidebarView>('schedule');
+  const [activeView, setActiveView] = useState<SidebarView>('dashboard');
   const [activeAvailabilityTab, setActiveAvailabilityTab] = useState<'holidays' | 'absences'>('holidays');
   const [activeConflictTab, setActiveConflictTab] = useState<'critical' | 'recommended'>('critical');
   const [calendarDate, setCalendarDate] = useState(() => {
@@ -252,55 +255,58 @@ function App() {
   };
 
   return (
-    <ActionPromptProvider>
-      <div className={`flex h-screen bg-transparent text-foreground transition-colors duration-200 ${theme} overflow-hidden`}>
-        <LiquidBackground />
-        <CollapsibleSidebar
-          isOpen={sidebarOpen}
-          onViewChange={handleViewChange}
-          activeView={activeView}
-          activeAvailabilityTab={activeAvailabilityTab}
-          onAvailabilityTabChange={setActiveAvailabilityTab}
-          activeConflictTab={activeConflictTab}
-          onConflictTabChange={setActiveConflictTab}
-        />
-        <div className="flex-1 flex flex-col">
-          <AppHeader
-            sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
-            date={calendarDate}
-            setDate={setCalendarDate}
-            view={calendarView}
-            setView={setCalendarView}
+    <PerformanceProvider>
+      <ActionPromptProvider>
+        <div className={`flex h-screen bg-transparent text-foreground transition-colors duration-200 ${theme} overflow-hidden`}>
+          <LiquidBackground />
+          <CollapsibleSidebar
+            isOpen={sidebarOpen}
+            onViewChange={handleViewChange}
             activeView={activeView}
-            timezone={timezone}
-            onTimezoneChange={handleTimezoneChange}
             activeAvailabilityTab={activeAvailabilityTab}
             onAvailabilityTabChange={setActiveAvailabilityTab}
             activeConflictTab={activeConflictTab}
             onConflictTabChange={setActiveConflictTab}
-            onRefresh={handleRefresh}
-            isRefreshing={isRefreshing}
-            filterHook={filterHook}
           />
-          <main className="flex-1 overflow-auto relative">
-            {isLoading && (
-              <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-10">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            )}
-            {renderView()}
-          </main>
+          <div className="flex-1 flex flex-col">
+            <AppHeader
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              date={calendarDate}
+              setDate={setCalendarDate}
+              view={calendarView}
+              setView={setCalendarView}
+              activeView={activeView}
+              timezone={timezone}
+              onTimezoneChange={handleTimezoneChange}
+              activeAvailabilityTab={activeAvailabilityTab}
+              onAvailabilityTabChange={setActiveAvailabilityTab}
+              activeConflictTab={activeConflictTab}
+              onConflictTabChange={setActiveConflictTab}
+              onRefresh={handleRefresh}
+              isRefreshing={isRefreshing}
+              filterHook={filterHook}
+            />
+            <main className="flex-1 overflow-auto relative">
+              {isLoading && (
+                <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-10">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              )}
+              {renderView()}
+            </main>
+          </div>
+          {toast && (
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToast(null)}
+            />
+          )}
         </div>
-        {toast && (
-          <Toast
-            message={toast.message}
-            type={toast.type}
-            onClose={() => setToast(null)}
-          />
-        )}
-      </div>
-    </ActionPromptProvider>
+
+      </ActionPromptProvider>
+    </PerformanceProvider>
   );
 }
 

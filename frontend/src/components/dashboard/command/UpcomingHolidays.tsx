@@ -19,7 +19,7 @@ const UpcomingHolidays: React.FC = () => {
                         return hDate.isSameOrAfter(moment(), 'day') && hDate.isBefore(nextMonth);
                     })
                     .sort((a: any, b: any) => moment(a.date).diff(moment(b.date)))
-                    .slice(0, 3);
+                    .slice(0, 1);
 
                 setHolidays(upcoming);
             } catch (error) {

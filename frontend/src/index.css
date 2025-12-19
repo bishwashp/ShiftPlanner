@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,25..151,100..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,slnt,wdth,wght,GRAD,ROND@6..144,-10..0,25..151,1..1000,0..100,100&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -50,6 +50,33 @@
     --glass-bg: rgba(255, 255, 255, 0.7);
     --glass-border: rgba(255, 255, 255, 0.5);
     --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+
+    /* ========================================
+       UNIFIED DESIGN TOKENS
+       ======================================== */
+
+    /* Surface System - Solid as default, transparency as accent */
+    --surface-solid: hsl(var(--card));
+    --surface-frosted: rgba(255, 255, 255, 0.85);
+    --surface-overlay: rgba(0, 0, 0, 0.4);
+
+    /* Blur System - Just 2 values */
+    --blur-subtle: 8px;
+    --blur-overlay: 4px;
+
+    /* Radius System - Just 3 values */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 24px;
+
+    /* Shadow System - Just 3 values */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1), 0 6px 10px rgba(0, 0, 0, 0.08);
+
+    /* Transition System - Performant only */
+    --transition-fast: 150ms ease-out;
+    --transition-base: 200ms ease-out;
   }
 
   [data-theme="dark"] {
@@ -95,6 +122,25 @@
     /* Slate-800 with opacity */
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+
+    /* Unified Design Tokens - Dark */
+    --surface-solid: hsl(var(--card));
+    --surface-frosted: rgba(17, 24, 39, 0.85);
+    --surface-overlay: rgba(0, 0, 0, 0.5);
+
+    --blur-subtle: 8px;
+    --blur-overlay: 4px;
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 24px;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.3), 0 6px 10px rgba(0, 0, 0, 0.2);
+
+    --transition-fast: 150ms ease-out;
+    --transition-base: 200ms ease-out;
   }
 }
 
@@ -114,24 +160,120 @@
 
 @layer utilities {
 
+  /* ========================================
+     UNIFIED SURFACE UTILITIES
+     ======================================== */
+
+  /* Shell Surface - Header, Sidebar (subtle frosted glass) */
+  .surface-shell {
+    background: var(--surface-frosted);
+    backdrop-filter: blur(var(--blur-subtle));
+    -webkit-backdrop-filter: blur(var(--blur-subtle));
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: var(--shadow-md);
+    /* Chrome-specific: Force GPU layer isolation */
+    isolation: isolate;
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
+  [data-theme="dark"] .surface-shell {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Card Surface - Solid by default */
+  .surface-card {
+    background: var(--surface-solid);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid hsl(var(--border));
+  }
+
+  /* Modal Overlay - Light blur backdrop */
+  .modal-overlay {
+    background: var(--surface-overlay);
+    backdrop-filter: blur(var(--blur-overlay));
+    -webkit-backdrop-filter: blur(var(--blur-overlay));
+  }
+
+  /* Modal Content - Solid, prominent */
+  .modal-content {
+    background: var(--surface-solid);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid hsl(var(--border));
+  }
+
+  /* ========================================
+     LEGACY GLASS UTILITIES (for gradual migration)
+     ======================================== */
+
   /* Premium Glass Utility */
   .glass {
     @apply backdrop-blur-xl bg-[var(--glass-bg)] border border-[var(--glass-border)];
     box-shadow: var(--glass-shadow);
+    /* Chrome-specific: GPU layer isolation */
+    isolation: isolate;
+    transform: translateZ(0);
   }
 
   .glass-card {
-    @apply glass rounded-xl transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+    @apply glass rounded-xl;
+    transition: box-shadow var(--transition-base), transform var(--transition-base);
   }
 
-  /* Interactive Elements */
+  .glass-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  /* ========================================
+     PERFORMANT TRANSITIONS (no more transition-all)
+     ======================================== */
+
+  .transition-colors-fast {
+    transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast);
+  }
+
+  .transition-shadow-base {
+    transition: box-shadow var(--transition-base);
+  }
+
+  .transition-transform-fast {
+    transition: transform var(--transition-fast);
+  }
+
+  /* Interactive Elements - specific transitions only */
   .interactive-hover {
-    @apply transition-all duration-200 hover:opacity-90 active:scale-95;
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+  }
+
+  .interactive-hover:hover {
+    opacity: 0.9;
+  }
+
+  .interactive-hover:active {
+    transform: scale(0.95);
   }
 
   /* Text Gradients */
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500;
+  }
+
+  /* Brand Text - Matches Sine logo aesthetics */
+  .brand-text {
+    font-family: "Google Sans Flex", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 400;
+    font-style: normal;
+    font-variation-settings:
+      "slnt" 0,
+      "wdth" 90,
+      "GRAD" 0,
+      "ROND" 100;
+    letter-spacing: -0.02em;
   }
 }
 

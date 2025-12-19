@@ -8,6 +8,7 @@ import HeaderActionPortal from './layout/HeaderActionPortal';
 import HeaderActionButton from './layout/HeaderActionButton';
 import Button from './ui/Button';
 import { Plus } from '@phosphor-icons/react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ConstraintFormData {
     analystId?: string;
@@ -20,6 +21,7 @@ interface ConstraintFormData {
 }
 
 const ConstraintManagement: React.FC = () => {
+    const { isManager } = useAuth();
     const [constraints, setConstraints] = useState<SchedulingConstraint[]>([]);
     const [analysts, setAnalysts] = useState<Analyst[]>([]);
     const [loading, setLoading] = useState(true);
@@ -134,13 +136,15 @@ const ConstraintManagement: React.FC = () => {
                         {error}
                     </div>
                 )}
-                <HeaderActionPortal>
-                    <HeaderActionButton
-                        icon={Plus}
-                        label="Add New"
-                        onClick={() => setShowAddForm(true)}
-                    />
-                </HeaderActionPortal>
+                {isManager && (
+                    <HeaderActionPortal>
+                        <HeaderActionButton
+                            icon={Plus}
+                            label="Add New"
+                            onClick={() => setShowAddForm(true)}
+                        />
+                    </HeaderActionPortal>
+                )}
 
                 {/* Add/Edit Modal */}
                 {(showAddForm || editingConstraint) && ReactDOM.createPortal(
@@ -227,7 +231,9 @@ const ConstraintManagement: React.FC = () => {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Type</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Dates</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Actions</th>
+                                    {isManager && (
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">Actions</th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
@@ -241,12 +247,14 @@ const ConstraintManagement: React.FC = () => {
                                                 {c.isActive ? 'Active' : 'Inactive'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <div className="flex items-center space-x-2">
-                                                <Button onClick={() => handleEditClick(c)} variant="ghost" size="sm" className="mr-2">Edit</Button>
-                                                <Button onClick={() => handleDeleteConstraint(c.id)} variant="danger" size="sm">Delete</Button>
-                                            </div>
-                                        </td>
+                                        {isManager && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                <div className="flex items-center space-x-2">
+                                                    <Button onClick={() => handleEditClick(c)} variant="ghost" size="sm" className="mr-2">Edit</Button>
+                                                    <Button onClick={() => handleDeleteConstraint(c.id)} variant="danger" size="sm">Delete</Button>
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
@@ -258,4 +266,4 @@ const ConstraintManagement: React.FC = () => {
     );
 };
 
-export default ConstraintManagement; 
+export default ConstraintManagement;

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import moment from 'moment-timezone';
 import { apiService, Schedule, Analyst } from '../../../services/api';
 import { groupConsecutiveShifts, ShiftGroup, CalendarEvent } from '../../../utils/shiftGrouper';
@@ -29,6 +30,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
   onScheduleClick,
   onDateClick
 }) => {
+  const { isManager } = useAuth();
   const [draggedGroup, setDraggedGroup] = useState<ShiftGroup | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
 
@@ -124,6 +126,10 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
   }, [pillGroups, weekStart]);
 
   const handleDragStart = useCallback((e: React.DragEvent, group: ShiftGroup) => {
+    if (!isManager) {
+      e.preventDefault();
+      return;
+    }
     setDraggedGroup(group);
     e.dataTransfer.effectAllowed = 'move';
     // Set transparent drag image or custom one if needed
@@ -143,7 +149,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
     e.preventDefault();
     setDragOverDay(null);
 
-    if (!draggedGroup || !onScheduleUpdate) return;
+    if (!isManager || !draggedGroup || !onScheduleUpdate) return;
 
     const targetMoment = moment(targetDateStr);
     const startMoment = moment(draggedGroup.startDate);
@@ -259,7 +265,7 @@ export const WeekScheduleView: React.FC<WeekScheduleViewProps> = ({
                           gridColumnEnd: `span ${pill.colSpan}`,
                           gridRowStart: rowIdx + 1
                         }}
-                        draggable
+                        draggable={isManager}
                         onDragStart={(e) => handleDragStart(e, pill.group)}
                       >
                         <ShiftPill

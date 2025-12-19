@@ -39,6 +39,12 @@ An advanced, production-ready scheduling system designed to automate the creatio
 - **Real-time Updates** - Live data synchronization across users
 - **Glass Morphism Design** - Premium UI aesthetics with modern design patterns
 
+### Authentication & Security
+- **Role-Based Access Control (RBAC)** - Two-tier system (Analyst/Manager) with strict permission enforcement
+- **Secure Authentication** - JWT-based session management with bcrypt password hashing
+- **Protected API** - Middleware-enforced route protection and resource ownership checks
+- **Audit Ready** - Comprehensive logging of authentication events and sensitive actions
+
 ## 🏗️ Architecture
 
 ### Backend Stack

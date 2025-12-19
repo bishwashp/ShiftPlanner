@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, memo, useRef } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import moment from 'moment-timezone';
 import { dateUtils } from '../utils/dateUtils';
 import { apiService, Schedule, Analyst } from '../services/api';
@@ -122,6 +123,8 @@ const useSwipeGesture = (onSwipeLeft?: () => void, onSwipeRight?: () => void) =>
     onTouchEnd
   };
 };
+
+
 
 const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
   onViewChange,
@@ -361,8 +364,13 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
 
   const [selectedSchedules, setSelectedSchedules] = useState<Schedule[]>([]);
 
+  const { isManager } = useAuth();
+
   // Enhanced event handlers matching original ScheduleView functionality
   const handleDateSelect = useCallback((date: Date) => {
+    // Restrict to managers
+    if (!isManager) return;
+
     // Add haptic feedback for mobile
     if (isMobile && 'vibrate' in navigator) {
       navigator.vibrate(40);
@@ -371,16 +379,22 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
     console.log('Date selected:', date);
     setSelectedDate(date);
     setCreateModalOpen(true);
-  }, [isMobile]);
+  }, [isMobile, isManager]);
 
   const handleEditSchedule = useCallback((event: CalendarEvent) => {
+    // Restrict to managers
+    if (!isManager) return;
+
     console.log('Edit schedule:', event);
     setSelectedSchedule(event.resource);
     setSelectedSchedules([event.resource]);
     setEditModalOpen(true);
-  }, []);
+  }, [isManager]);
 
   const handleScheduleClick = useCallback((scheduleOrSchedules: Schedule | Schedule[]) => {
+    // Restrict to managers
+    if (!isManager) return;
+
     console.log('Schedule clicked:', scheduleOrSchedules);
     if (Array.isArray(scheduleOrSchedules)) {
       setSelectedSchedules(scheduleOrSchedules);
@@ -390,7 +404,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
       setSelectedSchedules([scheduleOrSchedules]);
     }
     setEditModalOpen(true);
-  }, []);
+  }, [isManager]);
 
 
 
@@ -543,7 +557,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
       {...(isMobile ? swipeHandlers : {})}
       onWheel={handleWheel}
       role="application"
-      aria-label="ShiftPlanner Simplified Schedule Calendar"
+      aria-label="Sine Simplified Schedule Calendar"
     >
       {/* Filter toggle removed - moved to View Settings */}
 

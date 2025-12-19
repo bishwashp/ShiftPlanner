@@ -5,6 +5,7 @@ import { apiService, Analyst } from '../services/api';
 import HeaderActionPortal from './layout/HeaderActionPortal';
 import HeaderActionButton from './layout/HeaderActionButton';
 import Button from './ui/Button';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AnalystFormData {
   name: string;
@@ -16,6 +17,7 @@ interface AnalystFormData {
 }
 
 const AnalystManagement: React.FC = () => {
+  const { isManager } = useAuth();
   const [analysts, setAnalysts] = useState<Analyst[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,7 @@ const AnalystManagement: React.FC = () => {
       setError(null);
       const data = await apiService.getAnalysts();
       setAnalysts(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching analysts:', err);
       setError('Failed to load analysts. Please try again.');
     } finally {
@@ -155,13 +157,15 @@ const AnalystManagement: React.FC = () => {
             {error}
           </div>
         )}
-        <HeaderActionPortal>
-          <HeaderActionButton
-            icon={UserPlus}
-            label="Add New"
-            onClick={() => setShowAddForm(true)}
-          />
-        </HeaderActionPortal>
+        {isManager && (
+          <HeaderActionPortal>
+            <HeaderActionButton
+              icon={UserPlus}
+              label="Add New"
+              onClick={() => setShowAddForm(true)}
+            />
+          </HeaderActionPortal>
+        )}
 
         {/* Info Row */}
         <div className="mb-6 flex items-center space-x-4 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10">
@@ -312,9 +316,11 @@ const AnalystManagement: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
                     Custom Attributes
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
-                    Actions
-                  </th>
+                  {isManager && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider w-auto">
+                      Actions
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -343,17 +349,26 @@ const AnalystManagement: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={analyst.isActive ? 'active' : 'inactive'}
-                        onChange={(e) => handleStatusChange(analyst, e.target.value === 'active')}
-                        className={`text-xs font-semibold rounded-full px-2 py-1 border-none focus:ring-2 focus:ring-offset-1 cursor-pointer ${analyst.isActive
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 focus:ring-green-500'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 focus:ring-red-500'
-                          }`}
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
+                      {isManager ? (
+                        <select
+                          value={analyst.isActive ? 'active' : 'inactive'}
+                          onChange={(e) => handleStatusChange(analyst, e.target.value === 'active')}
+                          className={`text-xs font-semibold rounded-full px-2 py-1 border-none focus:ring-2 focus:ring-offset-1 cursor-pointer ${analyst.isActive
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 focus:ring-green-500'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 focus:ring-red-500'
+                            }`}
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      ) : (
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${analyst.isActive
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                          }`}>
+                          {analyst.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">
                       {analyst.skills?.join(', ')}
@@ -363,25 +378,27 @@ const AnalystManagement: React.FC = () => {
                         {JSON.stringify(analyst.customAttributes, null, 2)}
                       </pre>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          onClick={() => handleEditClick(analyst)}
-                          variant="ghost"
-                          size="sm"
-                          className="mr-2"
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          onClick={() => handleDeleteAnalyst(analyst.id)}
-                          variant="danger"
-                          size="sm"
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
+                    {isManager && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            onClick={() => handleEditClick(analyst)}
+                            variant="ghost"
+                            size="sm"
+                            className="mr-2"
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            onClick={() => handleDeleteAnalyst(analyst.id)}
+                            variant="danger"
+                            size="sm"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -400,4 +417,4 @@ const AnalystManagement: React.FC = () => {
   );
 };
 
-export default AnalystManagement; 
+export default AnalystManagement;
