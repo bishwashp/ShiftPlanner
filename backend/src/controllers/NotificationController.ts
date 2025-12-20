@@ -7,15 +7,15 @@ export const notificationController = {
      */
     getNotifications: async (req: Request, res: Response) => {
         try {
-            const { userId, analystId, unreadOnly } = req.query;
+            const { userId, analystId, userRole, unreadOnly } = req.query;
 
-            // In a real app, we'd get userId from the auth token
-            // For now, we accept it as a query param for flexibility or fallback to what's in the token if available
-            // const authUserId = (req as any).user?.id;
+            // In a real app, we'd get userId and role from the auth token
+            // For now, we accept it as a query param for flexibility
 
             const notifications = await notificationService.getNotifications(
                 userId as string,
                 analystId as string,
+                userRole as string,
                 unreadOnly === 'true'
             );
 
@@ -45,8 +45,8 @@ export const notificationController = {
      */
     markAllAsRead: async (req: Request, res: Response) => {
         try {
-            const { userId, analystId } = req.body;
-            await notificationService.markAllAsRead(userId, analystId);
+            const { userId, analystId, userRole } = req.body;
+            await notificationService.markAllAsRead(userId, analystId, userRole);
             res.json({ success: true });
         } catch (error: any) {
             console.error('Error marking all notifications as read:', error);
@@ -65,6 +65,22 @@ export const notificationController = {
         } catch (error: any) {
             console.error('Error deleting notification:', error);
             res.status(500).json({ error: 'Failed to delete notification' });
+        }
+    },
+
+    /**
+     * Delete all notifications for user
+     */
+    deleteAllNotifications: async (req: Request, res: Response) => {
+        try {
+            const { userId, analystId, userRole } = req.body; // or query? usually DELETE uses query or body. 
+            // Better to use query or body. axios.delete works with params or data.
+            // Let's use body for consistency with markAllAsRead.
+            await notificationService.deleteAllNotifications(userId, analystId, userRole);
+            res.json({ success: true });
+        } catch (error: any) {
+            console.error('Error deleting all notifications:', error);
+            res.status(500).json({ error: 'Failed to delete notifications' });
         }
     }
 };

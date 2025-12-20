@@ -11,6 +11,7 @@ import {
   Faders
 } from '@phosphor-icons/react';
 import NotificationCenter from '../NotificationCenter';
+import AnimatedAppIcon from '../common/AnimatedAppIcon';
 import { useNotifications } from '../../hooks/useNotifications';
 
 export type View = 'schedule' | 'dashboard' | 'analysts' | 'availability' | 'conflicts' | 'analytics' | 'constraints' | 'algorithms' | 'export';
@@ -103,7 +104,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
         {/* Header */}
         <div className={`flex items-center mb-4 p-4 ${isOpen ? 'space-x-3' : 'justify-center'}`}>
           <div className="w-8 h-8 flex items-center justify-center">
-            <img src="/sine-icon.png" alt="Sine Logo" className="w-full h-full object-contain" />
+            <AnimatedAppIcon className="w-full h-full" />
           </div>
           <h1 className={`text-3xl brand-text transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>
             Sine

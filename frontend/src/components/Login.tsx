@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import AnimatedAppIcon from './common/AnimatedAppIcon';
 
 export const Login: React.FC = () => {
     const [email, setEmail] = useState('');
@@ -29,9 +30,11 @@ export const Login: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl max-w-md w-full mx-4">
                 <div className="text-center mb-8">
+
+
                     <div className="inline-flex items-center justify-center space-x-3 mb-4">
                         <div className="w-12 h-12 flex items-center justify-center">
-                            <img src="/sine-icon.png" alt="Sine Logo" className="w-full h-full object-contain" />
+                            <AnimatedAppIcon className="w-full h-full" />
                         </div>
                         <h2 className="text-5xl brand-text text-gray-900 dark:text-white">Sine</h2>
                     </div>

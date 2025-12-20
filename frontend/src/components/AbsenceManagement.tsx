@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Trash, PencilSimple, Warning, CheckCircle, XCircle, Clock, User } from '@phosphor-icons/react';
+import { useLocation } from 'react-router-dom';
 import { apiService, Analyst } from '../services/api';
 import { dateUtils } from '../utils/dateUtils';
 import Checkbox from './ui/Checkbox';
@@ -42,6 +43,7 @@ interface AbsenceFormData {
 
 const AbsenceManagement: React.FC = () => {
   const { isManager, user } = useAuth();
+  const location = useLocation();
   const [absences, setAbsences] = useState<Absence[]>([]);
   const [analysts, setAnalysts] = useState<Analyst[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,11 @@ const AbsenceManagement: React.FC = () => {
     isApproved: '',
     isPlanned: ''
   });
-  const [activeTab, setActiveTab] = useState<'manage' | 'approval'>('manage');
+  const [activeTab, setActiveTab] = useState<'manage' | 'approval'>(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('tab') === 'approval' ? 'approval' : 'manage';
+  });
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
   const absenceTypes = [
     { value: 'VACATION', label: 'Vacation' },
@@ -116,7 +122,46 @@ const AbsenceManagement: React.FC = () => {
   useEffect(() => {
     fetchAbsences();
     fetchAnalysts();
-  }, [filters]);
+    // Refresh when filters change OR when URL query params change (e.g. navigation from notification)
+  }, [filters, location.search]);
+
+  // Handle deep-linking via URL query params
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    const highlight = params.get('highlight');
+
+    if (tab === 'approval' && isManager) {
+      setActiveTab('approval');
+    } else if (tab === 'manage') {
+      setActiveTab('manage');
+    }
+
+    if (highlight) {
+      setHighlightedId(highlight);
+      // Clear highlight after animation
+      const timer = setTimeout(() => {
+        setHighlightedId(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [location.search, isManager]);
+
+  // Effect to scroll to highlighted item
+  useEffect(() => {
+    if (highlightedId) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`absence-${highlightedId}`);
+        if (element) {
+          console.log(`[AbsenceManagement] Scrolling to absence-${highlightedId}`);
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          console.warn(`[AbsenceManagement] Could not find element absence-${highlightedId}`);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedId, absences]);
 
   const handleAddAbsence = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -585,7 +630,11 @@ const AbsenceManagement: React.FC = () => {
                         const duration = dateUtils.getDurationInDays(absence.startDate, absence.endDate);
 
                         return (
-                          <tr key={absence.id} className="hover:bg-muted/50">
+                          <tr
+                            key={absence.id}
+                            id={`absence-${absence.id}`}
+                            className={`hover:bg-muted/50 transition-all ${highlightedId === absence.id ? 'highlight-glow' : ''}`}
+                          >
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="p-2 bg-primary/10 rounded-full mr-3">

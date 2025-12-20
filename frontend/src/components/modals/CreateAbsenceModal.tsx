@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { apiService, Analyst } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { dateUtils } from '../../utils/dateUtils';
@@ -21,6 +22,7 @@ const CreateAbsenceModal: React.FC<CreateAbsenceModalProps> = ({
     analysts
 }) => {
     const { isManager, user } = useAuth();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +61,8 @@ const CreateAbsenceModal: React.FC<CreateAbsenceModalProps> = ({
         }
     }, [isOpen, isManager, user]);
 
+    const [duplicateConflictId, setDuplicateConflictId] = useState<string | null>(null);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -85,6 +89,7 @@ const CreateAbsenceModal: React.FC<CreateAbsenceModalProps> = ({
 
         setLoading(true);
         setError(null);
+        setDuplicateConflictId(null);
 
         try {
             const submissionData = {
@@ -116,9 +121,22 @@ const CreateAbsenceModal: React.FC<CreateAbsenceModalProps> = ({
             onClose();
         } catch (err: any) {
             console.error('Error creating absence:', err);
-            setError(err.response?.data?.error || 'Failed to create absence request. Please try again.');
+            const errorData = err.response?.data;
+
+            if (errorData?.isDuplicate && errorData?.conflictId) {
+                setDuplicateConflictId(errorData.conflictId);
+            } else {
+                setError(errorData?.error || 'Failed to create absence request. Please try again.');
+            }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleReviewDuplicate = () => {
+        if (duplicateConflictId) {
+            onClose(); // Close modal first
+            navigate(`/absences?highlight=${duplicateConflictId}`);
         }
     };
 
@@ -144,6 +162,39 @@ const CreateAbsenceModal: React.FC<CreateAbsenceModalProps> = ({
                         <div className="flex items-center space-x-2">
                             <Warning className="h-5 w-5 text-destructive" />
                             <span className="text-destructive text-sm">{error}</span>
+                        </div>
+                    </div>
+                )}
+
+                {duplicateConflictId && (
+                    <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg animate-in fade-in zoom-in duration-300">
+                        <div className="flex items-start space-x-3">
+                            <Warning className="h-6 w-6 text-yellow-600 dark:text-yellow-500 mt-0.5" />
+                            <div className="flex-1">
+                                <h3 className="text-base font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
+                                    Duplicate entry found
+                                </h3>
+                                <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-4">
+                                    A request of the same type already exists for these dates. Please review the existing entry.
+                                </p>
+                                <div className="flex space-x-3">
+                                    <Button
+                                        onClick={handleReviewDuplicate}
+                                        variant="primary"
+                                        size="sm"
+                                        className="bg-yellow-600 hover:bg-yellow-700 text-white border-none"
+                                    >
+                                        Review
+                                    </Button>
+                                    <Button
+                                        onClick={() => setDuplicateConflictId(null)}
+                                        variant="secondary"
+                                        size="sm"
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}

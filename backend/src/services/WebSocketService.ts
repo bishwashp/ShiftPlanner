@@ -5,6 +5,7 @@ interface UserConnection {
     socketId: string;
     userId?: string;
     analystId?: string;
+    role?: string;
     connectedAt: Date;
 }
 
@@ -38,11 +39,12 @@ class WebSocketService {
      * Handle new WebSocket connection
      */
     private handleConnection(socket: Socket): void {
-        const { userId, analystId } = socket.handshake.auth;
+        const { userId, analystId, role } = socket.handshake.auth;
 
         console.log(`[WebSocket] New connection: ${socket.id}`, {
             userId,
-            analystId
+            analystId,
+            role
         });
 
         // Store connection info
@@ -50,6 +52,7 @@ class WebSocketService {
             socketId: socket.id,
             userId,
             analystId,
+            role,
             connectedAt: new Date()
         });
 
@@ -122,6 +125,31 @@ class WebSocketService {
         });
 
         console.log(`[WebSocket] Emitted ${event} to analyst ${analystId} (${targetSockets.length} connections)`);
+    }
+
+    /**
+     * Emit notification to specific roles
+     */
+    emitToRoles(roles: string[], event: string, data: any): void {
+        if (!this.io) {
+            console.warn('[WebSocket] Service not initialized');
+            return;
+        }
+
+        const targetSockets = Array.from(this.connections.values())
+            .filter(conn => conn.role && roles.includes(conn.role))
+            .map(conn => conn.socketId);
+
+        if (targetSockets.length === 0) {
+            console.log(`[WebSocket] No active connections for roles: ${roles.join(', ')}`);
+            return;
+        }
+
+        targetSockets.forEach(socketId => {
+            this.io?.to(socketId).emit(event, data);
+        });
+
+        console.log(`[WebSocket] Emitted ${event} to roles ${roles.join(', ')} (${targetSockets.length} connections)`);
     }
 
     /**

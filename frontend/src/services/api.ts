@@ -459,10 +459,11 @@ export const apiService = {
   },
 
   // Notifications
-  getNotifications: async (userId?: string, analystId?: string, unreadOnly?: boolean): Promise<any[]> => {
+  getNotifications: async (userId?: string, analystId?: string, userRole?: string, unreadOnly?: boolean): Promise<any[]> => {
     const params: any = {};
     if (userId) params.userId = userId;
     if (analystId) params.analystId = analystId;
+    if (userRole) params.userRole = userRole;
     if (unreadOnly) params.unreadOnly = unreadOnly;
 
     const response = await apiClient.get('/notifications', { params });
@@ -473,8 +474,13 @@ export const apiService = {
     await apiClient.put(`/notifications/${id}/read`);
   },
 
-  markAllNotificationsRead: async (userId?: string, analystId?: string): Promise<void> => {
-    await apiClient.put('/notifications/read-all', { userId, analystId });
+  markAllNotificationsRead: async (userId?: string, analystId?: string, userRole?: string): Promise<void> => {
+    await apiClient.put('/notifications/read-all', { userId, analystId, userRole });
+  },
+
+  deleteAllNotifications: async (userId?: string, analystId?: string, userRole?: string): Promise<void> => {
+    // Axios DELETE with data/body
+    await apiClient.delete('/notifications/all', { data: { userId, analystId, userRole } } as any);
   },
 
   deleteNotification: async (id: string): Promise<void> => {

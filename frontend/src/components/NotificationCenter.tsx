@@ -76,18 +76,41 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
 
 
   const handleNotificationClick = (notification: Notification) => {
+    console.log('[NotificationCenter] Notification clicked:', notification);
+    console.log('[NotificationCenter] Metadata:', notification.metadata);
+
     if (!notification.isRead) {
       markAsRead(notification.id);
     }
 
+    // Priorities:
+    // 1. Specific link in metadata
+    // 2. Known category patterns
     if (notification.metadata?.link) {
+      console.log('[NotificationCenter] Navigating to:', notification.metadata.link);
       navigate(notification.metadata.link);
-      onClose();
-    } else if (notification.metadata?.category === 'ABSENCE_REQUEST' || notification.metadata?.category === 'ABSENCE_RESUBMISSION') {
-      navigate('/absences?tab=approval');
-      onClose();
-    } else if (notification.metadata?.category === 'ABSENCE_UPDATE') {
-      navigate('/absences');
+      onClose(); // Close after navigation
+    } else if (notification.metadata?.category) {
+      switch (notification.metadata.category) {
+        case 'ABSENCE_REQUEST':
+        case 'ABSENCE_RESUBMISSION':
+          console.log('[NotificationCenter] Navigating to approval tab');
+          navigate('/absences?tab=approval');
+          onClose();
+          break;
+        case 'ABSENCE_UPDATE':
+        case 'ABSENCE_DENIAL':
+          console.log('[NotificationCenter] Navigating to absences');
+          navigate('/absences');
+          onClose();
+          break;
+        default:
+          console.log('[NotificationCenter] No navigation specified, just closing');
+          onClose();
+          break;
+      }
+    } else {
+      console.log('[NotificationCenter] No metadata link or category');
       onClose();
     }
   };

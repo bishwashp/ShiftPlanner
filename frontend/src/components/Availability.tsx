@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import HolidayManagement from './HolidayManagement';
 import AbsenceManagement from './AbsenceManagement';
 
@@ -8,14 +9,18 @@ interface AvailabilityProps {
   onTabChange: (tab: 'holidays' | 'absences') => void;
 }
 
+
+
 const Availability: React.FC<AvailabilityProps> = ({ timezone = 'America/New_York', activeTab, onTabChange }) => {
+  const location = useLocation();
 
   const renderView = () => {
     switch (activeTab) {
       case 'holidays':
         return <HolidayManagement timezone={timezone} />;
       case 'absences':
-        return <AbsenceManagement />;
+        // Force remount when query params change to ensure deep linking works reliably
+        return <AbsenceManagement key={location.search} />;
       default:
         return <HolidayManagement timezone={timezone} />;
     }

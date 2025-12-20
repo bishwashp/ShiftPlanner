@@ -6,6 +6,7 @@ import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PeriodProvider } from './context/PeriodContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { Login } from './components/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -17,19 +18,21 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <PeriodProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <App />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </PeriodProvider>
+        <NotificationProvider>
+          <PeriodProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <App />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </PeriodProvider>
+        </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>

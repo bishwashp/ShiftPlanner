@@ -13,6 +13,7 @@ import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
 import { useCalendarFilters } from './hooks/useCalendarFilters';
 import { apiService, Schedule, Analyst } from './services/api';
+import { useLocation } from 'react-router-dom';
 
 // import ActivitiesView from './components/ActivitiesView'; // Now integrated into Dashboard
 import ActionPromptProvider from './contexts/ActionPromptContext';
@@ -42,10 +43,35 @@ const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 
 
 function App() {
   const { theme } = useTheme();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState<SidebarView>('dashboard');
-  const [activeAvailabilityTab, setActiveAvailabilityTab] = useState<'holidays' | 'absences'>('holidays');
+  const [activeAvailabilityTab, setActiveAvailabilityTab] = useState<'holidays' | 'absences'>(() => {
+    return window.location.pathname.startsWith('/absences') ? 'absences' : 'holidays';
+  });
   const [activeConflictTab, setActiveConflictTab] = useState<'critical' | 'recommended'>('critical');
+
+  // Sync view state based on URL path
+  useEffect(() => {
+    const path = location.pathname;
+
+    if (path === '/') setActiveView('dashboard');
+    else if (path === '/schedule') setActiveView('schedule');
+    else if (path.startsWith('/analysts')) setActiveView('analysts');
+    else if (path.startsWith('/availability') || path.startsWith('/absences')) {
+      setActiveView('availability');
+      if (path.startsWith('/absences')) {
+        setActiveAvailabilityTab('absences');
+      } else {
+        setActiveAvailabilityTab('holidays');
+      }
+    }
+    else if (path.startsWith('/conflicts')) setActiveView('conflicts');
+    else if (path.startsWith('/analytics')) setActiveView('analytics');
+    else if (path.startsWith('/constraints')) setActiveView('constraints');
+    else if (path.startsWith('/algorithms')) setActiveView('algorithms');
+    else if (path.startsWith('/export')) setActiveView('export');
+  }, [location]); // Depend on full location to catch query param changes
   const [calendarDate, setCalendarDate] = useState(() => {
     // Start with current month
     const now = new Date();

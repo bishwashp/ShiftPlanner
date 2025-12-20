@@ -163,9 +163,13 @@ router.post('/', async (req: Request, res: Response) => {
       status
     });
 
-    // Invalidate relevant caches
-    await cacheService.invalidatePattern('absences:*');
-    await cacheService.invalidatePattern(`analyst:${analystId}:absences:*`);
+    // Invalidate relevant caches (non-blocking for the response)
+    try {
+      await cacheService.invalidatePattern('absences:*');
+      await cacheService.invalidatePattern(`analyst:${analystId}:absences:*`);
+    } catch (cacheError) {
+      console.warn('Failed to invalidate absence caches:', cacheError);
+    }
 
     // Return absence with conflicts if any
     res.status(201).json({
@@ -174,7 +178,12 @@ router.post('/', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error creating absence:', error);
-    res.status(500).json({ error: 'Failed to create absence', details: error.message });
+    res.status(500).json({
+      error: 'Failed to create absence',
+      details: error.message,
+      conflictId: error.conflictId,
+      isDuplicate: error.isDuplicate
+    });
   }
 });
 
@@ -223,10 +232,14 @@ router.put('/:id', async (req: Request, res: Response) => {
       denialReason
     });
 
-    // Invalidate relevant caches
-    await cacheService.invalidatePattern('absences:*');
-    await cacheService.invalidatePattern(`absence:${id}`);
-    await cacheService.invalidatePattern(`analyst:${absence.analystId}:absences:*`);
+    // Invalidate relevant caches (non-blocking for the response)
+    try {
+      await cacheService.invalidatePattern('absences:*');
+      await cacheService.invalidatePattern(`absence:${id}`);
+      await cacheService.invalidatePattern(`analyst:${absence.analystId}:absences:*`);
+    } catch (cacheError) {
+      console.warn('Failed to invalidate absence caches during update:', cacheError);
+    }
 
     // Return absence with conflicts if any
     res.json({
@@ -238,7 +251,12 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (error.code === 'P2025' || error.message === 'Absence not found') {
       res.status(404).json({ error: 'Absence not found' });
     } else {
-      res.status(500).json({ error: 'Failed to update absence', details: error.message });
+      res.status(500).json({
+        error: 'Failed to update absence',
+        details: error.message,
+        conflictId: error.conflictId,
+        isDuplicate: error.isDuplicate
+      });
     }
   }
 });

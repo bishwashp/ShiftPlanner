@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -6,6 +6,7 @@ interface UseWebSocketReturn {
     socket: Socket | null;
     isConnected: boolean;
     on: (event: string, handler: (data: any) => void) => void;
+    off: (event: string, handler: (data: any) => void) => void;
     emit: (event: string, data?: any) => void;
 }
 
@@ -93,26 +94,39 @@ export const useWebSocket = (): UseWebSocketReturn => {
     }, [user]);
 
     // Function to register event listeners
-    const on = (event: string, handler: (data: any) => void) => {
+    const on = useCallback((event: string, handler: (data: any) => void) => {
+        // Only one listener per event+handler reference
+        const currentHandlers = listenersRef.current.get(event);
+        if (currentHandlers === handler) return;
+
         listenersRef.current.set(event, handler);
         if (socketRef.current) {
             socketRef.current.on(event, handler);
         }
-    };
+    }, [isConnected]);
+
+    // Function to remove event listeners
+    const off = useCallback((event: string, handler: (data: any) => void) => {
+        listenersRef.current.delete(event);
+        if (socketRef.current) {
+            socketRef.current.off(event, handler);
+        }
+    }, [isConnected]);
 
     // Function to emit events
-    const emit = (event: string, data?: any) => {
+    const emit = useCallback((event: string, data?: any) => {
         if (socketRef.current && isConnected) {
             socketRef.current.emit(event, data);
         } else {
             console.warn('[WebSocket] Cannot emit - not connected');
         }
-    };
+    }, [isConnected]);
 
     return {
         socket: socketRef.current,
         isConnected,
         on,
+        off,
         emit
     };
 };

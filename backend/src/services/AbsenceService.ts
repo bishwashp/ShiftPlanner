@@ -56,21 +56,44 @@ export class AbsenceService {
       throw new Error('Analyst not found');
     }
 
-    // Check for overlapping absences
-    const overlappingAbsence = await this.prisma.absence.findFirst({
+    // Check for conflicts (overlapping or duplicate absences)
+    const conflictingAbsence = await this.prisma.absence.findFirst({
       where: {
         analystId,
         OR: [
+          // Exact duplicate (same type, same days) - check even if rejected
           {
-            startDate: { lte: end },
-            endDate: { gte: start }
+            type,
+            startDate: start,
+            endDate: end
+          },
+          // General overlap (any type, overlapping) - only check non-rejected
+          {
+            status: { not: 'REJECTED' },
+            OR: [
+              {
+                startDate: { lte: end },
+                endDate: { gte: start }
+              }
+            ]
           }
         ]
       }
     });
 
-    if (overlappingAbsence) {
-      throw new Error(`Analyst already has an absence during this period (${overlappingAbsence.type} from ${DateUtils.formatDate(overlappingAbsence.startDate)} to ${DateUtils.formatDate(overlappingAbsence.endDate)})`);
+    if (conflictingAbsence) {
+      const isDuplicate = conflictingAbsence.type === type &&
+        conflictingAbsence.startDate.getTime() === start.getTime() &&
+        conflictingAbsence.endDate.getTime() === end.getTime();
+
+      if (isDuplicate) {
+        const error: any = new Error(`Duplicate entry found: ${conflictingAbsence.type} from ${DateUtils.formatDate(conflictingAbsence.startDate)} to ${DateUtils.formatDate(conflictingAbsence.endDate)}`);
+        error.conflictId = conflictingAbsence.id;
+        error.isDuplicate = true;
+        throw error;
+      } else {
+        throw new Error(`Analyst already has an overlapping absence (${conflictingAbsence.type} from ${DateUtils.formatDate(conflictingAbsence.startDate)} to ${DateUtils.formatDate(conflictingAbsence.endDate)})`);
+      }
     }
 
     const absence = await this.prisma.absence.create({
@@ -80,7 +103,7 @@ export class AbsenceService {
         endDate: end,
         type,
         reason,
-        isApproved: isApproved !== undefined ? isApproved : false, // Default to false (pending) if not specified
+        isApproved: isApproved !== undefined ? isApproved : false,
         isPlanned: isPlanned !== undefined ? isPlanned : true,
         status: isApproved ? 'APPROVED' : 'PENDING'
       },
@@ -95,26 +118,42 @@ export class AbsenceService {
       }
     });
 
-    // Notify Managers about new request
+    // Notify Managers about new request (after successful creation)
+    // Notify Managers about new request (after successful creation)
     if (!absence.isApproved) {
-      // In a real app, we'd find all managers. For now, we'll create a system notification 
-      // or a notification for a specific admin user if we had one.
-      // Since we don't have easy access to "all managers", we'll create a notification 
-      // that can be fetched by any manager (userId=null, but maybe a special type/metadata).
+      // Notification service uses its own Prisma instance, so it's safe to call outside the transaction.
+      try {
+        // Fetch all managers/admins to notify individually
+        // This ensures each manager has their own 'read' status for the notification
+        const managers = await this.prisma.user.findMany({
+          where: { role: { in: ['MANAGER', 'SUPER_ADMIN'] } },
+          select: { id: true }
+        });
 
-      await notificationService.createNotification({
-        type: 'ALERT',
-        title: 'New Absence Request',
-        message: `${absence.analyst.name} requested ${absence.type} from ${DateUtils.formatDate(absence.startDate)} to ${DateUtils.formatDate(absence.endDate)}`,
-        priority: 'MEDIUM',
-        requiresAction: true,
-        metadata: {
-          category: 'ABSENCE_REQUEST',
-          absenceId: absence.id,
-          analystId: absence.analystId,
-          link: '/absences?tab=approval' // Frontend link
-        }
-      });
+        console.log(`[AbsenceService] Notifying ${managers.length} managers about new request`);
+
+        // Create individual notification for each manager
+        await Promise.all(managers.map(manager =>
+          notificationService.createNotification({
+            userId: manager.id, // Target specific manager
+            type: 'ALERT',
+            title: 'New Absence Request',
+            message: `${absence.analyst.name} requested ${absence.type} from ${DateUtils.formatDate(absence.startDate)} to ${DateUtils.formatDate(absence.endDate)}`,
+            priority: 'MEDIUM',
+            requiresAction: true,
+            metadata: {
+              category: 'ABSENCE_REQUEST',
+              absenceId: absence.id,
+              analystId: absence.analystId,
+              link: '/absences?tab=approval'
+            }
+          })
+        ));
+
+      } catch (error) {
+        console.error('[AbsenceService] Failed to send absence request notification:', error);
+        // Do NOT duplicate the absence or fail the request. silently log error.
+      }
     }
 
     return absence;
@@ -162,8 +201,54 @@ export class AbsenceService {
     }
 
     // Handle Resubmission Logic
-    // If status is being set to PENDING from REJECTED, it's a resubmission
     const currentAbsence = await this.prisma.absence.findUnique({ where: { id } });
+
+    // Check for conflicts (overlapping or duplicate absences)
+    const finalStart = updateData.startDate || currentAbsence?.startDate;
+    const finalEnd = updateData.endDate || currentAbsence?.endDate;
+    const finalType = updateData.type || currentAbsence?.type;
+
+    if (finalStart && finalEnd && finalType) {
+      const conflictingAbsence = await this.prisma.absence.findFirst({
+        where: {
+          id: { not: id },
+          analystId: currentAbsence?.analystId,
+          OR: [
+            // Exact duplicate
+            {
+              type: finalType,
+              startDate: finalStart,
+              endDate: finalEnd
+            },
+            // General overlap
+            {
+              status: { not: 'REJECTED' },
+              OR: [
+                {
+                  startDate: { lte: finalEnd },
+                  endDate: { gte: finalStart }
+                }
+              ]
+            }
+          ]
+        }
+      });
+
+      if (conflictingAbsence) {
+        const isDuplicate = conflictingAbsence.type === finalType &&
+          conflictingAbsence.startDate.getTime() === finalStart.getTime() &&
+          conflictingAbsence.endDate.getTime() === finalEnd.getTime();
+
+        if (isDuplicate) {
+          const error: any = new Error(`Duplicate entry found: ${conflictingAbsence.type} from ${DateUtils.formatDate(conflictingAbsence.startDate)} to ${DateUtils.formatDate(conflictingAbsence.endDate)}`);
+          error.conflictId = conflictingAbsence.id;
+          error.isDuplicate = true;
+          throw error;
+        } else {
+          throw new Error(`Analyst already has an overlapping absence (${conflictingAbsence.type} from ${DateUtils.formatDate(conflictingAbsence.startDate)} to ${DateUtils.formatDate(conflictingAbsence.endDate)})`);
+        }
+      }
+    }
     const isResubmission = currentAbsence?.status === 'REJECTED' && updateData.status === 'PENDING';
 
     if (isResubmission) {
@@ -205,19 +290,24 @@ export class AbsenceService {
     // Notify Analyst on Denial
     if (updateData.status === 'REJECTED') {
       console.log(`[AbsenceService] Creating denial notification for analyst ${absence.analystId}`);
-      await notificationService.createNotification({
-        analystId: absence.analystId,
-        type: 'ALERT',
-        title: 'Absence Request Denied',
-        message: `Your absence request for ${DateUtils.formatDate(absence.startDate)} was denied. Reason: ${absence.denialReason}`,
-        priority: 'HIGH',
-        requiresAction: true,
-        metadata: {
-          category: 'ABSENCE_DENIAL',
-          absenceId: absence.id,
-          link: '/absences' // Navigate to absence list to see denial
-        }
-      });
+      try {
+        await notificationService.createNotification({
+          analystId: absence.analystId,
+          type: 'ALERT',
+          title: 'Absence Request Denied',
+          message: `Your absence request for ${DateUtils.formatDate(absence.startDate)} was denied. Reason: ${absence.denialReason}`,
+          priority: 'HIGH',
+          requiresAction: true,
+          metadata: {
+            category: 'ABSENCE_DENIAL',
+            absenceId: absence.id,
+            link: `/absences?highlight=${absence.id}` // Highlight the denied request
+          }
+        });
+      } catch (error) {
+        console.error('[AbsenceService] Failed to send denial notification:', error);
+        // Continue execution - do not fail the update just because notification failed
+      }
     }
 
     return absence;
