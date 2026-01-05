@@ -55,8 +55,8 @@ function App() {
   useEffect(() => {
     const path = location.pathname;
 
-    if (path === '/') setActiveView('dashboard');
-    else if (path === '/schedule') setActiveView('schedule');
+    if (path === '/' || path === '/dashboard') setActiveView('dashboard');
+    else if (path === '/schedule' || path === '/calendar') setActiveView('schedule');
     else if (path.startsWith('/analysts')) setActiveView('analysts');
     else if (path.startsWith('/availability') || path.startsWith('/absences')) {
       setActiveView('availability');
@@ -86,6 +86,7 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [analysts, setAnalysts] = useState<Analyst[]>([]);
+  const [holidays, setHolidays] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,23 +102,16 @@ function App() {
     localStorage.setItem('calendarDate', calendarDate.toISOString());
   }, [sidebarOpen, activeView, calendarView, calendarDate]);
 
-  // Load user preferences on mount
+  // Load user preferences on mount (except activeView which is controlled by URL)
   useEffect(() => {
     const savedSidebarOpen = localStorage.getItem('sidebarOpen');
-    const savedActiveView = localStorage.getItem('activeView') as SidebarView;
     const savedCalendarView = localStorage.getItem('calendarView') as 'month' | 'week' | 'day';
     const savedCalendarDate = localStorage.getItem('calendarDate');
 
     if (savedSidebarOpen !== null) {
       setSidebarOpen(savedSidebarOpen === 'true');
     }
-    if (savedActiveView && ['schedule', 'dashboard', 'analysts', 'availability', 'conflicts', 'analytics', 'constraints', 'algorithms', 'export'].includes(savedActiveView)) {
-      // Only restore saved view if we are on the dashboard/root path
-      // This allows direct linking to other pages to take precedence
-      if (location.pathname === '/' || location.pathname === '/dashboard') {
-        setActiveView(savedActiveView);
-      }
-    }
+    // activeView is now controlled by URL path, not localStorage
     if (savedCalendarView && (['month', 'week', 'day'] as const).includes(savedCalendarView)) {
       setCalendarView(savedCalendarView);
     }
@@ -207,6 +201,16 @@ function App() {
       const schedulesData = await apiService.getSchedules(start, end);
       setSchedules(schedulesData);
 
+      // Fetch holidays for the current year
+      const year = localDate.year();
+      try {
+        const holidaysData = await apiService.getHolidaysForYear(year, timezone);
+        setHolidays(holidaysData.filter((h: any) => h.isActive));
+      } catch (holidayErr) {
+        console.warn('Failed to fetch holidays:', holidayErr);
+        // Non-critical - continue without holidays
+      }
+
     } catch (err: any) {
       console.error('Error fetching data:', err);
       const errorMessage = err.response?.status === 429
@@ -274,6 +278,7 @@ function App() {
             timezone={timezone}
             schedules={schedules}
             analysts={analysts}
+            holidays={holidays}
             loading={loading}
             error={error}
             filterHook={filterHook}

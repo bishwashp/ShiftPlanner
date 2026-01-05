@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   CalendarBlank,
   Users,
@@ -26,9 +27,28 @@ interface CollapsibleSidebarProps {
   onConflictTabChange?: (tab: 'critical' | 'recommended') => void;
 }
 
+// Map view names to URL paths
+const viewToPath: Record<View, string> = {
+  dashboard: '/dashboard',
+  schedule: '/calendar',
+  analysts: '/analysts',
+  availability: '/availability',
+  conflicts: '/conflicts',
+  analytics: '/analytics',
+  constraints: '/constraints',
+  algorithms: '/algorithms',
+  export: '/export',
+};
+
 const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewChange, activeView, ...props }) => {
+  const navigate = useNavigate();
   const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
   const { unreadCount } = useNotifications();
+
+  const handleNavigation = (view: View) => {
+    onViewChange(view);
+    navigate(viewToPath[view]);
+  };
 
 
   // Define navigation structure with groups
@@ -133,7 +153,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
                     return (
                       <li key={item.view}>
                         <button
-                          onClick={() => onViewChange(item.view as View)}
+                          onClick={() => handleNavigation(item.view as View)}
                           className={`
                             w-full flex items-center rounded-lg text-sm font-medium transition-colors duration-150
                             ${isOpen ? 'space-x-3 px-3 py-2' : 'justify-center p-3'}

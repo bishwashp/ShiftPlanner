@@ -1,7 +1,8 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { usePerformance } from '../../../contexts/PerformanceContext';
 import moment from 'moment-timezone';
 import { NameBox } from './NameBox';
+import { HolidayPill } from './HolidayPill';
 
 interface CalendarEvent {
   id: string;
@@ -14,6 +15,7 @@ interface CalendarGridProps {
   date: Date;
   timezone: string;
   events: CalendarEvent[];
+  holidays: any[]; // Holiday data with name, date fields
   isMobile: boolean;
   onEventSelect?: (event: CalendarEvent) => void; // Optional - not used in current implementation
   onDateSelect?: (date: Date) => void;
@@ -31,6 +33,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   date,
   timezone,
   events,
+  holidays,
   isMobile,
   onEventSelect,
   onDateSelect,
@@ -119,6 +122,20 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
+
+  // Create holiday lookup map for O(1) access by date
+  const holidayMap = useMemo(() => {
+    const map = new Map<string, any[]>();
+    holidays.forEach(holiday => {
+      // Holiday date is in YYYY-MM-DD format
+      const dateKey = holiday.date.split('T')[0]; // Handle ISO strings
+      if (!map.has(dateKey)) {
+        map.set(dateKey, []);
+      }
+      map.get(dateKey)!.push(holiday);
+    });
+    return map;
+  }, [holidays]);
 
   // Smart name box stacking logic
   const renderNameBoxes = (dayEvents: CalendarEvent[], dayDate: moment.Moment) => {
@@ -345,6 +362,11 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                         : day.isCurrentMonth ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
                       <span>{day.date.date()}</span>
                     </div>
+
+                    {/* Holiday Pill(s) */}
+                    {holidayMap.get(day.date.format('YYYY-MM-DD'))?.map((holiday, idx) => (
+                      <HolidayPill key={holiday.id || idx} name={holiday.name} />
+                    ))}
 
                   </div>
 
