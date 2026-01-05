@@ -4,6 +4,7 @@ import { Analyst, Schedule, SchedulingConstraint } from '../../../../generated/p
 export interface SchedulingContext {
     startDate: Date;
     endDate: Date;
+    regionId: string; // Multi-Region Support
     analysts: Analyst[];
     existingSchedules: Schedule[];
     globalConstraints: SchedulingConstraint[];
@@ -23,8 +24,8 @@ export interface ProposedSchedule {
     date: string;
     analystId: string;
     analystName: string;
-    shiftType: 'MORNING' | 'EVENING' | 'WEEKEND';
-    analystShiftType?: 'MORNING' | 'EVENING' | 'WEEKEND';
+    shiftType: string;
+    analystShiftType?: string;
     isScreener: boolean;
     type: 'NEW_SCHEDULE' | 'OVERWRITE_SCHEDULE';
     assignmentReason?: AssignmentReason;

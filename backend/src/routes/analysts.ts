@@ -9,10 +9,11 @@ const router = Router();
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { active, shiftType } = req.query;
-    
+    const regionId = req.headers['x-region-id'] as string;
+
     // Create cache key based on filters
-    const filters = `active:${active || 'all'}_shift:${shiftType || 'all'}`;
-    
+    const filters = `region:${regionId || 'all'}_active:${active || 'all'}_shift:${shiftType || 'all'}`;
+
     // Try to get from cache first
     const cachedAnalysts = await cacheService.getAnalysts(filters);
     if (cachedAnalysts) {
@@ -21,6 +22,10 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Build query conditions
     const where: any = {};
+    if (regionId) {
+      where.regionId = regionId;
+    }
+
     if (active !== undefined) {
       where.isActive = active === 'true';
     }
@@ -68,7 +73,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Cache the result
     await cacheService.setAnalysts(filters, formattedAnalysts);
-    
+
     res.json(formattedAnalysts);
   } catch (error) {
     console.error('Error fetching analysts:', error);
@@ -80,7 +85,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     // Try to get from cache first
     const cachedAnalyst = await cacheService.getAnalyst(id);
     if (cachedAnalyst) {
@@ -131,7 +136,7 @@ router.get('/:id', async (req: Request, res: Response) => {
         }
       }
     });
-    
+
     if (!analyst) {
       return res.status(404).json({ error: 'Analyst not found' });
     }
@@ -145,7 +150,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     // Cache the result
     await cacheService.setAnalyst(id, formattedAnalyst);
-    
+
     res.json(formattedAnalyst);
   } catch (error) {
     console.error('Error fetching analyst:', error);
@@ -163,12 +168,18 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Name, email, shiftType, and employeeType are required' });
     }
 
+    const regionId = req.headers['x-region-id'] as string;
+    if (!regionId) {
+      return res.status(400).json({ error: 'Region ID (x-region-id header) is required' });
+    }
+
     const analyst = await prisma.analyst.create({
       data: {
         name,
         email,
         shiftType,
         employeeType,
+        regionId,
         customAttributes: customAttributes ? JSON.stringify(customAttributes) : null,
         skills: skills ? skills.join(',') : null
       },
@@ -254,7 +265,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (skills) changes.push('skills');
 
     const changeDescription = changes.length > 0 ? changes.join(', ') : 'details';
-    
+
     const activityData = ActivityService.ActivityTemplates.ANALYST_UPDATED(
       analyst.name,
       changeDescription,

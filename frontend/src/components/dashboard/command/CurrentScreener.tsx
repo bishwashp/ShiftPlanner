@@ -1,68 +1,103 @@
 import React, { useState, useEffect } from 'react';
-import { User, ShieldCheck } from '@phosphor-icons/react';
-import { apiService } from '../../../services/api';
+import { ShieldCheck, Spinner, Warning } from '@phosphor-icons/react';
+import { apiService, GlobalDashboardStatus } from '../../../services/api';
 import moment from 'moment-timezone';
 
+/**
+ * CurrentScreener - Shows the globally active screener
+ * Uses the global dashboard status to determine which shift is currently active,
+ * then finds the screener assigned to that shift for today.
+ */
 const CurrentScreener: React.FC = () => {
     const [screener, setScreener] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [shiftPhase, setShiftPhase] = useState<string>('');
+    const [currentShiftLabel, setCurrentShiftLabel] = useState<string>('');
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchScreener = async () => {
+        const fetchGlobalScreener = async () => {
             try {
+                setLoading(true);
+                setError(null);
+
+                // 1. Get global dashboard status to find next handover
+                const globalStatus = await apiService.getGlobalDashboardStatus();
+
+                if (!globalStatus.nextHandover) {
+                    setError('No handover data');
+                    setCurrentShiftLabel('Unknown');
+                    return;
+                }
+
+                // The "current" shift is the source of the next handover
+                // e.g., if next handover is SGP PM → LDN, then SGP PM is currently on duty
+                const sourceRegion = globalStatus.nextHandover.sourceRegion;
+                const sourceShift = globalStatus.nextHandover.sourceShift;
+
+                // Format label (avoid "LDN LDN")
+                const label = sourceRegion === sourceShift
+                    ? sourceRegion
+                    : `${sourceRegion} ${sourceShift}`;
+                setCurrentShiftLabel(label);
+
+                // 2. Fetch today's schedules GLOBALLY to find the screener for this shift
                 const today = moment().format('YYYY-MM-DD');
-                const schedules = await apiService.getSchedules(today, today);
+                const schedules = await apiService.getSchedulesGlobal(today, today);
 
-                // Determine current shift phase based on CST time
-                const now = moment.tz('America/Chicago');
-                const hour = now.hour();
-                const minute = now.minute();
-                const timeVal = hour + minute / 60;
-
-                let currentPhase = 'OFF_HOURS';
-                let shiftType = '';
-
-                // 10:00 AM - 2:30 PM: AMR Morning
-                if (timeVal >= 10 && timeVal < 14.5) {
-                    currentPhase = 'AMR Morning';
-                    shiftType = 'MORNING';
+                // 3. Map shift name to schedule shiftType
+                // AM/Morning → MORNING, PM/Evening → EVENING
+                let targetShiftType = '';
+                const shiftLower = sourceShift.toLowerCase();
+                if (shiftLower.includes('am') || shiftLower.includes('morning')) {
+                    targetShiftType = 'MORNING';
+                } else if (shiftLower.includes('pm') || shiftLower.includes('evening')) {
+                    targetShiftType = 'EVENING';
                 }
-                // 2:30 PM - 6:30 PM: AMR Evening
-                else if (timeVal >= 14.5 && timeVal < 18.5) {
-                    currentPhase = 'AMR Evening';
-                    shiftType = 'EVENING';
-                }
-                // 6:30 PM - 10:00 AM (Next Day): APAC/EMEA (Simplified logic for now)
-                else {
-                    currentPhase = 'APAC / EMEA';
-                    // For now, we might not have specific APAC schedules in the DB structure 
-                    // unless they are marked as 'EVENING' or 'MORNING' in a specific way.
-                    // Assuming 'EVENING' might cover late shifts or 'MORNING' early ones.
-                    // For this MVP, we'll look for any screener if we can't match phase perfectly.
-                }
+                // For single-shift regions like LDN, we might not have AM/PM distinction
+                // In that case, look for any screener in that region's schedules
 
-                setShiftPhase(currentPhase);
+                // 4. Find screener matching region and shift type (no fallback to avoid wrong region)
+                const currentScreener = schedules.find((s: any) => {
+                    const matchesRegion = s.analyst?.region?.name === sourceRegion;
+                    const matchesShiftType = targetShiftType
+                        ? s.shiftType === targetShiftType
+                        : true;
+                    return s.isScreener && matchesRegion && matchesShiftType;
+                });
 
-                // Find the screener for the current shift type
-                const currentScreener = schedules.find((s: any) =>
-                    s.isScreener && (shiftType ? s.shiftType === shiftType : true)
-                );
+                // No fallback - if we can't find the exact screener for the global shift, show unassigned
+                setScreener(currentScreener || null);
 
-                // If no specific shift match, just take the first screener of the day as fallback
-                setScreener(currentScreener || schedules.find((s: any) => s.isScreener));
-
-            } catch (error) {
-                console.error('Failed to fetch screener', error);
+            } catch (err) {
+                console.error('Failed to fetch global screener', err);
+                setError('Failed to load');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchScreener();
+        fetchGlobalScreener();
+        // Refresh every 5 minutes
+        const interval = setInterval(fetchGlobalScreener, 5 * 60 * 1000);
+        return () => clearInterval(interval);
     }, []);
 
-    if (loading) return <div className="animate-pulse h-full bg-gray-100 dark:bg-white/5 rounded-lg" />;
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-full">
+                <Spinner className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center gap-2 h-full text-amber-500">
+                <Warning className="w-5 h-5" />
+                <span className="text-sm">{error}</span>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center gap-4 h-full">
@@ -82,7 +117,7 @@ const CurrentScreener: React.FC = () => {
                         On Duty
                     </span>
                     <span className="text-[10px] text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10">
-                        {shiftPhase}
+                        {currentShiftLabel}
                     </span>
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">

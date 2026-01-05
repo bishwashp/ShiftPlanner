@@ -12,10 +12,10 @@ import ConstraintManagement from './components/ConstraintManagement';
 import AlgorithmManagement from './components/AlgorithmManagement';
 import Dashboard from './components/Dashboard';
 import { useCalendarFilters } from './hooks/useCalendarFilters';
-import { apiService, Schedule, Analyst } from './services/api';
-import { useLocation } from 'react-router-dom';
+import AdminPortal from './pages/admin/AdminPortal';
 
-// import ActivitiesView from './components/ActivitiesView'; // Now integrated into Dashboard
+import { useLocation } from 'react-router-dom';
+import { apiService, Schedule, Analyst } from './services/api';
 import ActionPromptProvider from './contexts/ActionPromptContext';
 import moment from 'moment-timezone';
 import { useTheme } from 'react18-themes';
@@ -25,6 +25,7 @@ import LiquidBackground from './components/layout/LiquidBackground';
 
 // Performance Context (used by LiquidBackground and CalendarGrid)
 import { PerformanceProvider } from './contexts/PerformanceContext';
+import { RegionProvider } from './contexts/RegionContext';
 
 // Toast notification component for better UX
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => (
@@ -71,6 +72,9 @@ function App() {
     else if (path.startsWith('/constraints')) setActiveView('constraints');
     else if (path.startsWith('/algorithms')) setActiveView('algorithms');
     else if (path.startsWith('/export')) setActiveView('export');
+    else if (path === '/admin' || path.startsWith('/admin/portal')) setActiveView('admin');
+    else if (path.startsWith('/admin/regions')) setActiveView('regions');
+    else if (path.startsWith('/admin/shifts')) setActiveView('shifts');
   }, [location]); // Depend on full location to catch query param changes
   const [calendarDate, setCalendarDate] = useState(() => {
     // Start with current month
@@ -255,6 +259,8 @@ function App() {
         return <ConstraintManagement />;
       case 'algorithms':
         return <AlgorithmManagement />;
+      case 'admin':
+        return <AdminPortal />;
 
       case 'dashboard':
         return <Dashboard
@@ -291,56 +297,59 @@ function App() {
 
   return (
     <PerformanceProvider>
-      <ActionPromptProvider>
-        <div className={`flex h-screen bg-transparent text-foreground transition-colors duration-200 ${theme} overflow-hidden`}>
-          <LiquidBackground />
-          <CollapsibleSidebar
-            isOpen={sidebarOpen}
-            onViewChange={handleViewChange}
-            activeView={activeView}
-            activeAvailabilityTab={activeAvailabilityTab}
-            onAvailabilityTabChange={setActiveAvailabilityTab}
-            activeConflictTab={activeConflictTab}
-            onConflictTabChange={setActiveConflictTab}
-          />
-          <div className="flex-1 flex flex-col">
-            <AppHeader
-              sidebarOpen={sidebarOpen}
-              setSidebarOpen={setSidebarOpen}
-              date={calendarDate}
-              setDate={setCalendarDate}
-              view={calendarView}
-              setView={setCalendarView}
+      <RegionProvider>
+        <ActionPromptProvider>
+          <div className={`flex h-screen bg-transparent text-foreground transition-colors duration-200 ${theme} overflow-hidden`}>
+            <LiquidBackground />
+            <CollapsibleSidebar
+              isOpen={sidebarOpen}
+              onViewChange={handleViewChange}
               activeView={activeView}
-              timezone={timezone}
-              onTimezoneChange={handleTimezoneChange}
               activeAvailabilityTab={activeAvailabilityTab}
               onAvailabilityTabChange={setActiveAvailabilityTab}
               activeConflictTab={activeConflictTab}
               onConflictTabChange={setActiveConflictTab}
-              onRefresh={handleRefresh}
-              isRefreshing={isRefreshing}
-              filterHook={filterHook}
             />
-            <main className="flex-1 overflow-auto relative">
-              {isLoading && (
-                <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-10">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              )}
-              {renderView()}
-            </main>
+            <div className="flex-1 flex flex-col">
+              <AppHeader
+                sidebarOpen={sidebarOpen}
+                setSidebarOpen={setSidebarOpen}
+                date={calendarDate}
+                setDate={setCalendarDate}
+                view={calendarView}
+                setView={setCalendarView}
+                activeView={activeView}
+                timezone={timezone}
+                onTimezoneChange={handleTimezoneChange}
+                activeAvailabilityTab={activeAvailabilityTab}
+                onAvailabilityTabChange={setActiveAvailabilityTab}
+                activeConflictTab={activeConflictTab}
+                onConflictTabChange={setActiveConflictTab}
+                onRefresh={handleRefresh}
+                isRefreshing={isRefreshing}
+                filterHook={filterHook}
+                onViewChange={handleViewChange}
+              />
+              <main className="flex-1 overflow-auto relative">
+                {isLoading && (
+                  <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                )}
+                {renderView()}
+              </main>
+            </div>
+            {toast && (
+              <Toast
+                message={toast.message}
+                type={toast.type}
+                onClose={() => setToast(null)}
+              />
+            )}
           </div>
-          {toast && (
-            <Toast
-              message={toast.message}
-              type={toast.type}
-              onClose={() => setToast(null)}
-            />
-          )}
-        </div>
 
-      </ActionPromptProvider>
+        </ActionPromptProvider>
+      </RegionProvider>
     </PerformanceProvider>
   );
 }

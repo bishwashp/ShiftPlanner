@@ -13,9 +13,10 @@ import {
 } from '@phosphor-icons/react';
 import NotificationCenter from '../NotificationCenter';
 import AnimatedAppIcon from '../common/AnimatedAppIcon';
+import { GeoSelector } from '../common/GeoSelector';
 import { useNotifications } from '../../hooks/useNotifications';
 
-export type View = 'schedule' | 'dashboard' | 'analysts' | 'availability' | 'conflicts' | 'analytics' | 'constraints' | 'algorithms' | 'export';
+export type View = 'schedule' | 'dashboard' | 'analysts' | 'availability' | 'conflicts' | 'analytics' | 'constraints' | 'algorithms' | 'export' | 'regions' | 'shifts' | 'admin';
 
 interface CollapsibleSidebarProps {
   isOpen: boolean;
@@ -38,6 +39,9 @@ const viewToPath: Record<View, string> = {
   constraints: '/constraints',
   algorithms: '/algorithms',
   export: '/export',
+  regions: '/admin/regions',
+  shifts: '/admin/shifts',
+  admin: '/admin/portal',
 };
 
 const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewChange, activeView, ...props }) => {
@@ -100,7 +104,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
         { view: 'constraints', label: 'Constraints', icon: Faders },
         { view: 'algorithms', label: 'Algorithms', icon: Cpu },
       ]
-    }
+    },
   ];
 
   return (
@@ -126,9 +130,12 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
           <div className="w-8 h-8 flex items-center justify-center">
             <AnimatedAppIcon className="w-full h-full" />
           </div>
-          <h1 className={`text-3xl brand-text transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>
-            Sine
-          </h1>
+          <div className={`flex items-center gap-2 transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
+            <h1 className="text-3xl brand-text whitespace-nowrap">
+              Sine
+            </h1>
+            <GeoSelector className="mt-1" />
+          </div>
         </div>
 
         {/* Navigation */}

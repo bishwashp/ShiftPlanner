@@ -62,10 +62,35 @@ export class ConflictDetectionService {
       },
     });
 
+    // Get shift definitions to know what shifts each region has
+    const shiftDefinitions = await this.prisma.shiftDefinition.findMany({
+      include: { region: true }
+    });
+
+    // Build a map of region -> configured shift types (morning/evening based on shift name)
+    const regionShiftConfig = new Map<string, Set<string>>();
+    for (const shift of shiftDefinitions) {
+      if (!regionShiftConfig.has(shift.regionId)) {
+        regionShiftConfig.set(shift.regionId, new Set());
+      }
+      const shiftSet = regionShiftConfig.get(shift.regionId)!;
+      // Map shift names to MORNING/EVENING based on common patterns
+      const nameLower = shift.name.toLowerCase();
+      if (nameLower.includes('am') || nameLower.includes('morning')) {
+        shiftSet.add('MORNING');
+      } else if (nameLower.includes('pm') || nameLower.includes('evening')) {
+        shiftSet.add('EVENING');
+      } else {
+        // Single shift regions (like LDN) - add as both to indicate they only need one
+        // Actually, mark them specially so we know they're single-shift
+        shiftSet.add('SINGLE');
+      }
+    }
+
     console.log(`🔍 Found ${schedules.length} schedules in date range`);
 
     // Process schedules and detect conflicts
-    const conflicts = this.processSchedules(schedules, allDates, startDate, endDate);
+    const conflicts = this.processSchedules(schedules, allDates, startDate, endDate, regionShiftConfig);
 
     // Categorize conflicts by severity
     const criticalConflicts = conflicts.filter(c => c.severity === 'critical');
@@ -100,7 +125,8 @@ export class ConflictDetectionService {
     schedules: any[],
     allDates: Set<string>,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
+    regionShiftConfig?: Map<string, Set<string>>
   ): Conflict[] {
     const conflicts: Conflict[] = [];
 
@@ -202,7 +228,7 @@ export class ConflictDetectionService {
     this.detectMissingShifts(scheduledDates, datesWithPartialSchedules, datesWithNoSchedules, conflicts);
 
     // Check for screener conflicts in complete schedules
-    this.detectScreenerConflicts(schedules, datesWithCompleteSchedules, conflicts);
+    this.detectScreenerConflicts(schedules, datesWithCompleteSchedules, conflicts, regionShiftConfig);
 
     // HOLISTIC FIX: Check for over-staffing (too many analysts per shift)
     this.detectOverstaffing(schedules, conflicts);
@@ -388,32 +414,47 @@ export class ConflictDetectionService {
 
   /**
    * Detect screener conflicts in complete schedules
+   * FIXED: Now counts screeners PER REGION and respects region shift configurations
    */
   private detectScreenerConflicts(
     schedules: any[],
     datesWithCompleteSchedules: Set<string>,
-    conflicts: Conflict[]
+    conflicts: Conflict[],
+    regionShiftConfig?: Map<string, Set<string>>
   ): void {
-    // Get screener assignments for each date with complete schedules
+    // Get screener assignments for each region + date combination
+    // Key format: "regionId:dateStr"
     const screenerAssignments = new Map<string, ScreenerAssignments>();
+    // Track which regions have data
+    const regionDateKeys = new Set<string>();
 
     schedules.forEach(schedule => {
       const dateStr = schedule.date.toISOString().split('T')[0];
+      const regionId = schedule.regionId || 'unknown';
+      const key = `${regionId}:${dateStr}`;
+
       if (datesWithCompleteSchedules.has(dateStr) && schedule.isScreener) {
-        if (!screenerAssignments.has(dateStr)) {
-          screenerAssignments.set(dateStr, { morning: 0, evening: 0 });
+        if (!screenerAssignments.has(key)) {
+          screenerAssignments.set(key, { morning: 0, evening: 0 });
         }
-        const assignments = screenerAssignments.get(dateStr)!;
+        const assignments = screenerAssignments.get(key)!;
         if (schedule.shiftType === 'MORNING') {
           assignments.morning++;
         } else if (schedule.shiftType === 'EVENING') {
           assignments.evening++;
         }
       }
+
+      // Track all region+date combinations to check for missing screeners
+      if (datesWithCompleteSchedules.has(dateStr)) {
+        regionDateKeys.add(key);
+      }
     });
 
-    // Check each date with complete schedules for screener conflicts
-    datesWithCompleteSchedules.forEach(dateStr => {
+    // Check each region + date combination for screener conflicts
+    regionDateKeys.forEach(key => {
+      const [regionId, dateStr] = key.split(':');
+
       // Use UTC day to avoid timezone issues with the date string
       const dayOfWeek = moment.utc(dateStr).day();
 
@@ -423,21 +464,37 @@ export class ConflictDetectionService {
         return;
       }
 
-      const screeners = screenerAssignments.get(dateStr) || { morning: 0, evening: 0 };
+      const screeners = screenerAssignments.get(key) || { morning: 0, evening: 0 };
       let screenerIssues: string[] = [];
 
-      // Check for screener requirements (only on weekdays)
-      if (screeners.morning === 0) {
-        screenerIssues.push('Morning screener missing');
-      }
-      if (screeners.evening === 0) {
-        screenerIssues.push('Evening screener missing');
-      }
-      if (screeners.morning > 1) {
-        screenerIssues.push(`Multiple morning screeners (${screeners.morning})`);
-      }
-      if (screeners.evening > 1) {
-        screenerIssues.push(`Multiple evening screeners (${screeners.evening})`);
+      // Get this region's configured shift types
+      const regionShifts = regionShiftConfig?.get(regionId) || new Set(['MORNING', 'EVENING']);
+      const isSingleShiftRegion = regionShifts.has('SINGLE');
+      const hasMorningShift = regionShifts.has('MORNING');
+      const hasEveningShift = regionShifts.has('EVENING');
+
+      // For single-shift regions (like LDN), only need one screener total
+      if (isSingleShiftRegion) {
+        const totalScreeners = screeners.morning + screeners.evening;
+        if (totalScreeners === 0) {
+          screenerIssues.push('Screener missing');
+        } else if (totalScreeners > 1) {
+          screenerIssues.push(`Multiple screeners (${totalScreeners})`);
+        }
+      } else {
+        // Standard regions with morning/evening shifts
+        if (hasMorningShift && screeners.morning === 0) {
+          screenerIssues.push('Morning screener missing');
+        }
+        if (hasEveningShift && screeners.evening === 0) {
+          screenerIssues.push('Evening screener missing');
+        }
+        if (screeners.morning > 1) {
+          screenerIssues.push(`Multiple morning screeners (${screeners.morning})`);
+        }
+        if (screeners.evening > 1) {
+          screenerIssues.push(`Multiple evening screeners (${screeners.evening})`);
+        }
       }
 
       // Add screener conflicts

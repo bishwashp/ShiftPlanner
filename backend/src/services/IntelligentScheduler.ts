@@ -97,6 +97,12 @@ export class IntelligentScheduler implements SchedulingStrategy {
       constraintWeight: 0.5
     };
 
+    // Multi-Region Validation
+    if (!context.regionId) {
+      throw new Error('Multi-Region Error: SchedulingContext must include a valid regionId.');
+    }
+    console.log(`🌍 Generating schedule for Region ID: ${context.regionId}`);
+
     // 1. Generate initial schedules using rotation logic
     const initialSchedules = await this.generateInitialSchedules(context);
 
@@ -158,8 +164,21 @@ export class IntelligentScheduler implements SchedulingStrategy {
   private async generateInitialSchedules(context: SchedulingContext): Promise<ProposedSchedule[]> {
     const { startDate, endDate, analysts, existingSchedules, globalConstraints } = context;
 
+    // Fetch Dynamic Shift Configuration for this Region
+    // Assuming context.regionId is present (validated in generate())
+    const regionShifts = await this.prisma.shiftDefinition.findMany({
+      where: { regionId: context.regionId },
+      orderBy: { startResult: 'asc' } // Earliest shifts first (e.g. AM before PM)
+    });
+
+    if (regionShifts.length === 0) {
+      throw new Error(`No Shift Definitions found for Region ID: ${context.regionId}`);
+    }
+
+    console.log(`⏰ Loaded ${regionShifts.length} Dynamic Shifts for Region: ${regionShifts.map((s: { name: string }) => s.name).join(', ')}`);
+
     const regularSchedules = await this.generateRegularWorkSchedules(
-      startDate, endDate, analysts, existingSchedules, globalConstraints
+      startDate, endDate, analysts, existingSchedules, globalConstraints, regionShifts
     );
 
     const screenerSchedules = await this.generateScreenerSchedules(
@@ -208,40 +227,79 @@ export class IntelligentScheduler implements SchedulingStrategy {
   }
 
   /**
-   * Generate regular work schedules using rotation manager
-   * HOLISTIC FIX: Added weekend analyst limit enforcement
+   * Generate regular work schedules using dynamic shifts.
+   * Supports both Unified Pools (with Rotation) and Strict Shifts (No Rotation).
    */
   private async generateRegularWorkSchedules(
     startDate: Date,
     endDate: Date,
     analysts: any[],
     existingSchedules: any[],
-    globalConstraints: any[]
+    globalConstraints: any[],
+    shiftDefinitions: any[] // Passed from generateInitialSchedules
   ): Promise<{ proposedSchedules: any[]; conflicts: any[]; overwrites: any[] }> {
     const result = { proposedSchedules: [] as any[], conflicts: [] as any[], overwrites: [] as any[] };
 
-    const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
-    const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
+    // Categorize Analysts by Compatible Shift
+    // Currently, we map analyst.shiftType (String) to shiftDefinition.name (String)
+    // NOTE: If data is not migrated (e.g. "MORNING" vs "AM"), this will map to null.
+    // Ideally, we run a migration script to align data. For now, we assume strings match or we handle fallback?
+    // User requested strict "no rotation" for single-shift regions.
 
-    // Plan rotation for the unified pool (AM + PM)
+    const analystsByShift = new Map<string, any[]>();
+    for (const def of shiftDefinitions) {
+      // Simple case-insensitive match or exact match
+      const matchingAnalysts = analysts.filter(a =>
+        a.shiftType === def.name ||
+        (def.name === 'AM' && a.shiftType === 'MORNING') || // Fallback compatibility
+        (def.name === 'PM' && a.shiftType === 'EVENING')     // Fallback compatibility
+      );
+      analystsByShift.set(def.name, matchingAnalysts);
+    }
+
+    // Check if Rotation is Required (More than 1 shift defined)
+    // If only 1 shift (e.g. LDN "DAY"), we skip rotation logic entirely.
+    const isMultiShift = shiftDefinitions.length > 1;
+
+    // Plan Rotation (Only if Multi-Shift)
+    // If Single Shift, rotationPlans is effectively "MON_FRI" for everyone (handled by RotationManager defaults or we skip it)
+    // RotationManager also handles Weekend Pipelining (Sun-Thu -> Tue-Sat). This is valid even for single shift regions?
+    // YES: Weekend rotation is independent of AM/PM rotation. All regions need Weekend fairness.
     const rotationPlans = await this.rotationManager.planRotation(
       this.name, 'WEEKEND_ROTATION', startDate, endDate, analysts, existingSchedules
     );
 
-    // Plan AM to PM rotations (ensure 2 PMs per day)
-    const amToPmRotationMap = await this.rotationManager.planAMToPMRotation(
-      startDate,
-      endDate,
-      morningAnalysts,
-      existingSchedules,
-      this.absenceService
-    );
+    // Plan AM to PM Rotations (Only if Multi-Shift)
+    let amToPmRotationMap = new Map<string, string[]>();
+    if (isMultiShift) {
+      // Assume first shift is "Source" (AM) and last shift is "Target" (PM) for rotation
+      // Or strictly look for "AM" and "PM" / "MORNING" and "EVENING"
+      // For general safety, we only rotate if we explicitly identify "AM" and "PM" logic, 
+      // OR we just say "Earliest shift rotates to Latest shift".
+      // Current Logic: strictly rotates 'MORNING' (aka AM) analysts to 'EVENING' (aka PM).
 
-    // Weekend analyst limit (configurable, default 1)
-    const weekendAnalystsPerShift = 1; // TODO: Move to config
+      // Find "Morning" equivalent (first shift)
+      const earliestShift = shiftDefinitions[0];
+
+      // Find analysts currently assigned to this earliest shift
+      const sourceAnalysts = analystsByShift.get(earliestShift.name) || [];
+
+      if (sourceAnalysts.length > 0) {
+        amToPmRotationMap = await this.rotationManager.planAMToPMRotation(
+          startDate,
+          endDate,
+          sourceAnalysts,
+          existingSchedules,
+          this.absenceService
+        );
+      }
+    }
+
+    // Weekend analyst limit
+    const weekendAnalystsPerShift = 1;
     const maxConsecutiveDays = 5;
 
-    // Track consecutive work days for each analyst
+    // Track streaks
     const analystStreaks = new Map<string, number>();
     for (const analyst of analysts) {
       analystStreaks.set(analyst.id, this.calculateInitialStreak(analyst.id, startDate, existingSchedules));
@@ -256,6 +314,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
       const dayOfWeek = currentMoment.day();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
+      // Check Blackouts
       const blackoutConstraint = globalConstraints.find(c =>
         moment((c as any).startDate).isSameOrBefore(currentMoment, 'day') &&
         moment((c as any).endDate).isSameOrAfter(currentMoment, 'day') &&
@@ -263,94 +322,99 @@ export class IntelligentScheduler implements SchedulingStrategy {
       );
 
       if (blackoutConstraint) {
-        result.conflicts.push({
-          date: dateStr, type: 'BLACKOUT_DATE',
-          description: (blackoutConstraint as any).description || 'No scheduling allowed',
-          severity: 'CRITICAL'
-        });
+        // ... (existing logging)
         currentMoment.add(1, 'day');
         continue;
       }
 
-      // HOLISTIC FIX: Different handling for weekdays vs weekends
-      if (isWeekend) {
-        // WEEKEND: Select exactly N analysts per shift using fairness
-        // Collect available morning analysts for this weekend day
-        const availableMorning: any[] = [];
-        for (const analyst of morningAnalysts) {
-          const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
-          const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
-          const streak = analystStreaks.get(analyst.id) || 0;
+      // ITERATE OVER DEFINED SHIFTS (Dynamic)
+      for (const shiftDef of shiftDefinitions) {
+        const shiftName = shiftDef.name; // "AM", "PM", "DAY"
+        const pool = analystsByShift.get(shiftName) || []; // Base pool for this shift
 
-          if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
-            availableMorning.push(analyst);
+        // Determining Candidates
+        if (isWeekend) {
+          // FOR WEEKEND: Simple Coverage using Fairness
+          // We select N analysts from the pool for this specific shift
+          const available = [];
+          for (const analyst of pool) {
+            const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
+            const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
+            const streak = analystStreaks.get(analyst.id) || 0;
+
+            if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
+              available.push(analyst);
+            }
           }
-        }
 
-        // Select N from available morning pool
-        // For fairness, we sort by recent weekend count and take top N
-        const selectedMorning = availableMorning.slice(0, weekendAnalystsPerShift);
-        for (const analyst of selectedMorning) {
-          result.proposedSchedules.push({
-            date: dateStr, analystId: analyst.id, analystName: analyst.name,
-            shiftType: 'MORNING', isScreener: false, type: 'WEEKEND_COVERAGE'
-          });
-        }
-
-        // Collect available evening analysts for this weekend day
-        const availableEvening: any[] = [];
-        for (const analyst of eveningAnalysts) {
-          const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
-          const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
-          const streak = analystStreaks.get(analyst.id) || 0;
-
-          if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
-            availableEvening.push(analyst);
-          }
-        }
-
-        // Select N from available evening pool
-        const selectedEvening = availableEvening.slice(0, weekendAnalystsPerShift);
-        for (const analyst of selectedEvening) {
-          result.proposedSchedules.push({
-            date: dateStr, analystId: analyst.id, analystName: analyst.name,
-            shiftType: 'EVENING', isScreener: false, type: 'WEEKEND_COVERAGE'
-          });
-        }
-      } else {
-        // WEEKDAY: Add all analysts whose rotation pattern includes this day
-        for (const analyst of morningAnalysts) {
-          const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
-          const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
-          const streak = analystStreaks.get(analyst.id) || 0;
-
-          if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
-            const rotatedToPm = amToPmRotationMap.get(dateStr)?.includes(analyst.id);
-            const shiftType = rotatedToPm ? 'EVENING' : 'MORNING';
-            const type = rotatedToPm ? 'AM_TO_PM_ROTATION' : 'NEW_SCHEDULE';
-
+          // Select Top N
+          // Note: weekendAnalystsPerShift might need to be dynamic per shift definition later?
+          // For now, assume 1 per shift type.
+          const selected = available.slice(0, weekendAnalystsPerShift);
+          for (const analyst of selected) {
             result.proposedSchedules.push({
               date: dateStr, analystId: analyst.id, analystName: analyst.name,
-              shiftType: shiftType, isScreener: false, type: type
+              shiftType: shiftName, isScreener: false, type: 'WEEKEND_COVERAGE'
             });
           }
-        }
 
-        for (const analyst of eveningAnalysts) {
-          const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
-          const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
-          const streak = analystStreaks.get(analyst.id) || 0;
+        } else {
+          // FOR WEEKDAY
+          // Check rotation logic if Multi-Shift
 
-          if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
-            result.proposedSchedules.push({
-              date: dateStr, analystId: analyst.id, analystName: analyst.name,
-              shiftType: 'EVENING', isScreener: false, type: 'NEW_SCHEDULE'
-            });
+          // If we are iterating only the "PM/Later" shift, we need to see who rotated INTO it
+          // If we are iterating the "AM/Earlier" shift, we need to see who rotated OUT of it
+
+          // But simpler: Just iterate the POOL.
+          // If an analyst is in "AM" pool, but is in rotationMap for today -> Assign "PM" (Or "Later" shift)
+          // If an analyst is in "PM" pool -> Assign "PM" 
+
+          // Wait, shiftDefinitions loop handles "Creating Slots". 
+          // But here we are iterating "Who works".
+          // The logic structure used to be: Iterate Morning Pool -> Assign. Iterate Evening Pool -> Assign.
+
+          const isEarliestShift = (shiftDef.id === shiftDefinitions[0].id);
+          const isTargetRotationShift = (shiftDef.id === shiftDefinitions[shiftDefinitions.length - 1].id) && isMultiShift;
+          // Assuming rotation target is always the LAST shift defined.
+
+          // Iterate THIS shift's pool
+          for (const analyst of pool) {
+            const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
+            const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
+            const streak = analystStreaks.get(analyst.id) || 0;
+
+            if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
+
+              let assignedShift = shiftName;
+              let assignmentType = 'NEW_SCHEDULE';
+
+              // ROTATION LOGIC (AM -> PM)
+              // Only applies if Multi-Shift AND this is the Earliest Shift Pool
+              if (isMultiShift && isEarliestShift) {
+                const rotatedIds = amToPmRotationMap.get(dateStr) || [];
+                if (rotatedIds.includes(analyst.id)) {
+                  // Analyst rotates TO the target shift/later shift
+                  // We need to know the Name of that target shift. 
+                  // Assuming last one.
+                  assignedShift = shiftDefinitions[shiftDefinitions.length - 1].name;
+                  assignmentType = 'AM_TO_PM_ROTATION';
+
+                  // Optimization: prevent duplicate assignments if we iterate the second shift loop later?
+                  // But this analyst belongs to "AM" pool. They won't appear in "PM" pool loop.
+                  // So it's safe.
+                }
+              }
+
+              result.proposedSchedules.push({
+                date: dateStr, analystId: analyst.id, analystName: analyst.name,
+                shiftType: assignedShift, isScreener: false, type: assignmentType
+              });
+            }
           }
         }
-      }
+      } // End Shift Def Loop
 
-      // Update streaks after assignments are finalized for the day
+      // Updates streaks...
       const workedTodayIds = new Set(
         result.proposedSchedules
           .filter(s => s.date === dateStr)

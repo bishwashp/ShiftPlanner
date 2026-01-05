@@ -25,6 +25,7 @@ import ViewSettingsMenu from './ViewSettingsMenu';
 import ExportModal from '../modals/ExportModal';
 import { usePeriod } from '../../context/PeriodContext';
 
+
 interface AppHeaderProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
@@ -41,6 +42,7 @@ interface AppHeaderProps {
   onConflictTabChange?: (tab: 'critical' | 'recommended') => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onViewChange?: (view: SidebarView | 'admin') => void;
   filterHook?: any;
 }
 
@@ -60,6 +62,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   onConflictTabChange,
   onRefresh,
   isRefreshing,
+  onViewChange,
   filterHook
 }) => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -115,6 +118,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         return 'Constraint Management';
       case 'algorithms':
         return 'Algorithm Management';
+      case 'admin':
+        return 'Admin Portal';
       default:
         return 'Sine';
     }
@@ -177,13 +182,25 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     </p>
                   </div>
                 </div>
-                <div className="mt-2">
+                <div className="mt-2 flex items-center justify-between">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isManager
                     ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
                     : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
                     }`}>
                     {user?.role === 'SUPER_ADMIN' ? 'ADMIN' : user?.role}
                   </span>
+
+                  {isManager && (
+                    <button
+                      onClick={() => {
+                        onViewChange?.('admin'); // 'admin' is not in SidebarView enum yet, need to add it or cast
+                        setIsOpen(false);
+                      }}
+                      className="text-xs bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-3 py-1 rounded-full font-bold hover:opacity-90 transition-opacity"
+                    >
+                      Admin Portal
+                    </button>
+                  )}
                 </div>
               </div>
 

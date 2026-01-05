@@ -135,11 +135,16 @@ model Analyst {
   requestedShiftSwaps    ShiftSwap[]             @relation("RequestingAnalyst")
   targetedShiftSwaps     ShiftSwap[]             @relation("TargetAnalyst")
 
+  // Multi-Region Support
+  regionId       String // FK to Region
+  region         Region @relation(fields: [regionId], references: [id])
+
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
   @@index([employeeType, isActive]) // For filtering by employee type
   @@index([email]) // Already unique, but explicit for performance
   @@index([createdAt]) // For sorting and date-based queries
+  @@index([regionId]) // For region filtering
   @@map("analysts")
 }
 
@@ -240,6 +245,10 @@ model Schedule {
   // Relationships
   analyst Analyst @relation(fields: [analystId], references: [id], onDelete: Cascade)
 
+  // Multi-Region Support
+  regionId   String
+  // Note: We don't necessarily need a strict relation here for performance, but beneficial for integrity
+  
   @@unique([analystId, date])
   // Critical performance indexes for schedule queries
   @@index([date, shiftType]) // For date-based schedule queries (most common)
@@ -247,6 +256,7 @@ model Schedule {
   @@index([date, isScreener]) // For screener assignment queries
   @@index([analystId, date, shiftType]) // For specific analyst/date/shift queries
   @@index([date]) // For pure date-based queries
+  @@index([regionId])
   @@map("schedules")
 }
 
@@ -319,10 +329,15 @@ model Holiday {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Multi-Region Support
+  regionId    String
+  region      Region @relation(fields: [regionId], references: [id])
+
   // Performance indexes for date and timezone queries
   @@index([date, timezone, isActive]) // For holiday lookups by date and timezone
   @@index([year, isActive]) // For year-based holiday queries
   @@index([isRecurring, isActive]) // For recurring holiday queries
+  @@index([regionId])
   @@map("holidays")
 }
 
@@ -579,6 +594,64 @@ model HolidayConstraintConfig {
   updatedAt       DateTime @updatedAt
 
   @@map("holiday_constraint_config")
+}
+
+// ============================================================================
+// MULTI-REGION SUPPORT MODELS
+// ============================================================================
+
+model Region {
+  id          String   @id @default(cuid())
+  name        String   @unique // "AMR", "SGP", "LDN"
+  timezone    String   // "America/New_York", "Asia/Singapore", "Europe/London"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  analysts    Analyst[]
+  shiftDefs   ShiftDefinition[]
+  holidays    Holiday[]
+
+  @@map("regions")
+}
+
+model ShiftDefinition {
+  id          String   @id @default(cuid())
+  regionId    String
+  name        String   // "AM", "PM", "DAY"
+  startResult String   // "09:00" (Local Time)
+  endResult   String   // "18:00" (Local Time)
+  isOvernight Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  region      Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@unique([regionId, name])
+  @@index([regionId])
+  @@map("shift_definitions")
+
+  // Relations
+  outgoingHandovers HandoverDefinition[] @relation("SourceShift")
+  incomingHandovers HandoverDefinition[] @relation("TargetShift")
+}
+
+model HandoverDefinition {
+  id            String   @id @default(cuid())
+  sourceShiftId String
+  targetShiftId String
+  handoverTime  String   // "18:30" (in Source Shift's timezone, or UTC? Usually local to source or explicitly defined. Let's assume generic time string for now)
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sourceShift   ShiftDefinition @relation("SourceShift", fields: [sourceShiftId], references: [id], onDelete: Cascade)
+  targetShift   ShiftDefinition @relation("TargetShift", fields: [targetShiftId], references: [id], onDelete: Cascade)
+
+  @@index([sourceShiftId])
+  @@index([targetShiftId])
+  @@map("handover_definitions")
 }
 
 model CompOffBalance {

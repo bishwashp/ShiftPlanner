@@ -13,6 +13,17 @@ async function main() {
     const startDate = moment.utc('2025-12-01').toDate();
     const endDate = moment.utc('2027-01-31').toDate();
 
+    // Fetch default AMR region
+    const amrRegion = await prisma.region.findUnique({
+        where: { name: 'AMR' }
+    });
+
+    if (!amrRegion) {
+        throw new Error('AMR Region not found. Please run migration script first.');
+    }
+
+    console.log(`🌍 Using Region: ${amrRegion.name} (${amrRegion.id})`);
+
     console.log(`\n🧹 Clearing schedules from ${moment.utc(startDate).format('YYYY-MM-DD')} to ${moment.utc(endDate).format('YYYY-MM-DD')}...`);
 
     const deleteResult = await prisma.schedule.deleteMany({
@@ -20,7 +31,8 @@ async function main() {
             date: {
                 gte: startDate,
                 lte: endDate
-            }
+            },
+            regionId: amrRegion.id // only clear AMR schedules to be safe
         }
     });
 
@@ -28,7 +40,10 @@ async function main() {
 
     // Fetch analysts
     const analysts = await prisma.analyst.findMany({
-        where: { isActive: true },
+        where: {
+            isActive: true,
+            regionId: amrRegion.id
+        },
         include: {
             schedules: {
                 where: {
@@ -45,6 +60,7 @@ async function main() {
     const result = await scheduler.generate({
         startDate,
         endDate,
+        regionId: amrRegion.id,
         analysts,
         existingSchedules: [], // generating fresh
         globalConstraints: []
@@ -62,7 +78,8 @@ async function main() {
                 date: moment.utc(s.date).toDate(),
                 shiftType: s.shiftType,
                 analystId: s.analystId,
-                isScreener: s.isScreener
+                isScreener: s.isScreener,
+                regionId: amrRegion.id
             }
         }))
     );

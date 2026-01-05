@@ -15,14 +15,20 @@ const dashboardService = new DashboardService(prisma, cacheService, analyticsEng
 router.get('/monthly-tallies/:year/:month', async (req: Request, res: Response) => {
   try {
     const { year, month } = req.params;
+    const regionId = req.headers['x-region-id'] as string;
+
+    if (!regionId) {
+      return res.status(400).json({ error: 'x-region-id header is required' });
+    }
+
     const yearNum = parseInt(year);
     const monthNum = parseInt(month);
-    
+
     if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
       return res.status(400).json({ error: 'Invalid year or month parameters' });
     }
-    
-    const tallies = await analyticsEngine.calculateMonthlyTallies(monthNum, yearNum);
+
+    const tallies = await analyticsEngine.calculateMonthlyTallies(monthNum, yearNum, regionId);
     res.json({
       success: true,
       data: tallies,
@@ -47,26 +53,31 @@ router.get('/monthly-tallies/:year/:month', async (req: Request, res: Response) 
 router.get('/fairness-report', async (req: Request, res: Response) => {
   try {
     const { startDate, endDate } = req.query;
-    
+    const regionId = req.headers['x-region-id'] as string;
+
+    if (!regionId) {
+      return res.status(400).json({ error: 'x-region-id header is required' });
+    }
+
     if (!startDate || !endDate) {
       return res.status(400).json({ error: 'startDate and endDate are required' });
     }
-    
+
     const dateRange = {
       startDate: new Date(startDate as string),
       endDate: new Date(endDate as string),
     };
-    
+
     // Validate dates
     if (isNaN(dateRange.startDate.getTime()) || isNaN(dateRange.endDate.getTime())) {
       return res.status(400).json({ error: 'Invalid date format' });
     }
-    
+
     if (dateRange.startDate > dateRange.endDate) {
       return res.status(400).json({ error: 'startDate must be before endDate' });
     }
-    
-    const report = await analyticsEngine.generateFairnessReport(dateRange);
+
+    const report = await analyticsEngine.generateFairnessReport(dateRange, regionId);
     res.json({
       success: true,
       data: report,

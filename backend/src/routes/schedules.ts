@@ -12,6 +12,11 @@ router.get('/', async (req: Request, res: Response) => {
     const { startDate, endDate, analystId } = req.query;
 
     const where: any = {};
+    const regionId = req.headers['x-region-id'] as string;
+
+    if (regionId) {
+      where.regionId = regionId;
+    }
 
     if (startDate && endDate) {
       where.date = {
@@ -27,7 +32,9 @@ router.get('/', async (req: Request, res: Response) => {
     const schedules = await prisma.schedule.findMany({
       where,
       include: {
-        analyst: true
+        analyst: {
+          include: { region: true }
+        }
       },
       orderBy: { date: 'asc' }
     });
@@ -195,6 +202,7 @@ router.post('/', async (req: Request, res: Response) => {
       const schedule = await prisma.schedule.create({
         data: {
           analystId,
+          regionId: analyst.regionId,
           date: storageDate,
           shiftType,
           isScreener
@@ -478,6 +486,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
         const schedule = await prisma.schedule.create({
           data: {
             analystId,
+            regionId: analyst.regionId,
             date: DateUtils.asStorageDate(date),
             shiftType,
             isScreener
@@ -630,6 +639,15 @@ router.post('/apply-auto-fix', async (req: Request, res: Response) => {
       try {
         const { date, shiftType, analystId, isScreener = false } = assignment;
 
+        const analyst = await prisma.analyst.findUnique({
+          where: { id: analystId }
+        });
+
+        if (!analyst) {
+          errors.push({ assignment, error: 'Analyst not found' });
+          continue;
+        }
+
         // Check if analyst already has a schedule for this date
         const existingSchedule = await prisma.schedule.findUnique({
           where: { analystId_date: { analystId, date: new Date(date) } }
@@ -662,6 +680,7 @@ router.post('/apply-auto-fix', async (req: Request, res: Response) => {
         const schedule = await prisma.schedule.create({
           data: {
             analystId,
+            regionId: analyst.regionId,
             date: DateUtils.asStorageDate(date),
             shiftType,
             isScreener
@@ -703,9 +722,17 @@ router.post('/generate-unified', async (req: Request, res: Response) => {
     }
 
     // 1. Fetch Context Data
-    const analysts = await prisma.analyst.findMany({ where: { isActive: true } });
+    const regionId = req.headers['x-region-id'] as string;
+    if (!regionId) {
+      return res.status(400).json({ error: 'Region ID (x-region-id header) is required for generation' });
+    }
+
+    const analysts = await prisma.analyst.findMany({
+      where: { isActive: true, regionId: regionId }
+    });
     const existingSchedules = await prisma.schedule.findMany({
       where: {
+        regionId: regionId,
         date: {
           gte: start,
           lte: end
@@ -732,6 +759,7 @@ router.post('/generate-unified', async (req: Request, res: Response) => {
 
     // 4. Generate Schedule
     const context = {
+      regionId,
       startDate: start,
       endDate: end,
       analysts,
@@ -768,8 +796,13 @@ router.post('/generate', async (req: Request, res: Response) => {
     }
 
     // Get all active analysts
+    const regionId = req.headers['x-region-id'] as string;
+    if (!regionId) {
+      return res.status(400).json({ error: 'Region ID (x-region-id header) is required for generation' });
+    }
+
     const analysts = await prisma.analyst.findMany({
-      where: { isActive: true },
+      where: { isActive: true, regionId: regionId },
       include: {
         schedules: {
           where: {
@@ -786,21 +819,18 @@ router.post('/generate', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No active analysts found. Please add analysts first.' });
     }
 
-    // Check if we have analysts for both shifts
-    const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
-    const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
-
-    if (morningAnalysts.length === 0) {
-      return res.status(400).json({ error: 'No morning shift analysts found. Please add morning shift analysts first.' });
+    // Check if we have analysts
+    if (analysts.length === 0) {
+      return res.status(400).json({ error: 'No active analysts found. Please add analysts first.' });
     }
 
-    if (eveningAnalysts.length === 0) {
-      return res.status(400).json({ error: 'No evening shift analysts found. Please add evening shift analysts first.' });
-    }
+    // Dynamic shift validation is handled by the scheduler or implied by having analysts.
+    // We remove hardcoded MORNING/EVENING checks to support dynamic regional shifts (e.g. AM/PM, DAY).
 
     // Get existing schedules and global constraints
     const existingSchedules = await prisma.schedule.findMany({
       where: {
+        regionId: regionId,
         date: {
           gte: start,
           lte: end
@@ -822,6 +852,7 @@ router.post('/generate', async (req: Request, res: Response) => {
     const scheduler = new IntelligentScheduler(prisma);
 
     const context = {
+      regionId,
       startDate: start,
       endDate: end,
       analysts,

@@ -7,6 +7,9 @@ import generationBlocksRouter from './generation-blocks';
 import compoffRouter from './compoff';
 import holidayConstraintRouter from './holiday-constraint';
 import specialEventsRouter from './special-events';
+import regionsRouter from './regions';
+import shiftDefinitionsRouter from './shiftDefinitions';
+import dashboardRouter from './dashboard';
 
 const router = Router();
 
@@ -19,6 +22,9 @@ router.use('/generation-blocks', generationBlocksRouter);
 router.use('/compoff', compoffRouter);
 router.use('/holiday-constraint', holidayConstraintRouter);
 router.use('/special-events', specialEventsRouter);
+router.use('/regions', regionsRouter);
+router.use('/shift-definitions', shiftDefinitionsRouter);
+router.use('/dashboard', dashboardRouter);
 
 // API info endpoint
 router.get('/', (req, res) => {

@@ -118,6 +118,14 @@ apiClient.interceptors.request.use(
       // Use non-null assertion since we just initialized it
       config.headers!.Authorization = `Bearer ${token}`;
     }
+
+    // Add Region Context Header (unless explicitly overridden)
+    // If the request already has x-region-id header set (even to empty), don't override
+    const regionId = localStorage.getItem('user_selected_region_id');
+    if (regionId && !('x-region-id' in (config.headers || {}))) {
+      config.headers = config.headers || {};
+      config.headers!['x-region-id'] = regionId;
+    }
     return config;
   },
   (error) => {
@@ -388,8 +396,53 @@ export interface WebhookConfig {
   enabled: boolean;
 }
 
+// Dashboard Types
+export interface DashboardOperationalStatus {
+  currentShift: {
+    id: string;
+    name: string;
+    isOvernight: boolean;
+  } | null;
+  nextHandover: {
+    id: string;
+    sourceShift: string;
+    targetRegion: string;
+    targetShift: string;
+    handoverTime: string;
+    timestamp?: string; // ISO string calculated by server
+    timeUntil: number; // seconds
+  } | null;
+}
+
+// Global Dashboard Status (region-agnostic)
+export interface GlobalDashboardStatus {
+  nextHandover: {
+    id: string;
+    sourceRegion: string;
+    sourceShift: string;
+    targetRegion: string;
+    targetShift: string;
+    handoverTime: string;
+    handoverTimeUtc: string;
+    timeUntil: number;
+    timestamp: string;
+  } | null;
+}
+
 // API Service Functions
 export const apiService = {
+  // Dashboard Status (region-scoped)
+  getDashboardStatus: async (): Promise<DashboardOperationalStatus> => {
+    const response = await apiClient.get('/dashboard/status');
+    return response.data as DashboardOperationalStatus;
+  },
+
+  // Global Dashboard Status (region-agnostic)
+  getGlobalDashboardStatus: async (): Promise<GlobalDashboardStatus> => {
+    const response = await apiClient.get('/dashboard/global-status');
+    return response.data as GlobalDashboardStatus;
+  },
+
   // Health Check
   health: async (): Promise<{ status: string; timestamp: string; version: string }> => {
     const response = await apiClient.get('/health');
@@ -508,9 +561,18 @@ export const apiService = {
     await apiClient.delete(`/constraints/${id}`);
   },
 
-  // Schedules
+  // Schedules (region-scoped via interceptor)
   getSchedules: async (startDate: string, endDate: string): Promise<Schedule[]> => {
     const response = await apiClient.get('/schedules', { params: { startDate, endDate } });
+    return response.data as Schedule[];
+  },
+
+  // Schedules (global - bypasses region interceptor, fetches ALL regions)
+  getSchedulesGlobal: async (startDate: string, endDate: string): Promise<Schedule[]> => {
+    const response = await apiClient.get('/schedules', {
+      params: { startDate, endDate },
+      headers: { 'x-region-id': '' } // Bypass region interceptor
+    });
     return response.data as Schedule[];
   },
 

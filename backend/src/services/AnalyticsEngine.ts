@@ -107,8 +107,8 @@ export class AnalyticsEngine {
     this.cache = cache;
   }
 
-  async calculateMonthlyTallies(month: number, year: number): Promise<MonthlyTally[]> {
-    const cacheKey = `monthly_tallies_v2_${year}_${month}`;
+  async calculateMonthlyTallies(month: number, year: number, regionId: string): Promise<MonthlyTally[]> {
+    const cacheKey = `monthly_tallies_v2_${regionId}_${year}_${month}`;
 
     // Try to get from cache first
     const cached = await this.cache.get(cacheKey);
@@ -125,6 +125,9 @@ export class AnalyticsEngine {
           gte: startDate,
           lte: endDate,
         },
+        analyst: {
+          regionId: regionId
+        }
       },
       include: {
         analyst: true,
@@ -186,8 +189,8 @@ export class AnalyticsEngine {
     return result;
   }
 
-  async generateFairnessReport(dateRange: DateRange): Promise<FairnessReport> {
-    const cacheKey = `fairness_report_${dateRange.startDate.toISOString()}_${dateRange.endDate.toISOString()}`;
+  async generateFairnessReport(dateRange: DateRange, regionId: string): Promise<FairnessReport> {
+    const cacheKey = `fairness_report_${regionId}_${dateRange.startDate.toISOString()}_${dateRange.endDate.toISOString()}`;
 
     const cached = await this.cache.get(cacheKey);
     if (cached) {
@@ -200,6 +203,9 @@ export class AnalyticsEngine {
           gte: dateRange.startDate,
           lte: dateRange.endDate,
         },
+        analyst: {
+          regionId: regionId
+        }
       },
       include: {
         analyst: true,
@@ -207,7 +213,10 @@ export class AnalyticsEngine {
     });
 
     const analysts = await this.prisma.analyst.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        regionId: regionId
+      },
     });
 
     // Calculate workload distribution
