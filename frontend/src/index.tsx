@@ -4,6 +4,7 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ThemeSwitcher } from 'react18-themes';
 import { PeriodProvider } from './context/PeriodContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -16,6 +17,8 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
+    {/* ThemeSwitcher handles theme persistence and syncing */}
+    <ThemeSwitcher />
     <BrowserRouter>
       <AuthProvider>
         <NotificationProvider>

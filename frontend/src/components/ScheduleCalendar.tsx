@@ -67,6 +67,7 @@ interface SimplifiedScheduleViewProps {
   isLoading?: (loading: boolean) => void;
   schedules: Schedule[];
   analysts: Analyst[];
+  holidays: any[]; // Holiday data for display in calendar
   loading: boolean;
   error: string | null;
   filterHook: any; // Using any to avoid circular dependency issues for now, or import type
@@ -138,6 +139,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
   isLoading,
   schedules,
   analysts,
+  holidays,
   loading,
   error,
   filterHook,
@@ -580,6 +582,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
               date={date}
               timezone={timezone}
               events={calendarEvents}
+              holidays={holidays}
               isMobile={isMobile}
               onDateSelect={handleDateSelect}
               onShowMoreClick={handleShowMoreClick}
