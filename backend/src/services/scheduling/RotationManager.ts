@@ -43,6 +43,7 @@ export class RotationManager {
   /**
    * Plan rotation for the unified pool of analysts
    * Ensures weekend coverage by pipelining analysts through SUN_THU -> TUE_SAT
+   * HOLISTIC FIX: All analysts get assigned to a pattern (no defaults)
    */
   async planRotation(
     algorithmType: string,
@@ -60,26 +61,28 @@ export class RotationManager {
 
     while (current.isBefore(end)) {
       const weekStart = current.toDate();
+      const weekEnd = moment.utc(weekStart).endOf('week').toDate();
+
+      // Track who gets assigned this week
+      const assignedThisWeek = new Set<string>();
 
       // 1. Pipeline: Move last week's SUN_THU analyst to TUE_SAT
-      // Find who had SUN_THU last week
       const lastWeekSunThuPlan = rotationPlans.find(p =>
         p.pattern === 'SUN_THU' &&
         moment.utc(p.startDate).isSame(moment.utc(weekStart).subtract(1, 'week'), 'week')
       );
 
       if (lastWeekSunThuPlan && lastWeekSunThuPlan.analystId) {
-        // Assign TUE_SAT for THIS week
         rotationPlans.push({
           analystId: lastWeekSunThuPlan.analystId,
           pattern: 'TUE_SAT',
-          startDate: weekStart, // Start Sunday (Monday is off)
-          endDate: moment.utc(weekStart).endOf('week').toDate()
+          startDate: weekStart,
+          endDate: weekEnd
         });
+        assignedThisWeek.add(lastWeekSunThuPlan.analystId);
       }
 
       // 2. Bootstrap TUE_SAT if needed (First week only)
-      // If no one was pipelined (e.g. first week), we need to pick someone for TUE_SAT
       const tueSatCovered = rotationPlans.some(p =>
         p.pattern === 'TUE_SAT' &&
         moment.utc(p.startDate).isSame(weekStart, 'week')
@@ -100,46 +103,47 @@ export class RotationManager {
           rotationPlans.push({
             analystId: tueSatAnalyst.id,
             pattern: 'TUE_SAT',
-            startDate: weekStart, // Start Sunday (Monday is off)
-            endDate: moment.utc(weekStart).endOf('week').toDate()
+            startDate: weekStart,
+            endDate: weekEnd
           });
+          assignedThisWeek.add(tueSatAnalyst.id);
+        }
+      } else {
+        // Mark the pipelined TUE_SAT analyst as assigned
+        const tueSatPlan = rotationPlans.find(p =>
+          p.pattern === 'TUE_SAT' &&
+          moment.utc(p.startDate).isSame(weekStart, 'week')
+        );
+        if (tueSatPlan && tueSatPlan.analystId) {
+          assignedThisWeek.add(tueSatPlan.analystId);
         }
       }
 
       // 3. Select NEW analyst for SUN_THU
-      // Exclude:
-      // - Anyone already assigned TUE_SAT this week
-      // - Anyone who had TUE_SAT LAST week (Streak Fix)
-      const excludeAnalysts = new Set<string>();
+      const excludeAnalysts = new Set<string>(assignedThisWeek);
 
-      // Exclude current TUE_SAT
-      const currentTueSatPlan = rotationPlans.find(p =>
-        p.pattern === 'TUE_SAT' && moment.utc(p.startDate).isSame(weekStart, 'week')
-      );
-      if (currentTueSatPlan && currentTueSatPlan.analystId) excludeAnalysts.add(currentTueSatPlan.analystId);
-
-      // Exclude LAST week's TUE_SAT (Streak Fix)
+      // Also exclude LAST week's TUE_SAT (Streak Fix - prevent consecutive weekend rotation)
       const lastWeekTueSatPlan = rotationPlans.find(p =>
         p.pattern === 'TUE_SAT' &&
         moment.utc(p.startDate).isSame(moment.utc(weekStart).subtract(1, 'week'), 'week')
       );
-      if (lastWeekTueSatPlan && lastWeekTueSatPlan.analystId) excludeAnalysts.add(lastWeekTueSatPlan.analystId);
+      if (lastWeekTueSatPlan && lastWeekTueSatPlan.analystId) {
+        excludeAnalysts.add(lastWeekTueSatPlan.analystId);
+      }
 
-      // SIMULATE HISTORY: Convert current rotation plans to schedule entries so FairnessCalculator knows about them
+      // SIMULATE HISTORY for fairness calculation
       const simulatedSchedules = [...historicalSchedules];
       rotationPlans.forEach(plan => {
         if (plan.pattern === 'TUE_SAT') {
-          // Covers Saturday
           simulatedSchedules.push({
             analystId: plan.analystId,
-            date: moment.utc(plan.endDate).toDate(), // Saturday
-            shiftType: 'WEEKEND' // Dummy type, calculator only checks date
+            date: moment.utc(plan.endDate).toDate(),
+            shiftType: 'WEEKEND'
           });
         } else if (plan.pattern === 'SUN_THU') {
-          // Covers Sunday
           simulatedSchedules.push({
             analystId: plan.analystId,
-            date: moment.utc(plan.startDate).toDate(), // Sunday
+            date: moment.utc(plan.startDate).toDate(),
             shiftType: 'WEEKEND'
           });
         }
@@ -150,13 +154,6 @@ export class RotationManager {
         simulatedSchedules,
         weekStart
       );
-
-      // We need to manually filter candidates because selectNextAnalystForRotation doesn't support exclusions yet
-      // So we'll just iterate until we find a valid one
-      // UPDATE: We should use selectNextAnalystForRotation with exclusions if possible,
-      // but since we modified it to take exclusions, let's use it!
-      // Wait, did I modify selectNextAnalystForRotation to take exclusions?
-      // Yes, it takes `unavailableAnalystIds`.
 
       const nextAnalyst = fairnessCalculator.selectNextAnalystForRotation(
         allAnalysts,
@@ -169,8 +166,22 @@ export class RotationManager {
           analystId: nextAnalyst.id,
           pattern: 'SUN_THU',
           startDate: weekStart,
-          endDate: moment.utc(weekStart).endOf('week').toDate()
+          endDate: weekEnd
         });
+        assignedThisWeek.add(nextAnalyst.id);
+      }
+
+      // 4. HOLISTIC FIX: Assign remaining analysts to MON_FRI
+      for (const analyst of allAnalysts) {
+        if (!assignedThisWeek.has(analyst.id)) {
+          rotationPlans.push({
+            analystId: analyst.id,
+            pattern: 'MON_FRI',
+            startDate: weekStart,
+            endDate: weekEnd
+          });
+          assignedThisWeek.add(analyst.id);
+        }
       }
 
       current.add(1, 'week');
@@ -181,7 +192,7 @@ export class RotationManager {
 
   /**
    * Check if an analyst should work on a specific date
-   * Defaults to M-F unless a specific rotation plan exists
+   * HOLISTIC FIX: Removed M-F default. Returns false if no plan exists (fail-safe).
    */
   shouldAnalystWork(
     analystId: string,
@@ -204,9 +215,10 @@ export class RotationManager {
       return pattern ? pattern.days.includes(mDate.day()) : false;
     }
 
-    // Default: M-F (Mon=1 to Fri=5)
-    const day = mDate.day();
-    return day >= 1 && day <= 5;
+    // HOLISTIC FIX: No plan = no work (fail-safe)
+    // This should never happen if planRotation assigns all analysts
+    console.warn(`⚠️ No rotation plan found for analyst ${analystId} on ${mDate.format('YYYY-MM-DD')}`);
+    return false;
   }
 
   getAnalystPattern(

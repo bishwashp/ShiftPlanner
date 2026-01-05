@@ -3,6 +3,7 @@ import { replacementService } from './ReplacementService';
 import { fairnessDebtService } from './FairnessDebtService';
 import { notificationService } from './NotificationService';
 import { DateUtils } from '../utils/dateUtils';
+import moment from 'moment-timezone';
 
 export interface AbsenceData {
   analystId: string;
@@ -621,7 +622,7 @@ export class AbsenceService {
    * Get absence statistics for an analyst
    */
   async getAnalystAbsenceStats(analystId: string, year?: number): Promise<any> {
-    const currentYear = year || new Date().getFullYear();
+    const currentYear = year || moment.utc().year();
     const startOfYear = DateUtils.getStartOfDay(`${currentYear}-01-01`);
     const endOfYear = DateUtils.getEndOfDay(`${currentYear}-12-31`);
 

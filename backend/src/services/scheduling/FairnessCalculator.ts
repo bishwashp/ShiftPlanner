@@ -10,6 +10,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import moment from 'moment-timezone';
+import { DateUtils } from '../../utils/dateUtils';
 
 interface FairnessWeightsConfig {
   fairnessWeights: {
@@ -103,8 +105,8 @@ export class FairnessCalculator {
 
     // Calculate historical metrics
     historicalSchedules.forEach(schedule => {
-      const scheduleDate = new Date(schedule.date);
-      const dayOfWeek = scheduleDate.getUTCDay();
+      const scheduleDate = moment.utc(schedule.date);
+      const dayOfWeek = scheduleDate.day();
       const analystId = schedule.analystId;
 
       // Skip if analyst not in our list
@@ -122,9 +124,9 @@ export class FairnessCalculator {
         }
 
         // Update last rotation date if newer
-        const currentLastDate = lastRotationDate.get(analystId) || new Date(0);
-        if (scheduleDate > currentLastDate) {
-          lastRotationDate.set(analystId, scheduleDate);
+        const currentLastDate = moment.utc(lastRotationDate.get(analystId) || 0);
+        if (scheduleDate.isAfter(currentLastDate)) {
+          lastRotationDate.set(analystId, scheduleDate.toDate());
         }
       }
     });
@@ -143,7 +145,7 @@ export class FairnessCalculator {
 
       // Factor 2: Time since last rotation (more time = higher score)
       const lastRotation = lastRotationDate.get(analyst.id) || new Date(0);
-      const daysSinceLastRotation = Math.floor((currentDate.getTime() - lastRotation.getTime()) / (1000 * 60 * 60 * 24));
+      const daysSinceLastRotation = Math.max(0, moment.utc(currentDate).diff(moment.utc(lastRotation), 'days'));
       score += Math.min(daysSinceLastRotation / factors.timeDivisor, weights.maxTimeBonus);
 
       // Factor 3: Balance between Saturday and Sunday (more balanced = higher score)
@@ -226,7 +228,7 @@ export class FairnessCalculator {
 
     // Calculate historical metrics
     historicalSchedules.forEach(schedule => {
-      const scheduleDate = new Date(schedule.date);
+      const scheduleDate = moment.utc(schedule.date);
       const analystId = schedule.analystId;
 
       // Only care about AM analysts working PM (EVENING) shifts
@@ -235,9 +237,9 @@ export class FairnessCalculator {
       if (schedule.shiftType === 'EVENING') {
         pmShiftsWorked.set(analystId, (pmShiftsWorked.get(analystId) || 0) + 1);
 
-        const currentLastDate = lastPMRotationDate.get(analystId) || new Date(0);
-        if (scheduleDate > currentLastDate) {
-          lastPMRotationDate.set(analystId, scheduleDate);
+        const currentLastDate = moment.utc(lastPMRotationDate.get(analystId) || 0);
+        if (scheduleDate.isAfter(currentLastDate)) {
+          lastPMRotationDate.set(analystId, scheduleDate.toDate());
         }
       }
     });
@@ -253,7 +255,7 @@ export class FairnessCalculator {
 
       // Factor 2: Time since last PM rotation = Higher score
       const lastRotation = lastPMRotationDate.get(analyst.id) || new Date(0);
-      const daysSince = Math.floor((currentDate.getTime() - lastRotation.getTime()) / (1000 * 60 * 60 * 24));
+      const daysSince = Math.max(0, moment.utc(currentDate).diff(moment.utc(lastRotation), 'days'));
       score += Math.min(daysSince, 50); // Cap bonus
 
       fairnessScores.set(analyst.id, score);

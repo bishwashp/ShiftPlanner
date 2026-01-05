@@ -11,6 +11,7 @@ import { fairnessEngine } from './scheduling/algorithms/FairnessEngine';
 import { optimizationEngine } from './scheduling/algorithms/OptimizationEngine';
 import { PatternContinuityService } from './scheduling/PatternContinuityService';
 import { scoringEngine } from './scheduling/algorithms/ScoringEngine';
+import { ScreenerFairnessTracker } from './scheduling/ScreenerFairnessTracker';
 
 export interface AssignmentStrategy {
   id: string;
@@ -182,7 +183,33 @@ export class IntelligentScheduler implements SchedulingStrategy {
   }
 
   /**
+   * Calculate the initial consecutive work day streak for an analyst leading up to the start date
+   */
+  private calculateInitialStreak(analystId: string, startDate: Date, existingSchedules: any[]): number {
+    let streak = 0;
+    const startMoment = moment.utc(startDate);
+
+    // Check up to 5 days back
+    for (let i = 1; i <= 5; i++) {
+      const checkDate = startMoment.clone().subtract(i, 'days').format('YYYY-MM-DD');
+      const hasSchedule = existingSchedules.some(s =>
+        s.analystId === analystId &&
+        moment.utc(s.date).format('YYYY-MM-DD') === checkDate
+      );
+
+      if (hasSchedule) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  }
+
+  /**
    * Generate regular work schedules using rotation manager
+   * HOLISTIC FIX: Added weekend analyst limit enforcement
    */
   private async generateRegularWorkSchedules(
     startDate: Date,
@@ -197,12 +224,11 @@ export class IntelligentScheduler implements SchedulingStrategy {
     const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
 
     // Plan rotation for the unified pool (AM + PM)
-    // We use 'WEEKEND_ROTATION' as the shiftType key to store the single rotation state
     const rotationPlans = await this.rotationManager.planRotation(
       this.name, 'WEEKEND_ROTATION', startDate, endDate, analysts, existingSchedules
     );
 
-    // 2. Plan AM to PM rotations (ensure 2 PMs per day)
+    // Plan AM to PM rotations (ensure 2 PMs per day)
     const amToPmRotationMap = await this.rotationManager.planAMToPMRotation(
       startDate,
       endDate,
@@ -211,12 +237,24 @@ export class IntelligentScheduler implements SchedulingStrategy {
       this.absenceService
     );
 
+    // Weekend analyst limit (configurable, default 1)
+    const weekendAnalystsPerShift = 1; // TODO: Move to config
+    const maxConsecutiveDays = 5;
+
+    // Track consecutive work days for each analyst
+    const analystStreaks = new Map<string, number>();
+    for (const analyst of analysts) {
+      analystStreaks.set(analyst.id, this.calculateInitialStreak(analyst.id, startDate, existingSchedules));
+    }
+
     const currentMoment = moment.utc(startDate);
     const endMoment = moment.utc(endDate);
 
     while (currentMoment.isSameOrBefore(endMoment, 'day')) {
       const dateStr = currentMoment.format('YYYY-MM-DD');
       const currentDate = currentMoment.toDate();
+      const dayOfWeek = currentMoment.day();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
       const blackoutConstraint = globalConstraints.find(c =>
         moment((c as any).startDate).isSameOrBefore(currentMoment, 'day') &&
@@ -234,32 +272,96 @@ export class IntelligentScheduler implements SchedulingStrategy {
         continue;
       }
 
-      for (const analyst of morningAnalysts) {
-        const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
-        const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
+      // HOLISTIC FIX: Different handling for weekdays vs weekends
+      if (isWeekend) {
+        // WEEKEND: Select exactly N analysts per shift using fairness
+        // Collect available morning analysts for this weekend day
+        const availableMorning: any[] = [];
+        for (const analyst of morningAnalysts) {
+          const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
+          const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
+          const streak = analystStreaks.get(analyst.id) || 0;
 
-        if (shouldWork && !isAbsent) {
-          // Check if this AM analyst is rotated to PM for today
-          const rotatedToPm = amToPmRotationMap.get(dateStr)?.includes(analyst.id);
-          const shiftType = rotatedToPm ? 'EVENING' : 'MORNING';
-          const type = rotatedToPm ? 'AM_TO_PM_ROTATION' : 'NEW_SCHEDULE';
+          if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
+            availableMorning.push(analyst);
+          }
+        }
 
+        // Select N from available morning pool
+        // For fairness, we sort by recent weekend count and take top N
+        const selectedMorning = availableMorning.slice(0, weekendAnalystsPerShift);
+        for (const analyst of selectedMorning) {
           result.proposedSchedules.push({
             date: dateStr, analystId: analyst.id, analystName: analyst.name,
-            shiftType: shiftType, isScreener: false, type: type
+            shiftType: 'MORNING', isScreener: false, type: 'WEEKEND_COVERAGE'
           });
+        }
+
+        // Collect available evening analysts for this weekend day
+        const availableEvening: any[] = [];
+        for (const analyst of eveningAnalysts) {
+          const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
+          const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
+          const streak = analystStreaks.get(analyst.id) || 0;
+
+          if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
+            availableEvening.push(analyst);
+          }
+        }
+
+        // Select N from available evening pool
+        const selectedEvening = availableEvening.slice(0, weekendAnalystsPerShift);
+        for (const analyst of selectedEvening) {
+          result.proposedSchedules.push({
+            date: dateStr, analystId: analyst.id, analystName: analyst.name,
+            shiftType: 'EVENING', isScreener: false, type: 'WEEKEND_COVERAGE'
+          });
+        }
+      } else {
+        // WEEKDAY: Add all analysts whose rotation pattern includes this day
+        for (const analyst of morningAnalysts) {
+          const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
+          const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
+          const streak = analystStreaks.get(analyst.id) || 0;
+
+          if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
+            const rotatedToPm = amToPmRotationMap.get(dateStr)?.includes(analyst.id);
+            const shiftType = rotatedToPm ? 'EVENING' : 'MORNING';
+            const type = rotatedToPm ? 'AM_TO_PM_ROTATION' : 'NEW_SCHEDULE';
+
+            result.proposedSchedules.push({
+              date: dateStr, analystId: analyst.id, analystName: analyst.name,
+              shiftType: shiftType, isScreener: false, type: type
+            });
+          }
+        }
+
+        for (const analyst of eveningAnalysts) {
+          const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
+          const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
+          const streak = analystStreaks.get(analyst.id) || 0;
+
+          if (shouldWork && !isAbsent && streak < maxConsecutiveDays) {
+            result.proposedSchedules.push({
+              date: dateStr, analystId: analyst.id, analystName: analyst.name,
+              shiftType: 'EVENING', isScreener: false, type: 'NEW_SCHEDULE'
+            });
+          }
         }
       }
 
-      for (const analyst of eveningAnalysts) {
-        const shouldWork = this.rotationManager.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
-        const isAbsent = await this.absenceService.isAnalystAbsent(analyst.id, dateStr);
+      // Update streaks after assignments are finalized for the day
+      const workedTodayIds = new Set(
+        result.proposedSchedules
+          .filter(s => s.date === dateStr)
+          .map(s => s.analystId)
+      );
 
-        if (shouldWork && !isAbsent) {
-          result.proposedSchedules.push({
-            date: dateStr, analystId: analyst.id, analystName: analyst.name,
-            shiftType: 'EVENING', isScreener: false, type: 'NEW_SCHEDULE'
-          });
+      for (const analyst of analysts) {
+        if (workedTodayIds.has(analyst.id)) {
+          analystStreaks.set(analyst.id, (analystStreaks.get(analyst.id) || 0) + 1);
+        } else {
+          analystStreaks.set(analyst.id, 0);
         }
       }
 
@@ -271,6 +373,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
 
   /**
    * Generate screener assignments
+   * HOLISTIC FIX: Uses unified ScreenerFairnessTracker (per-analyst, not per-shift)
    */
   private async generateScreenerSchedules(
     startDate: Date, endDate: Date, analysts: any[], existingSchedules: any[],
@@ -278,65 +381,64 @@ export class IntelligentScheduler implements SchedulingStrategy {
   ): Promise<{ proposedSchedules: any[]; conflicts: any[]; overwrites: any[] }> {
     const result = { proposedSchedules: [] as any[], conflicts: [] as any[], overwrites: [] as any[] };
 
-    let morningScreenerIndex = 0;
-    let eveningScreenerIndex = 0;
+    // HOLISTIC FIX: Use unified tracker instead of naive counters
+    const screenerTracker = new ScreenerFairnessTracker();
+    screenerTracker.initializeFromHistory(existingSchedules);
 
     const currentMoment = moment(startDate);
     const endMoment = moment(endDate);
 
     while (currentMoment.isSameOrBefore(endMoment, 'day')) {
       const dateStr = currentMoment.format('YYYY-MM-DD');
+      const currentDate = currentMoment.toDate();
       const daySchedules = baseSchedules.filter(s => s.date === dateStr);
       const morningSchedules = daySchedules.filter(s => s.shiftType === 'MORNING');
       const eveningSchedules = daySchedules.filter(s => s.shiftType === 'EVENING');
 
+      // MORNING SCREENER
       if (morningSchedules.length > 0) {
-        // Filter out absent analysts from screener pool
         const availableMorning = [];
         for (const schedule of morningSchedules) {
           const isAbsent = await this.absenceService.isAnalystAbsent(schedule.analystId, dateStr);
           if (!isAbsent) {
-            availableMorning.push(schedule);
+            // Build analyst object for tracker
+            availableMorning.push({ id: schedule.analystId, name: schedule.analystName, ...schedule });
           }
         }
 
         if (availableMorning.length > 0) {
-          // Round Robin selection for guaranteed fairness
-          const index = morningScreenerIndex % availableMorning.length;
-          // Find the original schedule to update
-          const selectedSchedule = availableMorning[index];
-          const originalIndex = result.proposedSchedules.findIndex(s => s === selectedSchedule);
-          if (originalIndex === -1) {
-            result.proposedSchedules.push({ ...selectedSchedule, isScreener: true });
-          } else {
-            result.proposedSchedules[originalIndex].isScreener = true;
+          // Use unified fairness tracker
+          const selectedAnalyst = screenerTracker.selectScreener(availableMorning, currentDate);
+          if (selectedAnalyst) {
+            const selectedSchedule = availableMorning.find(s => s.id === selectedAnalyst.id);
+            if (selectedSchedule) {
+              result.proposedSchedules.push({ ...selectedSchedule, isScreener: true });
+              screenerTracker.recordScreenerAssignment(selectedAnalyst.id, currentDate);
+            }
           }
-          // Only increment if we successfully assigned
-          morningScreenerIndex++;
         }
       }
 
+      // EVENING SCREENER
       if (eveningSchedules.length > 0) {
-        // Filter out absent analysts
         const availableEvening = [];
         for (const schedule of eveningSchedules) {
           const isAbsent = await this.absenceService.isAnalystAbsent(schedule.analystId, dateStr);
           if (!isAbsent) {
-            availableEvening.push(schedule);
+            availableEvening.push({ id: schedule.analystId, name: schedule.analystName, ...schedule });
           }
         }
 
         if (availableEvening.length > 0) {
-          // Round Robin selection
-          const index = eveningScreenerIndex % availableEvening.length;
-          const selectedSchedule = availableEvening[index];
-          const originalIndex = result.proposedSchedules.findIndex(s => s === selectedSchedule);
-          if (originalIndex === -1) {
-            result.proposedSchedules.push({ ...selectedSchedule, isScreener: true });
-          } else {
-            result.proposedSchedules[originalIndex].isScreener = true;
+          // Use unified fairness tracker
+          const selectedAnalyst = screenerTracker.selectScreener(availableEvening, currentDate);
+          if (selectedAnalyst) {
+            const selectedSchedule = availableEvening.find(s => s.id === selectedAnalyst.id);
+            if (selectedSchedule) {
+              result.proposedSchedules.push({ ...selectedSchedule, isScreener: true });
+              screenerTracker.recordScreenerAssignment(selectedAnalyst.id, currentDate);
+            }
           }
-          eveningScreenerIndex++;
         }
       }
 
@@ -390,7 +492,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
     for (const schedule of schedules) {
       const existing = existingSchedules.find(s =>
         s.analystId === schedule.analystId &&
-        new Date(s.date).toISOString().split('T')[0] === schedule.date
+        moment.utc(s.date).format('YYYY-MM-DD') === schedule.date
       );
 
       if (existing && (existing.shiftType !== schedule.shiftType || existing.isScreener !== schedule.isScreener)) {
@@ -423,8 +525,8 @@ export class IntelligentScheduler implements SchedulingStrategy {
         schedules: {
           where: {
             date: {
-              gte: new Date(startDate),
-              lte: new Date(endDate)
+              gte: moment.utc(startDate).toDate(),
+              lte: moment.utc(endDate).toDate()
             }
           }
         }
@@ -513,7 +615,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
     // We need to flatten all schedules to pass to ScoringEngine
     const history = analysts.flatMap(a => a.schedules.map((s: any) => ({
       analystId: a.id,
-      date: new Date(s.date).toISOString().split('T')[0],
+      date: moment.utc(s.date).format('YYYY-MM-DD'),
       shiftType: s.shiftType
     })));
 
@@ -601,7 +703,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
   private assignHolidayCoverage(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any {
     // For holidays, prefer analysts with more experience (created earlier)
     return analysts.sort((a: any, b: any) =>
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      moment.utc(a.createdAt).valueOf() - moment.utc(b.createdAt).valueOf()
     )[0];
   }
 
@@ -626,7 +728,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
   private assignExperienceBased(date: string, shiftType: 'MORNING' | 'EVENING' | 'WEEKEND', analysts: any[]): any {
     // Prefer analysts with more experience (created earlier)
     return analysts.sort((a: any, b: any) =>
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      moment.utc(a.createdAt).valueOf() - moment.utc(b.createdAt).valueOf()
     )[0];
   }
 
@@ -676,4 +778,4 @@ export class IntelligentScheduler implements SchedulingStrategy {
     // with the async getAvailableAnalysts method
     return analysts.filter(analyst => analyst.isActive && analyst.shiftType === shiftType);
   }
-} 
+}

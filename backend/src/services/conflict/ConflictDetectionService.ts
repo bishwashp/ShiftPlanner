@@ -14,7 +14,9 @@ export type ConflictType =
   | 'NO_SCHEDULE_EXISTS'
   | 'INCOMPLETE_SCHEDULES'
   | 'NO_ANALYST_ASSIGNED'
-  | 'SCREENER_CONFLICT';
+  | 'SCREENER_CONFLICT'
+  | 'OVERSTAFFING'
+  | 'CONSECUTIVE_DAY_VIOLATION';
 
 export type ConflictSeverity = 'critical' | 'recommended';
 
@@ -80,11 +82,12 @@ export class ConflictDetectionService {
    */
   private generateDateRange(startDate: Date, endDate: Date): Set<string> {
     const allDates = new Set<string>();
-    const currentDate = new Date(startDate);
+    const current = moment.utc(startDate).startOf('day');
+    const end = moment.utc(endDate).startOf('day');
 
-    while (currentDate <= endDate) {
-      allDates.add(currentDate.toISOString().split('T')[0]);
-      currentDate.setDate(currentDate.getDate() + 1);
+    while (current.isSameOrBefore(end)) {
+      allDates.add(current.format('YYYY-MM-DD'));
+      current.add(1, 'day');
     }
 
     return allDates;
@@ -105,7 +108,9 @@ export class ConflictDetectionService {
     const scheduledDates = new Map<string, ScheduledShifts>();
 
     for (const schedule of schedules) {
-      const dateStr = schedule.date.toISOString().split('T')[0];
+      const scheduleDate = moment.utc(schedule.date);
+      const dateStr = scheduleDate.format('YYYY-MM-DD');
+
       if (!scheduledDates.has(dateStr)) {
         scheduledDates.set(dateStr, { morning: false, evening: false, weekend: false });
       }
@@ -116,8 +121,9 @@ export class ConflictDetectionService {
       if (schedule.shiftType === 'EVENING') {
         shifts.evening = true;
       }
-      const date = new Date(schedule.date);
-      if (date.getDay() === 0 || date.getDay() === 6) {
+
+      const day = scheduleDate.day();
+      if (day === 0 || day === 6) { // 0=Sun, 6=Sat
         shifts.weekend = true;
       }
     }
@@ -140,13 +146,12 @@ export class ConflictDetectionService {
     });
 
     // Then, check each date with schedules
+    // Then, check each date with schedules
     scheduledDates.forEach((shifts, dateStr) => {
       // Remove from datesWithNoSchedules since we have at least one shift
       datesWithNoSchedules.delete(dateStr);
 
-      const date = new Date(dateStr);
-      // Use UTC day to avoid timezone issues with the date string
-      const dayOfWeek = new Date(dateStr + 'T00:00:00Z').getUTCDay();
+      const dayOfWeek = moment.utc(dateStr).day();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 0=Sun, 6=Sat
 
       if (isWeekend) {
@@ -199,7 +204,96 @@ export class ConflictDetectionService {
     // Check for screener conflicts in complete schedules
     this.detectScreenerConflicts(schedules, datesWithCompleteSchedules, conflicts);
 
+    // HOLISTIC FIX: Check for over-staffing (too many analysts per shift)
+    this.detectOverstaffing(schedules, conflicts);
+
+    // HOLISTIC FIX: Check for consecutive-day violations (>5 days)
+    this.detectConsecutiveDayViolations(schedules, conflicts);
+
     return conflicts;
+  }
+
+  /**
+   * HOLISTIC FIX: Detect over-staffing (more analysts than expected per shift)
+   */
+  private detectOverstaffing(schedules: any[], conflicts: Conflict[]): void {
+    const weekendLimit = 1; // Configurable, default 1
+
+    // Group by date and shift type
+    const dayShiftCounts = new Map<string, Map<string, number>>();
+
+    for (const schedule of schedules) {
+      const dateStr = schedule.date.toISOString().split('T')[0];
+      if (!dayShiftCounts.has(dateStr)) {
+        dayShiftCounts.set(dateStr, new Map());
+      }
+      const shiftCounts = dayShiftCounts.get(dateStr)!;
+      const shiftType = schedule.shiftType;
+      shiftCounts.set(shiftType, (shiftCounts.get(shiftType) || 0) + 1);
+    }
+
+    for (const [dateStr, shiftCounts] of dayShiftCounts) {
+      const dayOfWeek = moment.utc(dateStr).day();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+      if (isWeekend) {
+        for (const [shiftType, count] of shiftCounts) {
+          if (count > weekendLimit) {
+            conflicts.push({
+              date: dateStr,
+              message: `Over-staffing: ${count} analysts on ${shiftType} shift (limit: ${weekendLimit}) on ${moment.utc(dateStr).format('MMM D')} (Weekend)`,
+              type: 'OVERSTAFFING',
+              missingShifts: [],
+              severity: 'recommended'
+            });
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * HOLISTIC FIX: Detect consecutive-day violations (>5 days in a row)
+   */
+  private detectConsecutiveDayViolations(schedules: any[], conflicts: Conflict[]): void {
+    const maxConsecutive = 5;
+
+    // Group schedules by analyst
+    const analystSchedules = new Map<string, { date: string; name: string }[]>();
+
+    for (const schedule of schedules) {
+      const dateStr = schedule.date.toISOString().split('T')[0];
+      if (!analystSchedules.has(schedule.analystId)) {
+        analystSchedules.set(schedule.analystId, []);
+      }
+      analystSchedules.get(schedule.analystId)!.push({ date: dateStr, name: schedule.analyst?.name || schedule.analystId });
+    }
+
+    for (const [analystId, days] of analystSchedules) {
+      const uniqueDates = [...new Set(days.map(d => d.date))].sort();
+      const analystName = days[0]?.name || analystId;
+
+      let streak = 1;
+      for (let i = 1; i < uniqueDates.length; i++) {
+        const prev = moment.utc(uniqueDates[i - 1]);
+        const curr = moment.utc(uniqueDates[i]);
+        if (curr.diff(prev, 'days') === 1) {
+          streak++;
+          if (streak > maxConsecutive) {
+            conflicts.push({
+              date: uniqueDates[i],
+              message: `${analystName} working ${streak} consecutive days (max: ${maxConsecutive})`,
+              type: 'CONSECUTIVE_DAY_VIOLATION',
+              missingShifts: [],
+              severity: 'critical'
+            });
+            break; // Only report once per analyst
+          }
+        } else {
+          streak = 1;
+        }
+      }
+    }
   }
 
   /**
@@ -258,8 +352,7 @@ export class ConflictDetectionService {
         return;
       }
 
-      const date = new Date(dateStr);
-      const dayOfWeek = new Date(dateStr + 'T00:00:00Z').getUTCDay();
+      const dayOfWeek = moment.utc(dateStr).day();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
       let missingShifts: string[] = [];
@@ -270,14 +363,6 @@ export class ConflictDetectionService {
         if (!shifts.weekend && !shifts.morning && !shifts.evening) {
           missingShifts.push('Weekend Coverage');
         }
-        // If we have partial coverage (e.g. only morning but no weekend shift), it depends on the model.
-        // Assuming 'WEEKEND' shift is the standard for weekends.
-        // If we have 'MORNING' on a weekend, maybe that's a legacy artifact or specific assignment.
-        // Let's say if we have NO shifts, it's missing. But this loop is for 'scheduledDates' which implies *some* schedule exists.
-        // So if we are here, we have *some* shift.
-        // If we have 'MORNING' on weekend, and that's sufficient, then missingShifts is empty.
-        // If we require 'WEEKEND' shift specifically:
-        // if (!shifts.weekend) missingShifts.push('Weekend');
       } else {
         // Weekday logic
         if (!shifts.morning) {
@@ -292,7 +377,7 @@ export class ConflictDetectionService {
       if (missingShifts.length > 0 && datesWithPartialSchedules.has(dateStr)) {
         conflicts.push({
           date: dateStr,
-          message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment(dateStr).format('MMM D')}`,
+          message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment.utc(dateStr).format('MMM D')}`,
           type: 'NO_ANALYST_ASSIGNED',
           missingShifts,
           severity: 'critical'
@@ -330,7 +415,7 @@ export class ConflictDetectionService {
     // Check each date with complete schedules for screener conflicts
     datesWithCompleteSchedules.forEach(dateStr => {
       // Use UTC day to avoid timezone issues with the date string
-      const dayOfWeek = new Date(dateStr + 'T00:00:00Z').getUTCDay();
+      const dayOfWeek = moment.utc(dateStr).day();
 
       // Skip screener conflict checks for weekends (Saturday=6, Sunday=0)
       // Weekends should have analysts but no screeners per business requirements
@@ -359,7 +444,7 @@ export class ConflictDetectionService {
       if (screenerIssues.length > 0) {
         conflicts.push({
           date: dateStr,
-          message: `${screenerIssues.join(', ')} on ${moment(dateStr).format('MMM D')}`,
+          message: `${screenerIssues.join(', ')} on ${moment.utc(dateStr).format('MMM D')}`,
           type: 'SCREENER_CONFLICT',
           missingShifts: screenerIssues,
           severity: screenerIssues.some(issue => issue.includes('missing')) ? 'critical' : 'recommended'
