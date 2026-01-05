@@ -17,6 +17,7 @@ import generationBlocksRoutes from './routes/generation-blocks';
 import compoffRoutes from './routes/compoff';
 import constraintTemplatesRoutes from './routes/constraint-templates';
 import constraintPreviewRoutes from './routes/constraint-preview';
+import icalRoutes from './routes/ical';
 
 import auditRoutes from './routes/audit';
 import holidayConstraintRoutes from './routes/holiday-constraint';
@@ -113,5 +114,6 @@ router.use('/constraints', constraintPreviewRoutes);
 router.use('/audit', auditRoutes);
 router.use('/holiday-constraint', holidayConstraintRoutes);
 router.use('/special-events', specialEventsRoutes);
+router.use('/ical', icalRoutes);
 
 export default router;
