@@ -1,5 +1,6 @@
-import { SchedulingConstraint } from '../../../../generated/prisma';
+import { SchedulingConstraint, ConstraintTemplate } from '../../../../generated/prisma';
 import { ProposedSchedule, ConstraintValidationResult, ConstraintViolation } from './types';
+import { constraintTemplateService } from '../../ConstraintTemplateService';
 
 export class ConstraintEngine {
 
@@ -483,6 +484,369 @@ export class ConstraintEngine {
         }
 
         return violations;
+    }
+
+    /**
+     * Validate template-based constraints.
+     * This method evaluates constraints that have a templateId.
+     */
+    async validateTemplateConstraints(
+        schedules: ProposedSchedule[],
+        constraints: SchedulingConstraint[]
+    ): Promise<ConstraintViolation[]> {
+        const violations: ConstraintViolation[] = [];
+        const templateConstraints = constraints.filter(c => c.templateId);
+
+        for (const constraint of templateConstraints) {
+            if (!constraint.templateId) continue;
+
+            const template = await constraintTemplateService.getTemplateById(constraint.templateId);
+            if (!template) continue;
+
+            const params = constraint.templateParams ? JSON.parse(constraint.templateParams) : {};
+            const templateViolations = this.evaluateTemplateConstraint(
+                schedules,
+                constraint,
+                template,
+                params
+            );
+            violations.push(...templateViolations);
+        }
+
+        return violations;
+    }
+
+    /**
+     * Evaluate a single template-based constraint.
+     */
+    private evaluateTemplateConstraint(
+        schedules: ProposedSchedule[],
+        constraint: SchedulingConstraint,
+        template: ConstraintTemplate,
+        params: Record<string, any>
+    ): ConstraintViolation[] {
+        switch (template.name) {
+            case 'ANALYSTS_PER_DAY':
+                return this.validateAnalystsPerDay(schedules, constraint, params as any);
+            case 'SPECIFIC_ANALYST_REQUIRED':
+                return this.validateSpecificAnalystRequired(schedules, constraint, params as any);
+            case 'BLACKOUT_PERIOD':
+                return this.validateBlackoutPeriod(schedules, constraint, params as any);
+            case 'REDUCED_STAFFING':
+                return this.validateReducedStaffing(schedules, constraint, params as any);
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Validate ANALYSTS_PER_DAY template constraint.
+     * Ensures exactly the specified number of analysts are scheduled.
+     */
+    private validateAnalystsPerDay(
+        schedules: ProposedSchedule[],
+        constraint: SchedulingConstraint,
+        params: { count: number; shiftType?: string }
+    ): ConstraintViolation[] {
+        const violations: ConstraintViolation[] = [];
+        const startDate = new Date(constraint.startDate);
+        const endDate = new Date(constraint.endDate);
+
+        // Group schedules by date
+        const schedulesByDate = new Map<string, ProposedSchedule[]>();
+        for (const schedule of schedules) {
+            const scheduleDate = new Date(schedule.date);
+            if (scheduleDate >= startDate && scheduleDate <= endDate) {
+                // Filter by shift type if specified
+                if (params.shiftType && schedule.shiftType !== params.shiftType) continue;
+
+                const dateKey = this.toDateString(schedule.date);
+                if (!schedulesByDate.has(dateKey)) {
+                    schedulesByDate.set(dateKey, []);
+                }
+                schedulesByDate.get(dateKey)!.push(schedule);
+            }
+        }
+
+        // Check each date
+        for (const [dateKey, daySchedules] of schedulesByDate) {
+            const actualCount = daySchedules.length;
+            const requiredCount = params.count;
+
+            if (actualCount !== requiredCount) {
+                const shiftInfo = params.shiftType ? ` (${params.shiftType})` : '';
+                violations.push({
+                    type: 'HARD',
+                    severity: actualCount < requiredCount ? 'CRITICAL' : 'HIGH',
+                    description: `${dateKey}${shiftInfo}: ${actualCount} analysts scheduled, but ${requiredCount} required`,
+                    affectedSchedules: daySchedules.map(s => `${s.analystName}`),
+                    suggestedFix: actualCount < requiredCount
+                        ? `Add ${requiredCount - actualCount} more analyst(s) on ${dateKey}`
+                        : `Remove ${actualCount - requiredCount} analyst(s) from ${dateKey}`
+                });
+            }
+        }
+
+        return violations;
+    }
+
+    /**
+     * Validate SPECIFIC_ANALYST_REQUIRED template constraint.
+     * Ensures a specific analyst is scheduled during the constraint period.
+     */
+    private validateSpecificAnalystRequired(
+        schedules: ProposedSchedule[],
+        constraint: SchedulingConstraint,
+        params: { analystId: string; shiftType?: string }
+    ): ConstraintViolation[] {
+        const violations: ConstraintViolation[] = [];
+        const startDate = new Date(constraint.startDate);
+        const endDate = new Date(constraint.endDate);
+
+        // Find schedules for this analyst in the date range
+        const analystSchedules = schedules.filter(schedule => {
+            const scheduleDate = new Date(schedule.date);
+            const inRange = scheduleDate >= startDate && scheduleDate <= endDate;
+            const matchesAnalyst = schedule.analystId === params.analystId;
+            const matchesShift = !params.shiftType || schedule.shiftType === params.shiftType;
+            return inRange && matchesAnalyst && matchesShift;
+        });
+
+        // Generate all dates in range
+        const datesInRange: string[] = [];
+        const current = new Date(startDate);
+        while (current <= endDate) {
+            datesInRange.push(this.toDateString(current));
+            current.setDate(current.getDate() + 1);
+        }
+
+        // Find missing dates
+        const scheduledDates = new Set(analystSchedules.map(s => this.toDateString(s.date)));
+        const missingDates = datesInRange.filter(d => !scheduledDates.has(d));
+
+        if (missingDates.length > 0) {
+            const shiftInfo = params.shiftType ? ` for ${params.shiftType}` : '';
+            violations.push({
+                type: 'HARD',
+                severity: 'HIGH',
+                description: `Required analyst not scheduled${shiftInfo} on: ${missingDates.join(', ')}`,
+                affectedSchedules: missingDates,
+                suggestedFix: `Schedule the required analyst for the missing dates`
+            });
+        }
+
+        return violations;
+    }
+
+    /**
+     * Validate BLACKOUT_PERIOD template constraint.
+     * No scheduling allowed during this period.
+     */
+    private validateBlackoutPeriod(
+        schedules: ProposedSchedule[],
+        constraint: SchedulingConstraint,
+        params: { reason?: string }
+    ): ConstraintViolation[] {
+        // Delegate to existing blackout validation
+        return this.validateBlackoutDate(schedules, constraint);
+    }
+
+    /**
+     * Validate REDUCED_STAFFING template constraint.
+     * Allows reduced staffing levels for specific shifts.
+     */
+    private validateReducedStaffing(
+        schedules: ProposedSchedule[],
+        constraint: SchedulingConstraint,
+        params: { morningCount: number; eveningCount: number }
+    ): ConstraintViolation[] {
+        const violations: ConstraintViolation[] = [];
+        const startDate = new Date(constraint.startDate);
+        const endDate = new Date(constraint.endDate);
+
+        // Group schedules by date and shift
+        const schedulesByDateShift = new Map<string, { morning: number; evening: number }>();
+
+        for (const schedule of schedules) {
+            const scheduleDate = new Date(schedule.date);
+            if (scheduleDate >= startDate && scheduleDate <= endDate) {
+                const dateKey = this.toDateString(schedule.date);
+                if (!schedulesByDateShift.has(dateKey)) {
+                    schedulesByDateShift.set(dateKey, { morning: 0, evening: 0 });
+                }
+                const counts = schedulesByDateShift.get(dateKey)!;
+                if (schedule.shiftType === 'MORNING') {
+                    counts.morning++;
+                } else if (schedule.shiftType === 'EVENING') {
+                    counts.evening++;
+                }
+            }
+        }
+
+        // Check each date
+        for (const [dateKey, counts] of schedulesByDateShift) {
+            if (counts.morning > params.morningCount) {
+                violations.push({
+                    type: 'SOFT',
+                    severity: 'LOW',
+                    description: `${dateKey} MORNING: ${counts.morning} analysts, reduced limit is ${params.morningCount}`,
+                    affectedSchedules: [`${dateKey} MORNING shift`],
+                    suggestedFix: `Reduce morning staff by ${counts.morning - params.morningCount} - this is a reduced staffing period`
+                });
+            }
+            if (counts.evening > params.eveningCount) {
+                violations.push({
+                    type: 'SOFT',
+                    severity: 'LOW',
+                    description: `${dateKey} EVENING: ${counts.evening} analysts, reduced limit is ${params.eveningCount}`,
+                    affectedSchedules: [`${dateKey} EVENING shift`],
+                    suggestedFix: `Reduce evening staff by ${counts.evening - params.eveningCount} - this is a reduced staffing period`
+                });
+            }
+        }
+
+        return violations;
+    }
+
+    /**
+     * Check if a constraint's template overrides weekend rules.
+     */
+    async shouldOverrideWeekendRules(constraint: SchedulingConstraint): Promise<boolean> {
+        if (!constraint.templateId) return false;
+        return constraintTemplateService.checkOverridesWeekend(constraint.templateId);
+    }
+
+    /**
+     * Check if a constraint's template overrides screener rules.
+     */
+    async shouldOverrideScreenerRules(constraint: SchedulingConstraint): Promise<boolean> {
+        if (!constraint.templateId) return false;
+        return constraintTemplateService.checkOverridesScreener(constraint.templateId);
+    }
+
+    /**
+     * Get the Holiday Constraint config for a given date.
+     * Returns null if date is not a holiday or no config exists.
+     */
+    async getHolidayConstraintConfig(date: Date): Promise<{
+        staffingCount: number | null;
+        screenerCount: number | null;
+        skipScreener: boolean;
+        skipConsecutive: boolean;
+    } | null> {
+        const { prisma } = await import('../../../lib/prisma');
+
+        // Check if this date is a holiday
+        const dateStr = this.toDateString(date);
+        const holiday = await prisma.holiday.findFirst({
+            where: {
+                date: {
+                    gte: new Date(dateStr),
+                    lt: new Date(new Date(dateStr).getTime() + 24 * 60 * 60 * 1000)
+                }
+            }
+        });
+
+        if (!holiday) return null;
+
+        // Get the global holiday constraint config
+        const config = await prisma.holidayConstraintConfig.findFirst({
+            where: { isActive: true }
+        });
+
+        return config || {
+            staffingCount: null,
+            screenerCount: null,
+            skipScreener: false,
+            skipConsecutive: false
+        };
+    }
+
+    /**
+     * Get Special Event constraint for a given date.
+     * Special Events have higher priority than Holiday constraints.
+     */
+    async getSpecialEventForDate(date: Date): Promise<SchedulingConstraint | null> {
+        const { prisma } = await import('../../../lib/prisma');
+        const dateObj = new Date(date);
+
+        const specialEvent = await prisma.schedulingConstraint.findFirst({
+            where: {
+                isSpecialEvent: true,
+                isActive: true,
+                startDate: { lte: dateObj },
+                endDate: { gte: dateObj }
+            }
+        });
+
+        return specialEvent;
+    }
+
+    /**
+     * Get effective constraint config for a date.
+     * Priority: Special Event > Holiday Constraint > Default
+     */
+    async getEffectiveConstraintForDate(date: Date): Promise<{
+        source: 'SPECIAL_EVENT' | 'HOLIDAY' | 'DEFAULT';
+        skipContinuity: boolean;
+        skipConflictCheck: boolean;
+        staffingCount: number | null;
+        screenerCount: number | null;
+        grantCompOff: boolean;
+    }> {
+        // Check for Special Event first (highest priority)
+        const specialEvent = await this.getSpecialEventForDate(date);
+        if (specialEvent) {
+            return {
+                source: 'SPECIAL_EVENT',
+                skipContinuity: (specialEvent as any).skipContinuity ?? false,
+                skipConflictCheck: (specialEvent as any).skipConflictCheck ?? false,
+                staffingCount: null, // Use template params if needed
+                screenerCount: null,
+                grantCompOff: specialEvent.grantsCompOff
+            };
+        }
+
+        // Check for Holiday Constraint
+        const holidayConfig = await this.getHolidayConstraintConfig(date);
+        if (holidayConfig) {
+            return {
+                source: 'HOLIDAY',
+                skipContinuity: holidayConfig.skipConsecutive,
+                skipConflictCheck: false,
+                staffingCount: holidayConfig.staffingCount,
+                screenerCount: holidayConfig.screenerCount,
+                grantCompOff: false
+            };
+        }
+
+        // Default (no special rules)
+        return {
+            source: 'DEFAULT',
+            skipContinuity: false,
+            skipConflictCheck: false,
+            staffingCount: null,
+            screenerCount: null,
+            grantCompOff: false
+        };
+    }
+
+    /**
+     * Check if continuity checks should be skipped for a date.
+     * Used by scheduling algorithms to respect Special Event/Holiday rules.
+     */
+    async shouldSkipContinuityCheck(date: Date): Promise<boolean> {
+        const config = await this.getEffectiveConstraintForDate(date);
+        return config.skipContinuity;
+    }
+
+    /**
+     * Check if conflict checks should be skipped for a date.
+     * Used by scheduling algorithms for Special Event isolation.
+     */
+    async shouldSkipConflictCheck(date: Date): Promise<boolean> {
+        const config = await this.getEffectiveConstraintForDate(date);
+        return config.skipConflictCheck;
     }
 }
 

@@ -13,6 +13,14 @@ import absenceRoutes from './routes/absences';
 import activityRoutes from './routes/activities';
 import scheduleSnapshotRoutes from './routes/schedule-snapshot';
 import notificationRoutes from './routes/notifications';
+import generationBlocksRoutes from './routes/generation-blocks';
+import compoffRoutes from './routes/compoff';
+import constraintTemplatesRoutes from './routes/constraint-templates';
+import constraintPreviewRoutes from './routes/constraint-preview';
+
+import auditRoutes from './routes/audit';
+import holidayConstraintRoutes from './routes/holiday-constraint';
+import specialEventsRoutes from './routes/special-events';
 
 const router = Router();
 
@@ -75,7 +83,9 @@ router.get('/', (req, res) => {
       ml: '/ml',
       holidays: '/holidays',
       absences: '/absences',
-      activities: '/activities'
+      activities: '/activities',
+      holidayConstraint: '/holiday-constraint',
+      specialEvents: '/special-events'
     }
   });
 });
@@ -96,5 +106,12 @@ router.use('/activities', activityRoutes);
 router.use('/activities', activityRoutes);
 router.use('/schedule-snapshot', scheduleSnapshotRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/generation-blocks', generationBlocksRoutes);
+router.use('/compoff', compoffRoutes);
+router.use('/constraint-templates', constraintTemplatesRoutes);
+router.use('/constraints', constraintPreviewRoutes);
+router.use('/audit', auditRoutes);
+router.use('/holiday-constraint', holidayConstraintRoutes);
+router.use('/special-events', specialEventsRoutes);
 
 export default router;

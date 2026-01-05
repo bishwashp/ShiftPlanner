@@ -193,7 +193,7 @@ export class CalendarExportService {
   private createScheduleEvent(schedule: any, analyst: any): ICalEvent {
     const startTime = this.getShiftStartTime(schedule.shiftType, schedule.date);
     const endTime = this.getShiftEndTime(schedule.shiftType, schedule.date);
-    
+
     return {
       uid: `schedule-${schedule.id}@shiftplanner.com`,
       summary: `${analyst.name} - ${schedule.shiftType}${schedule.isScreener ? ' (Screener)' : ''}`,
@@ -229,7 +229,7 @@ export class CalendarExportService {
   private createGoogleCalendarEvent(schedule: any, analyst: any): CalendarEvent {
     const startTime = this.getShiftStartTime(schedule.shiftType, schedule.date);
     const endTime = this.getShiftEndTime(schedule.shiftType, schedule.date);
-    
+
     return {
       id: schedule.id,
       title: `${analyst.name} - ${schedule.shiftType}${schedule.isScreener ? ' (Screener)' : ''}`,

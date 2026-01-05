@@ -3,6 +3,10 @@ import analystsRouter from './analysts';
 import schedulesRouter from './schedules';
 import holidaysRouter from './holidays';
 import absencesRouter from './absences';
+import generationBlocksRouter from './generation-blocks';
+import compoffRouter from './compoff';
+import holidayConstraintRouter from './holiday-constraint';
+import specialEventsRouter from './special-events';
 
 const router = Router();
 
@@ -11,6 +15,10 @@ router.use('/analysts', analystsRouter);
 router.use('/schedules', schedulesRouter);
 router.use('/holidays', holidaysRouter);
 router.use('/absences', absencesRouter);
+router.use('/generation-blocks', generationBlocksRouter);
+router.use('/compoff', compoffRouter);
+router.use('/holiday-constraint', holidayConstraintRouter);
+router.use('/special-events', specialEventsRouter);
 
 // API info endpoint
 router.get('/', (req, res) => {

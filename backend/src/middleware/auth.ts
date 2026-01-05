@@ -1,23 +1,25 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { AuthService } from '../services/AuthService';
 
+export interface AuthenticatedUser {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    analystId: string | null;
+    analyst?: any;
+}
+
 export interface AuthenticatedRequest extends Request {
-    user?: {
-        id: string;
-        email: string;
-        firstName: string;
-        lastName: string;
-        role: string;
-        analystId: string | null;
-        analyst?: any;
-    };
+    user?: AuthenticatedUser;
 }
 
 /**
  * Authentication middleware - verifies JWT token
  */
-export const authenticate = async (
-    req: AuthenticatedRequest,
+export const authenticate: RequestHandler = async (
+    req: Request,
     res: Response,
     next: NextFunction
 ) => {
@@ -28,22 +30,24 @@ export const authenticate = async (
             : authHeader;
 
         if (!token) {
-            return res.status(401).json({
+            res.status(401).json({
                 error: 'Authentication required',
                 message: 'No token provided'
             });
+            return;
         }
 
         const user = await AuthService.validateToken(token);
 
         if (!user) {
-            return res.status(401).json({
+            res.status(401).json({
                 error: 'Invalid or expired token',
                 message: 'Please login again'
             });
+            return;
         }
 
-        req.user = user;
+        (req as AuthenticatedRequest).user = user;
         next();
     } catch (error) {
         console.error('Authentication error:', error);
@@ -58,22 +62,25 @@ export const authenticate = async (
  * Require specific role(s)
  * Usage: requireRole('MANAGER', 'SUPER_ADMIN')
  */
-export const requireRole = (...allowedRoles: string[]) => {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        if (!req.user) {
-            return res.status(401).json({
+export const requireRole = (...allowedRoles: string[]): RequestHandler => {
+    return (req: Request, res: Response, next: NextFunction) => {
+        const authReq = req as AuthenticatedRequest;
+        if (!authReq.user) {
+            res.status(401).json({
                 error: 'Authentication required',
                 message: 'Please login first'
             });
+            return;
         }
 
-        if (!allowedRoles.includes(req.user.role)) {
-            return res.status(403).json({
+        if (!allowedRoles.includes(authReq.user.role)) {
+            res.status(403).json({
                 error: 'Insufficient permissions',
                 message: `This action requires one of the following roles: ${allowedRoles.join(', ')} `,
                 required: allowedRoles,
-                current: req.user.role
+                current: authReq.user.role
             });
+            return;
         }
 
         next();
@@ -84,24 +91,28 @@ export const requireRole = (...allowedRoles: string[]) => {
  * Check if user owns the resource or is a manager
  * Usage: requireOwnerOrManager('analystId')
  */
-export const requireOwnerOrManager = (resourceIdField: string) => {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-        if (!req.user) {
-            return res.status(401).json({
+export const requireOwnerOrManager = (resourceIdField: string): RequestHandler => {
+    return (req: Request, res: Response, next: NextFunction) => {
+        const authReq = req as AuthenticatedRequest;
+        if (!authReq.user) {
+            res.status(401).json({
                 error: 'Authentication required'
             });
+            return;
         }
 
         // Managers and super admins can access any resource
-        if (req.user.role === 'MANAGER' || req.user.role === 'SUPER_ADMIN') {
-            return next();
+        if (authReq.user.role === 'MANAGER' || authReq.user.role === 'SUPER_ADMIN') {
+            next();
+            return;
         }
 
         // Check if analyst owns the resource
         const resourceId = req.params[resourceIdField] || req.body[resourceIdField] || req.query[resourceIdField];
 
-        if (resourceId === req.user.analystId) {
-            return next();
+        if (resourceId === authReq.user.analystId) {
+            next();
+            return;
         }
 
         res.status(403).json({
@@ -114,8 +125,8 @@ export const requireOwnerOrManager = (resourceIdField: string) => {
 /**
  * Optional authentication - attach user if token present, but don't require it
  */
-export const optionalAuth = async (
-    req: AuthenticatedRequest,
+export const optionalAuth: RequestHandler = async (
+    req: Request,
     res: Response,
     next: NextFunction
 ) => {
@@ -128,7 +139,7 @@ export const optionalAuth = async (
         if (token) {
             const user = await AuthService.validateToken(token);
             if (user) {
-                req.user = user;
+                (req as AuthenticatedRequest).user = user;
             }
         }
 

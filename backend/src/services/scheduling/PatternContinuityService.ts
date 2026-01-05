@@ -35,7 +35,7 @@ export class PatternContinuityService {
     });
 
     const continuityMap = new Map<string, ContinuityData>();
-    
+
     continuityRecords.forEach((record: PatternContinuity) => {
       continuityMap.set(record.analystId, {
         analystId: record.analystId,
@@ -56,7 +56,7 @@ export class PatternContinuityService {
     algorithmType: string,
     continuityData: ContinuityData[]
   ): Promise<void> {
-    const operations = continuityData.map(data => 
+    const operations = continuityData.map(data =>
       this.prisma.patternContinuity.upsert({
         where: {
           algorithmType_analystId: {
@@ -123,14 +123,14 @@ export class PatternContinuityService {
 
     return result.count;
   }
-  
+
   /**
    * Get the current rotation state for a specific algorithm and shift type
    */
   async getRotationState(algorithmType: string, shiftType: string): Promise<RotationState | null> {
     // Find records with rotation state metadata
     const metadataRecords = await this.prisma.patternContinuity.findMany({
-      where: { 
+      where: {
         algorithmType,
         AND: [
           { metadata: { contains: `"shiftType":"${shiftType}"` } },
@@ -140,9 +140,9 @@ export class PatternContinuityService {
       orderBy: { updatedAt: 'desc' },
       take: 1
     });
-    
+
     const metadataRecord = metadataRecords.length > 0 ? metadataRecords[0] : null;
-    
+
     if (metadataRecord) {
       try {
         const metadata = JSON.parse(metadataRecord.metadata || '{}');
@@ -160,25 +160,25 @@ export class PatternContinuityService {
         console.error('Error parsing rotation state metadata:', e);
       }
     }
-    
+
     // If no rotation state found, check for any analysts with pattern continuity
     const records = await this.prisma.patternContinuity.findMany({
-      where: { 
+      where: {
         algorithmType,
         metadata: { contains: `"shiftType":"${shiftType}"` }
       },
       orderBy: { lastWorkDate: 'desc' },
       take: 10
     });
-    
+
     if (records.length === 0) {
       return null;
     }
-    
+
     // Try to reconstruct rotation state from pattern continuity records
     // This is a fallback if we don't have explicit rotation state
     const latestRecord = records[0];
-    
+
     return {
       currentAnalystId: latestRecord.analystId,
       currentPattern: latestRecord.lastPattern,
@@ -188,7 +188,7 @@ export class PatternContinuityService {
       nextAnalystId: null
     };
   }
-  
+
   /**
    * Save the current rotation state
    */
@@ -209,20 +209,20 @@ export class PatternContinuityService {
         nextAnalystId: state.nextAnalystId
       }
     };
-    
+
     // Find a valid analyst to store the rotation state with
     const analysts = await this.prisma.analyst.findMany({
       where: { shiftType, isActive: true },
       take: 1
     });
-    
+
     if (analysts.length === 0) {
       console.warn(`No active ${shiftType} analysts found to store rotation state`);
       return;
     }
-    
+
     const analystId = analysts[0].id;
-    
+
     // Create a record to store rotation state
     await this.prisma.patternContinuity.upsert({
       where: {

@@ -107,7 +107,7 @@ router.post('/login', async (req, res) => {
  * POST /api/auth/logout
  * Logout and invalidate session
  */
-router.post('/logout', authenticate, async (req: AuthenticatedRequest, res) => {
+router.post('/logout', authenticate, async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith('Bearer ')
@@ -135,11 +135,12 @@ router.post('/logout', authenticate, async (req: AuthenticatedRequest, res) => {
  * GET /api/auth/me
  * Get current user info
  */
-router.get('/me', authenticate, async (req: AuthenticatedRequest, res) => {
+router.get('/me', authenticate, async (req, res) => {
   try {
+    const authReq = req as AuthenticatedRequest;
     res.json({
       success: true,
-      user: req.user
+      user: authReq.user
     });
   } catch (error) {
     console.error('Get user error:', error);

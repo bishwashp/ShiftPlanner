@@ -59,7 +59,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// Create new schedule
+// Create new schedule (or promote existing to Screener)
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { analystId, date, shiftType, isScreener = false } = req.body;
@@ -89,8 +89,14 @@ router.post('/', async (req: Request, res: Response) => {
       where: { analystId_date: { analystId, date: storageDate } }
     });
 
+    let isUpdate = false;
     if (existingSchedule) {
-      return res.status(400).json({ error: 'Analyst already has a schedule for this date' });
+      // If we are trying to make them a screener, and they aren't already, and shift matches, we allow it
+      if (isScreener && !existingSchedule.isScreener && existingSchedule.shiftType === shiftType) {
+        isUpdate = true;
+      } else {
+        return res.status(400).json({ error: 'Analyst already has a schedule for this date' });
+      }
     }
 
     // If this is a screener assignment, check if there's already a screener for this shift/date
@@ -135,7 +141,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     // 3. Prepare proposed schedule
     const proposedSchedule = {
-      id: 'proposed',
+      id: isUpdate && existingSchedule ? existingSchedule.id : 'proposed',
       analystId,
       analystName: analyst.name,
       date: new Date(date).toISOString(),
@@ -145,16 +151,18 @@ router.post('/', async (req: Request, res: Response) => {
       type: 'NEW_SCHEDULE' as const
     };
 
-    const contextSchedules = contextSchedulesRaw.map(s => ({
-      id: s.id,
-      analystId: s.analystId,
-      analystName: s.analyst.name,
-      date: s.date.toISOString(),
-      shiftType: s.shiftType as 'MORNING' | 'EVENING' | 'WEEKEND',
-      analystShiftType: s.analyst.shiftType as 'MORNING' | 'EVENING' | 'WEEKEND',
-      isScreener: s.isScreener,
-      type: 'NEW_SCHEDULE' as const
-    }));
+    const contextSchedules = contextSchedulesRaw
+      .filter(s => isUpdate ? s.id !== existingSchedule?.id : true) // Exclude self if updating
+      .map(s => ({
+        id: s.id,
+        analystId: s.analystId,
+        analystName: s.analyst.name,
+        date: s.date.toISOString(),
+        shiftType: s.shiftType as 'MORNING' | 'EVENING' | 'WEEKEND',
+        analystShiftType: s.analyst.shiftType as 'MORNING' | 'EVENING' | 'WEEKEND',
+        isScreener: s.isScreener,
+        type: 'NEW_SCHEDULE' as const
+      }));
 
     // 4. Run validation
     const { constraintEngine } = await import('../services/scheduling/algorithms/ConstraintEngine');
@@ -173,17 +181,29 @@ router.post('/', async (req: Request, res: Response) => {
     }
     // --- VALIDATION END ---
 
-    const schedule = await prisma.schedule.create({
-      data: {
-        analystId,
-        date: storageDate,
-        shiftType,
-        isScreener
-      },
-      include: { analyst: true }
-    });
+    if (isUpdate && existingSchedule) {
+      const schedule = await prisma.schedule.update({
+        where: { id: existingSchedule.id },
+        data: {
+          isScreener: true,
+          // We don't change date or shiftType as we verified they match/are compatible
+        },
+        include: { analyst: true }
+      });
+      return res.json(schedule);
+    } else {
+      const schedule = await prisma.schedule.create({
+        data: {
+          analystId,
+          date: storageDate,
+          shiftType,
+          isScreener
+        },
+        include: { analyst: true }
+      });
+      res.status(201).json(schedule);
+    }
 
-    res.status(201).json(schedule);
   } catch (error: any) {
     console.error('Error creating schedule:', error);
     if (error.code === 'P2002') {

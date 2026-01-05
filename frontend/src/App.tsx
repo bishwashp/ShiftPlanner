@@ -112,7 +112,11 @@ function App() {
       setSidebarOpen(savedSidebarOpen === 'true');
     }
     if (savedActiveView && ['schedule', 'dashboard', 'analysts', 'availability', 'conflicts', 'analytics', 'constraints', 'algorithms', 'export'].includes(savedActiveView)) {
-      setActiveView(savedActiveView);
+      // Only restore saved view if we are on the dashboard/root path
+      // This allows direct linking to other pages to take precedence
+      if (location.pathname === '/' || location.pathname === '/dashboard') {
+        setActiveView(savedActiveView);
+      }
     }
     if (savedCalendarView && (['month', 'week', 'day'] as const).includes(savedCalendarView)) {
       setCalendarView(savedCalendarView);

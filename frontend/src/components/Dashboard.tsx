@@ -22,7 +22,7 @@ import { apiService, DashboardStats, Activity } from '../services/api';
 import { formatDateTime } from '../utils/formatDateTime';
 import moment from 'moment-timezone';
 import FairnessReportModal from './FairnessReport';
-import { useActionPrompts } from '../contexts/ActionPromptContext';
+
 import ScheduleGenerationForm from './ScheduleGenerationForm';
 import ScheduleGenerationModal from './ScheduleGenerationModal';
 import GlassCard from './common/GlassCard';
@@ -48,7 +48,6 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess, isLoading, onRefresh, isRefreshing, onConflictTabChange, onAvailabilityTabChange }) => {
   const { isManager } = useAuth();
-  const { showCriticalPrompt, hasActivePrompts } = useActionPrompts();
 
   const [conflicts, setConflicts] = useState<{ critical: any[]; recommended: any[] }>({ critical: [], recommended: [] });
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
@@ -70,7 +69,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (refreshChildren: boolean = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -92,7 +91,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
       setAllActivities(allActivityData);
 
       // Increment refresh key to force re-mount of child components that fetch their own data
-      setRefreshKey(prev => prev + 1);
+      // Only do this if explicitly requested (e.g. manual refresh), not on initial load
+      if (refreshChildren) {
+        setRefreshKey(prev => prev + 1);
+      }
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
 
@@ -118,7 +120,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(false); // Don't force refresh children on initial mount
     fetchAnalysts();
   }, []);
 
@@ -129,43 +131,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRefreshing]);
-
-  // Show action prompt for critical conflicts (but not for schedule existence conflicts)
-  useEffect(() => {
-    const hasNoScheduleConflict = conflicts.critical.some(conflict =>
-      conflict.type === 'NO_SCHEDULE_EXISTS' ||
-      conflict.type === 'INCOMPLETE_SCHEDULES'
-    );
-    // Filter out NO_SCHEDULE_EXISTS and NO_ANALYST_ASSIGNED (which are essentially missing schedules)
-    const actualConflicts = conflicts.critical.filter(conflict =>
-      conflict.type !== 'NO_SCHEDULE_EXISTS' &&
-      conflict.type !== 'NO_ANALYST_ASSIGNED' &&
-      conflict.type !== 'INCOMPLETE_SCHEDULES'
-    );
-
-    if (actualConflicts.length > 0 && !loading && !hasNoScheduleConflict && isManager) {
-      showCriticalPrompt(
-        'Critical Schedule Conflicts Detected',
-        `Found ${actualConflicts.length} critical conflict(s) that require immediate attention. These conflicts may affect operations and need to be resolved.`,
-        [
-          {
-            label: 'Review & Fix Conflicts',
-            variant: 'primary' as const,
-            onClick: () => onViewChange('conflicts')
-          },
-          {
-            label: 'Auto-Fix All Conflicts',
-            variant: 'secondary' as const,
-            onClick: () => {
-              // This would trigger the auto-fix functionality
-              console.log('Auto-fix all conflicts triggered');
-            }
-          }
-        ],
-        { relatedView: 'conflicts', conflictCount: actualConflicts.length }
-      );
-    }
-  }, [conflicts.critical.length, loading, isManager, showCriticalPrompt, onViewChange]);
 
   // Check if there's a "no schedule exists" or "incomplete schedules" conflict (now in recommended section)
   const hasNoScheduleConflict = conflicts.recommended.some(conflict =>
@@ -199,7 +164,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
 
 
   const handleRefresh = () => {
-    fetchDashboardData();
+    fetchDashboardData(true); // Force refresh children on manual refresh
   };
 
   const handleAddAnalyst = () => {
@@ -266,7 +231,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
       console.log('Schedules applied successfully:', result);
 
       // Refresh the dashboard data to show updated stats
-      await fetchDashboardData();
+      await fetchDashboardData(true); // Force refresh children to show new data
 
       setShowGenerationModal(false);
 

@@ -18,7 +18,7 @@ const MAX_RETRIES = 3; // Maximum number of retries for failed requests
 const RETRY_DELAY = 1000; // 1 second delay between retries
 
 // Create axios instance with default config
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',

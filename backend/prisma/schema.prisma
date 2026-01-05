@@ -19,28 +19,28 @@ datasource db {
 // ============================================================================
 
 model User {
-  id              String   @id @default(cuid())
-  email           String   @unique
-  passwordHash    String?  // Null for SSO-only users
-  firstName       String
-  lastName        String
-  role            String   // ANALYST, MANAGER, SUPER_ADMIN
-  authProvider    String   @default("local") // local, oidc
-  ssoIdentifier   String?  @unique // External IdP identifier
-  isActive        Boolean  @default(true)
-  emailVerified   Boolean  @default(false)
-  lastLogin       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String? // Null for SSO-only users
+  firstName     String
+  lastName      String
+  role          String // ANALYST, MANAGER, SUPER_ADMIN
+  authProvider  String    @default("local") // local, oidc
+  ssoIdentifier String?   @unique // External IdP identifier
+  isActive      Boolean   @default(true)
+  emailVerified Boolean   @default(false)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
   // Link to Analyst (if user is an analyst)
-  analystId       String?  @unique
-  analyst         Analyst? @relation(fields: [analystId], references: [id], onDelete: SetNull)
-  
+  analystId String?  @unique
+  analyst   Analyst? @relation(fields: [analystId], references: [id], onDelete: SetNull)
+
   // Sessions and tokens
-  sessions        Session[]
-  refreshTokens   RefreshToken[]
-  
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+
   @@index([email])
   @@index([role, isActive])
   @@index([authProvider])
@@ -48,16 +48,16 @@ model User {
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  userId       String
-  token        String   @unique
-  ipAddress    String?
-  userAgent    String?
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
-  
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([token])
   @@index([expiresAt])
@@ -65,39 +65,39 @@ model Session {
 }
 
 model RefreshToken {
-  id           String   @id @default(cuid())
-  userId       String
-  token        String   @unique
-  expiresAt    DateTime
-  createdAt    DateTime @default(now())
-  
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([token])
   @@map("refresh_tokens")
 }
 
 model SSOConfig {
-  id                 String   @id @default(cuid())
-  provider           String   // oidc
-  providerName       String   // "Azure AD", "Okta", etc.
-  isActive           Boolean  @default(false)
-  
+  id           String  @id @default(cuid())
+  provider     String // oidc
+  providerName String // "Azure AD", "Okta", etc.
+  isActive     Boolean @default(false)
+
   // OIDC configuration  
-  oidcIssuer         String?
-  oidcClientId       String?
-  oidcClientSecret   String?
-  oidcCallbackUrl    String?
-  oidcAuthUrl        String?
-  oidcTokenUrl       String?
-  
+  oidcIssuer       String?
+  oidcClientId     String?
+  oidcClientSecret String?
+  oidcCallbackUrl  String?
+  oidcAuthUrl      String?
+  oidcTokenUrl     String?
+
   // Role mapping (JSON)
-  roleMapping        String?  // JSON: {"admin_group": "MANAGER", "analyst_group": "ANALYST"}
-  
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  
+  roleMapping String? // JSON: {"admin_group": "MANAGER", "analyst_group": "ANALYST"}
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([provider, isActive])
   @@map("sso_configs")
 }
@@ -107,31 +107,34 @@ model SSOConfig {
 // ============================================================================
 
 model Analyst {
-  id          String   @id @default(cuid())
-  name        String
-  email       String   @unique
-  shiftType   String   // AM or PM shift assignment (MORNING, EVENING, WEEKEND)
-  employeeType String  @default("employee") // EMPLOYEE, CONTRACTOR
-  isActive    Boolean  @default(true)
+  id               String   @id @default(cuid())
+  name             String
+  email            String   @unique
+  shiftType        String // AM or PM shift assignment (MORNING, EVENING, WEEKEND)
+  employeeType     String   @default("employee") // EMPLOYEE, CONTRACTOR
+  isActive         Boolean  @default(true)
   customAttributes String? // JSON as string for SQLite compatibility
-  skills      String?  // Comma-separated skills for SQLite compatibility
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // NEW: Link to User account
-  user        User?
-  
+  skills           String? // Comma-separated skills for SQLite compatibility
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Link to User account
+  user User?
+
   // Relationships
-  preferences AnalystPreference[]
-  schedules   Schedule[]
-  vacations   Vacation[]
-  constraints SchedulingConstraint[]
-  patternContinuity PatternContinuity[]
-  absences    Absence[]
-  fairnessDebts FairnessDebt[]
+  preferences            AnalystPreference[]
+  schedules              Schedule[]
+  vacations              Vacation[]
+  constraints            SchedulingConstraint[]
+  patternContinuity      PatternContinuity[]
+  absences               Absence[]
+  fairnessDebts          FairnessDebt[]
   replacementAssignments ReplacementAssignment[] @relation("ReplacementAnalyst")
   originalAssignments    ReplacementAssignment[] @relation("OriginalAnalyst")
-  
+  compOffBalance         CompOffBalance? // Link to comp-off balance
+  requestedShiftSwaps    ShiftSwap[]             @relation("RequestingAnalyst")
+  targetedShiftSwaps     ShiftSwap[]             @relation("TargetAnalyst")
+
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
   @@index([employeeType, isActive]) // For filtering by employee type
@@ -141,37 +144,37 @@ model Analyst {
 }
 
 model AnalystPreference {
-  id          String   @id @default(cuid())
-  analystId   String
-  shiftType   String   // MORNING, EVENING, WEEKEND
-  dayOfWeek   String   // MONDAY, TUESDAY, etc.
-  preference  String   // PREFERRED, AVAILABLE, UNAVAILABLE
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id         String   @id @default(cuid())
+  analystId  String
+  shiftType  String // MORNING, EVENING, WEEKEND
+  dayOfWeek  String // MONDAY, TUESDAY, etc.
+  preference String // PREFERRED, AVAILABLE, UNAVAILABLE
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
   // Relationships
-  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
-  
+  analyst Analyst @relation(fields: [analystId], references: [id], onDelete: Cascade)
+
+  @@unique([analystId, shiftType, dayOfWeek])
   // Performance indexes
   @@index([analystId, shiftType, dayOfWeek]) // For preference lookups
   @@index([shiftType, dayOfWeek]) // For shift-based preference queries
-  @@unique([analystId, shiftType, dayOfWeek])
   @@map("analyst_preferences")
 }
 
 model Vacation {
-  id          String   @id @default(cuid())
-  analystId   String
-  startDate   DateTime
-  endDate     DateTime
-  reason      String?
-  isApproved  Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id         String   @id @default(cuid())
+  analystId  String
+  startDate  DateTime
+  endDate    DateTime
+  reason     String?
+  isApproved Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
   // Relationships
-  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
-  
+  analyst Analyst @relation(fields: [analystId], references: [id], onDelete: Cascade)
+
   // Performance indexes for date range queries
   @@index([analystId, startDate, endDate]) // For analyst vacation lookups
   @@index([startDate, endDate, isApproved]) // For date range queries with approval status
@@ -180,46 +183,70 @@ model Vacation {
 }
 
 model SchedulingConstraint {
-  id          String   @id @default(cuid())
-  analystId   String?
-  shiftType   String?  // MORNING, EVENING, WEEKEND
-  startDate   DateTime
-  endDate     DateTime
-  constraintType String // BLACKOUT_DATE, MAX_SCREENER_DAYS, etc.
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id             String   @id @default(cuid())
+  name           String? // User-defined name for the constraint
+  analystId      String?
+  shiftType      String? // MORNING, EVENING, WEEKEND
+  startDate      DateTime
+  endDate        DateTime
+  constraintType String // BLACKOUT_DATE, ABSENCE, ANALYSTS_PER_DAY, etc.
+  description    String?
+  isActive       Boolean  @default(true)
+
+  // Template reference (for user-defined constraints)
+  templateId     String?
+  templateParams String? // JSON: parameter values
+
+  // Special Event behavior
+  isSpecialEvent    Boolean @default(false)
+  skipContinuity    Boolean @default(false)
+  skipConflictCheck Boolean @default(false)
+  isTemplate        Boolean @default(false) // Saved as reusable template
+
+  // Impact handling
+  requiresRecalculation Boolean @default(false)
+  grantsCompOff         Boolean @default(false)
+  compOffUnits          Float? // How many comp-off units granted
+
+  // Assessment status
+  impactAssessed Boolean @default(false)
+  impactSnapshot String? // JSON: fairness delta, affected analysts
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relationships
-  analyst     Analyst? @relation(fields: [analystId], references: [id], onDelete: Cascade)
-  
+  analyst  Analyst?            @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  template ConstraintTemplate? @relation(fields: [templateId], references: [id])
+
   // Performance indexes for constraint queries
   @@index([analystId, startDate, endDate, isActive]) // For analyst constraint lookups
   @@index([startDate, endDate, isActive]) // For date range constraint queries
   @@index([constraintType, isActive]) // For constraint type filtering
+  @@index([templateId]) // For template-based queries
+  @@index([isSpecialEvent, isActive]) // For special event queries
   @@map("scheduling_constraints")
 }
 
 model Schedule {
-  id          String   @id @default(cuid())
-  analystId   String
-  date        DateTime
-  shiftType   String   // MORNING, EVENING, WEEKEND
-  isScreener  Boolean  @default(false)  // Whether this analyst is designated as Screener for this shift
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id         String   @id @default(cuid())
+  analystId  String
+  date       DateTime
+  shiftType  String // MORNING, EVENING, WEEKEND
+  isScreener Boolean  @default(false) // Whether this analyst is designated as Screener for this shift
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
   // Relationships
-  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
-  
+  analyst Analyst @relation(fields: [analystId], references: [id], onDelete: Cascade)
+
+  @@unique([analystId, date])
   // Critical performance indexes for schedule queries
   @@index([date, shiftType]) // For date-based schedule queries (most common)
   @@index([analystId, date]) // For analyst schedule lookups
   @@index([date, isScreener]) // For screener assignment queries
   @@index([analystId, date, shiftType]) // For specific analyst/date/shift queries
   @@index([date]) // For pure date-based queries
-  @@unique([analystId, date])
   @@map("schedules")
 }
 
@@ -227,11 +254,11 @@ model AlgorithmConfig {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
-  config      String   // JSON as string for SQLite compatibility
+  config      String // JSON as string for SQLite compatibility
   isActive    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Performance indexes
   @@index([isActive]) // For filtering active algorithms
   @@index([name]) // For algorithm name lookups
@@ -239,20 +266,20 @@ model AlgorithmConfig {
 }
 
 model ScheduleGenerationLog {
-  id                String   @id @default(cuid())
-  generatedBy       String   @default("admin") // User who generated the schedule
-  algorithmType     String   // Algorithm used for generation
-  startDate         DateTime // Start date of the generated schedule range
-  endDate           DateTime // End date of the generated schedule range
-  schedulesGenerated Int     // Number of schedules generated
-  conflictsDetected Int     @default(0) // Number of conflicts detected
-  fairnessScore     Float?   // Overall fairness score from the generation
-  executionTime     Int?     // Execution time in milliseconds
-  status            String   @default("SUCCESS") // SUCCESS, FAILED, PARTIAL
-  errorMessage      String?  // Error message if generation failed
-  metadata          String?  // Additional JSON metadata for future extensibility
-  createdAt         DateTime @default(now())
-  
+  id                 String   @id @default(cuid())
+  generatedBy        String   @default("admin") // User who generated the schedule
+  algorithmType      String // Algorithm used for generation
+  startDate          DateTime // Start date of the generated schedule range
+  endDate            DateTime // End date of the generated schedule range
+  schedulesGenerated Int // Number of schedules generated
+  conflictsDetected  Int      @default(0) // Number of conflicts detected
+  fairnessScore      Float? // Overall fairness score from the generation
+  executionTime      Int? // Execution time in milliseconds
+  status             String   @default("SUCCESS") // SUCCESS, FAILED, PARTIAL
+  errorMessage       String? // Error message if generation failed
+  metadata           String? // Additional JSON metadata for future extensibility
+  createdAt          DateTime @default(now())
+
   // Performance indexes for dashboard queries
   @@index([createdAt]) // For recent activity queries (most important)
   @@index([generatedBy, createdAt]) // For user-specific activity
@@ -262,18 +289,18 @@ model ScheduleGenerationLog {
 }
 
 model PatternContinuity {
-  id              String   @id @default(cuid())
-  algorithmType   String   // Algorithm type for which this continuity data is stored
-  analystId       String   // Analyst this continuity data belongs to
-  lastPattern     String   // Last work pattern assigned (e.g., "SUN_THU", "MON_FRI", etc.)
-  lastWorkDate    DateTime // Last date the analyst worked
-  weekNumber      Int      // Week number in the rotation cycle
-  metadata        String?  // Additional pattern-specific data as JSON
-  updatedAt       DateTime @updatedAt
-  createdAt       DateTime @default(now())
-  
-  analyst         Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
-  
+  id            String   @id @default(cuid())
+  algorithmType String // Algorithm type for which this continuity data is stored
+  analystId     String // Analyst this continuity data belongs to
+  lastPattern   String // Last work pattern assigned (e.g., "SUN_THU", "MON_FRI", etc.)
+  lastWorkDate  DateTime // Last date the analyst worked
+  weekNumber    Int // Week number in the rotation cycle
+  metadata      String? // Additional pattern-specific data as JSON
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  analyst Analyst @relation(fields: [analystId], references: [id], onDelete: Cascade)
+
   // Unique constraint to ensure one continuity record per analyst per algorithm
   @@unique([algorithmType, analystId])
   @@index([algorithmType, updatedAt]) // For finding latest continuity data
@@ -282,16 +309,16 @@ model PatternContinuity {
 
 model Holiday {
   id          String   @id @default(cuid())
-  name        String   // Holiday name (e.g., "New Year's Day", "Christmas")
+  name        String // Holiday name (e.g., "New Year's Day", "Christmas")
   date        DateTime // Holiday date (stored in UTC, converted to local timezone)
   timezone    String   @default("America/New_York") // Local timezone for the holiday
   isRecurring Boolean  @default(false) // Whether this holiday repeats annually
-  year        Int?     // Specific year (null for recurring holidays)
-  description String?  // Optional description
+  year        Int? // Specific year (null for recurring holidays)
+  description String? // Optional description
   isActive    Boolean  @default(true) // Whether this holiday affects scheduling
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Performance indexes for date and timezone queries
   @@index([date, timezone, isActive]) // For holiday lookups by date and timezone
   @@index([year, isActive]) // For year-based holiday queries
@@ -300,35 +327,36 @@ model Holiday {
 }
 
 model Absence {
-  id          String   @id @default(cuid())
-  analystId   String   // Analyst who is absent
-  startDate   DateTime // Start date of absence
-  endDate     DateTime // End date of absence
-  type        String   // VACATION, SICK_LEAVE, PERSONAL, EMERGENCY, etc.
-  reason      String?  // Optional reason for absence
-  isApproved  Boolean  @default(true) // Whether the absence is approved
-  isPlanned   Boolean  @default(true) // Whether this is a planned absence
-  
-  // New fields for Phase 1
-  isPartialDay      Boolean  @default(false)
-  startTime         String?  // HH:MM format
-  endTime           String?  // HH:MM format
-  fractionalUnits   Float    @default(1.0) // Fairness weight
+  id                String   @id @default(cuid())
+  analystId         String // Analyst who is absent
+  startDate         DateTime // Start date of absence
+  endDate           DateTime // End date of absence
+  type              String // VACATION, SICK_LEAVE, PERSONAL, EMERGENCY, etc.
+  reason            String? // Optional reason for absence
+  isApproved        Boolean  @default(true) // Whether the absence is approved
+  isPlanned         Boolean  @default(true) // Whether this is a planned absence
+  swapWithAnalystId String? // For shift swaps
+
+  // Phase 1 fields
+  isPartialDay         Boolean @default(false)
+  startTime            String? // HH:MM format
+  endTime              String? // HH:MM format
+  fractionalUnits      Float   @default(1.0) // Fairness weight
   excludedHolidayDates String? // JSON array of excluded dates
-  workDaysCount     Int      @default(0)
-  impactScore       String   @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
-  
+  workDaysCount        Int     @default(0)
+  impactScore          String  @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+
   // Approval Workflow
-  denialReason      String?  // Reason for denial if rejected
-  status            String   @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  denialReason String? // Reason for denial if rejected
+  status       String  @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relationships
-  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  analyst       Analyst        @relation(fields: [analystId], references: [id], onDelete: Cascade)
   fairnessDebts FairnessDebt[]
-  
+
   // Performance indexes for absence queries
   @@index([analystId, startDate, endDate]) // For analyst absence lookups
   @@index([startDate, endDate, isApproved]) // For date range queries with approval status
@@ -340,24 +368,20 @@ model Absence {
 
 model Notification {
   id              String   @id @default(cuid())
-  userId          String?  // Optional link to User
-  analystId       String?  // Optional link to Analyst
-  type            String   // RECOMMENDATION, HISTORY, SYSTEM, SUCCESS, ANALYTICS, ALERT
+  userId          String? // Optional link to User
+  analystId       String? // Optional link to Analyst
+  type            String // RECOMMENDATION, HISTORY, SYSTEM, SUCCESS, ANALYTICS, ALERT
   priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH
   title           String
   message         String
   isRead          Boolean  @default(false)
   importanceScore Int      @default(5)
   requiresAction  Boolean  @default(false)
-  autoExpire      Int?     // Milliseconds
-  metadata        String?  // JSON string
+  autoExpire      Int? // Milliseconds
+  metadata        String? // JSON string
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  // Relationships
-  // We don't strictly enforce foreign keys here to allow system notifications without users
-  // but we can add them if needed. For now, keeping it loose for flexibility.
-  
   @@index([userId, isRead])
   @@index([analystId, isRead])
   @@index([createdAt])
@@ -365,18 +389,18 @@ model Notification {
 }
 
 model Activity {
-  id          String   @id @default(cuid())
-  type        String   // Activity type (SCHEDULE_GENERATED, ANALYST_ADDED, etc.)
-  category    String   // Category (SCHEDULE, ANALYST, ALGORITHM, ABSENCE, SYSTEM)
-  title       String   // User-friendly title for the activity
-  description String   // Detailed description of what happened
-  performedBy String?  // User who performed the action (null for system actions)
+  id           String   @id @default(cuid())
+  type         String // Activity type (SCHEDULE_GENERATED, ANALYST_ADDED, etc.)
+  category     String // Category (SCHEDULE, ANALYST, ALGORITHM, ABSENCE, SYSTEM)
+  title        String // User-friendly title for the activity
+  description  String // Detailed description of what happened
+  performedBy  String? // User who performed the action (null for system actions)
   resourceType String? // Type of resource affected (analyst, schedule, algorithm, etc.)
-  resourceId  String?  // ID of the affected resource
-  metadata    String?  // Additional JSON metadata for context
-  impact      String   @default("LOW") // Impact level: LOW, MEDIUM, HIGH, CRITICAL
-  createdAt   DateTime @default(now())
-  
+  resourceId   String? // ID of the affected resource
+  metadata     String? // Additional JSON metadata for context
+  impact       String   @default("LOW") // Impact level: LOW, MEDIUM, HIGH, CRITICAL
+  createdAt    DateTime @default(now())
+
   // Performance indexes for activity queries
   @@index([createdAt]) // For recent activity queries (most important)
   @@index([category, createdAt]) // For category-based filtering
@@ -389,48 +413,39 @@ model Activity {
 model WorkPattern {
   id          String   @id @default(cuid())
   name        String   @unique // e.g., "SUN_THU", "MON_FRI", "TUE_SAT"
-  displayName String   // e.g., "Sunday-Thursday", "Monday-Friday"
-  days        String   // Comma-separated day numbers: "0,1,2,3,4" (Sunday=0, Saturday=6)
-  nextPattern String   // Name of next pattern in rotation sequence
+  displayName String // e.g., "Sunday-Thursday", "Monday-Friday"
+  days        String // Comma-separated day numbers: "0,1,2,3,4" (Sunday=0, Saturday=6)
+  nextPattern String // Name of next pattern in rotation sequence
   breakDays   Int      @default(0) // Number of break days after this pattern
   isActive    Boolean  @default(true)
   sortOrder   Int      @default(0) // Order in which patterns are cycled
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Performance indexes
   @@index([isActive, sortOrder]) // For active pattern queries in order
   @@index([name, isActive]) // For pattern lookups by name
   @@map("work_patterns")
 }
 
-// SQLite doesn't support enums, so we use string constants
-// ShiftType: "MORNING", "EVENING", "WEEKEND"
-// EmployeeType: "EMPLOYEE", "CONTRACTOR"
-// DayOfWeek: "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
-// PreferenceType: "PREFERRED", "AVAILABLE", "UNAVAILABLE"
-// ConstraintType: "BLACKOUT_DATE", "MAX_SCREENER_DAYS", "MIN_SCREENER_DAYS", "PREFERRED_SCREENER", "UNAVAILABLE_SCREENER"
-// AbsenceType: "VACATION", "SICK_LEAVE", "PERSONAL", "EMERGENCY", "TRAINING", "CONFERENCE"
-
-
 model SystemEvent {
-  id          String   @id @default(cuid())
-  eventType   String   // SCHEDULE_CHANGED, CONSTRAINT_CHANGED, HOLIDAY_CHANGED, ALGORITHM_RUN
-  entityType  String   // SCHEDULE, CONSTRAINT, HOLIDAY, ANALYST
-  entityId    String?
-  
-  action      String   // CREATED, UPDATED, DELETED
-  actorType   String   // USER, SYSTEM, ALGORITHM
-  actorId     String?
-  
-  before      String?  // JSON string
-  after       String?  // JSON string
-  changes     String?  // JSON string
-  
-  metadata    String?  // JSON string
-  
-  createdAt   DateTime @default(now())
-  
+  id         String  @id @default(cuid())
+  eventType  String // SCHEDULE_CHANGED, CONSTRAINT_CHANGED, HOLIDAY_CHANGED, ALGORITHM_RUN
+  entityType String // SCHEDULE, CONSTRAINT, HOLIDAY, ANALYST
+  entityId   String?
+
+  action    String // CREATED, UPDATED, DELETED
+  actorType String // USER, SYSTEM, ALGORITHM
+  actorId   String?
+
+  before  String? // JSON string
+  after   String? // JSON string
+  changes String? // JSON string
+
+  metadata String? // JSON string
+
+  createdAt DateTime @default(now())
+
   // Performance indexes
   @@index([eventType, createdAt])
   @@index([entityType, entityId])
@@ -438,17 +453,17 @@ model SystemEvent {
 }
 
 model FairnessDebt {
-  id          String   @id @default(cuid())
-  analystId   String
-  absenceId   String?  // Link to absence that caused debt
-  debtAmount  Float    // Weighted workload units missed
-  reason      String   // "ABSENCE_COVERAGE", "WEEKEND_MISS", etc.
-  createdAt   DateTime @default(now())
-  resolvedAt  DateTime? // When debt was repaid
-  
-  analyst     Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
-  absence     Absence? @relation(fields: [absenceId], references: [id])
-  
+  id         String    @id @default(cuid())
+  analystId  String
+  absenceId  String? // Link to absence that caused debt
+  debtAmount Float // Weighted workload units missed
+  reason     String // "ABSENCE_COVERAGE", "WEEKEND_MISS", etc.
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime? // When debt was repaid
+
+  analyst Analyst  @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  absence Absence? @relation(fields: [absenceId], references: [id])
+
   @@index([analystId, resolvedAt]) // For active debt queries
   @@map("fairness_debts")
 }
@@ -458,17 +473,146 @@ model ReplacementAssignment {
   originalAnalystId    String
   replacementAnalystId String
   date                 DateTime
-  shiftType            String   // MORNING, EVENING, WEEKEND
-  status               String   // ACTIVE, REASSIGNED, CANCELLED
-  reassignmentChain    String?  // JSON array of analyst IDs: ["A", "B", "C"]
+  shiftType            String // MORNING, EVENING, WEEKEND
+  status               String // ACTIVE, REASSIGNED, CANCELLED
+  reassignmentChain    String? // JSON array of analyst IDs: ["A", "B", "C"]
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
-  
-  originalAnalyst      Analyst  @relation("OriginalAnalyst", fields: [originalAnalystId], references: [id], onDelete: Cascade)
-  replacementAnalyst   Analyst  @relation("ReplacementAnalyst", fields: [replacementAnalystId], references: [id], onDelete: Cascade)
-  
+
+  originalAnalyst    Analyst @relation("OriginalAnalyst", fields: [originalAnalystId], references: [id], onDelete: Cascade)
+  replacementAnalyst Analyst @relation("ReplacementAnalyst", fields: [replacementAnalystId], references: [id], onDelete: Cascade)
+
   @@index([date, status])
   @@index([originalAnalystId])
   @@index([replacementAnalystId])
   @@map("replacement_assignments")
+}
+
+model ShiftSwap {
+  id                  String   @id @default(cuid())
+  requestingAnalystId String
+  requestingShiftDate DateTime
+  targetAnalystId     String
+  targetShiftDate     DateTime
+  status              String   @default("PENDING_PARTNER") // PENDING_PARTNER, PENDING_MANAGER, APPROVED, REJECTED
+  managerNotified     Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  requestingAnalyst Analyst @relation("RequestingAnalyst", fields: [requestingAnalystId], references: [id], onDelete: Cascade)
+  targetAnalyst     Analyst @relation("TargetAnalyst", fields: [targetAnalystId], references: [id], onDelete: Cascade)
+
+  @@index([requestingAnalystId])
+  @@index([targetAnalystId])
+  @@index([status])
+  @@map("shift_swaps")
+}
+
+// ============================================================================
+// CONSTRAINT MANAGEMENT MODELS
+// ============================================================================
+
+model GenerationBlock {
+  id            String   @id @default(cuid())
+  name          String // Semantic name: "Q1 2025 Week 1-4"
+  startDate     DateTime
+  endDate       DateTime
+  algorithmType String
+
+  // Snapshots at generation time
+  constraintSnapshot  String // JSON: all active constraints
+  analystPoolSnapshot String // JSON: analyst IDs and states
+  configSnapshot      String? // JSON: algorithm config
+
+  // Outputs
+  schedulesGenerated Int
+  fairnessScore      Float?
+
+  // Audit
+  generatedBy     String
+  generatedAt     DateTime @default(now())
+  executionTimeMs Int?
+
+  // Decision log (JSON array of ScheduleDecision)
+  decisionLog String?
+
+  // Retention - only keep last 2 blocks (T-2 policy)
+  retainedAt DateTime? // Set when marked for retention
+
+  @@index([generatedAt])
+  @@index([startDate, endDate])
+  @@map("generation_blocks")
+}
+
+model ConstraintTemplate {
+  id          String  @id @default(cuid())
+  name        String  @unique // e.g., "ANALYSTS_PER_DAY"
+  displayName String // "Analysts Per Day"
+  description String?
+
+  // Template configuration
+  parameters String // JSON: parameter definitions
+  // Example: [{"name": "count", "type": "number", "required": true}]
+
+  // Behavior flags - templates can override core algorithm rules
+  overridesWeekendRules  Boolean @default(false)
+  overridesScreenerRules Boolean @default(false)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  constraints SchedulingConstraint[]
+
+  @@map("constraint_templates")
+}
+
+model HolidayConstraintConfig {
+  id              String   @id @default(cuid())
+  staffingCount   Int?     // null = use default
+  screenerCount   Int?     // null = use default
+  skipScreener    Boolean  @default(false)
+  skipConsecutive Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("holiday_constraint_config")
+}
+
+model CompOffBalance {
+  id        String @id @default(cuid())
+  analystId String @unique
+
+  // Balance tracking
+  earnedUnits Float @default(0) // Total earned
+  usedUnits   Float @default(0) // Total used
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  analyst      Analyst              @relation(fields: [analystId], references: [id], onDelete: Cascade)
+  transactions CompOffTransaction[]
+
+  @@map("compoff_balances")
+}
+
+model CompOffTransaction {
+  id        String @id @default(cuid())
+  balanceId String
+
+  amount       Float // Positive for earned, negative for used
+  reason       String // "SPECIAL_EVENT_COVERAGE", "ABSENCE_REDEMPTION"
+  constraintId String? // Link to constraint that generated this
+  absenceId    String? // Link to absence that redeemed this
+
+  createdAt DateTime @default(now())
+
+  // Relationships
+  balance CompOffBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+
+  @@index([balanceId, createdAt])
+  @@map("compoff_transactions")
 }

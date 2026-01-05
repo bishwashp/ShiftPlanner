@@ -97,13 +97,13 @@ export class SecurityService {
       rateLimits: {
         api: {
           windowMs: 15 * 60 * 1000, // 15 minutes
-          maxRequests: parseInt(process.env.RATE_LIMIT_API || '500'),
+          maxRequests: parseInt(process.env.RATE_LIMIT_API || '5000'),
           message: 'Too many requests from this IP',
           statusCode: 429,
         },
         auth: {
           windowMs: 15 * 60 * 1000, // 15 minutes
-          maxRequests: parseInt(process.env.RATE_LIMIT_AUTH || '5'),
+          maxRequests: parseInt(process.env.RATE_LIMIT_AUTH || '100'),
           message: 'Too many authentication attempts',
           statusCode: 429,
         },
@@ -162,7 +162,7 @@ export class SecurityService {
   async generateAuthToken(user: User, ipAddress: string, userAgent: string): Promise<AuthToken> {
     const token = this.generateSecureToken();
     const expiresAt = new Date(Date.now() + this.parseJwtExpiresIn(this.config.jwtExpiresIn));
-    
+
     const authToken: AuthToken = {
       token,
       userId: user.id,
@@ -174,7 +174,7 @@ export class SecurityService {
 
     // Store token in cache for quick validation
     await cacheService.set(`auth_token:${token}`, authToken, this.parseJwtExpiresIn(this.config.jwtExpiresIn) / 1000);
-    
+
     await this.logAuditEvent('TOKEN_GENERATED', 'auth', user.id, {
       tokenType: 'access',
       expiresAt,
@@ -272,7 +272,7 @@ export class SecurityService {
     return async (req: Request, res: Response, next: NextFunction) => {
       const identifier = req.ip || 'unknown';
       const allowed = await this.checkRateLimit(identifier, config);
-      
+
       if (!allowed) {
         res.status(config.statusCode).json({
           error: 'Rate limit exceeded',
@@ -281,7 +281,7 @@ export class SecurityService {
         });
         return;
       }
-      
+
       next();
     };
   }
@@ -301,7 +301,7 @@ export class SecurityService {
 
         const token = authHeader.substring(7);
         const user = await this.validateAuthToken(token);
-        
+
         if (!user) {
           res.status(401).json({
             error: 'Invalid token',
@@ -416,7 +416,7 @@ export class SecurityService {
   private parseJwtExpiresIn(expiresIn: string): number {
     const unit = expiresIn.slice(-1);
     const value = parseInt(expiresIn.slice(0, -1));
-    
+
     switch (unit) {
       case 's': return value * 1000;
       case 'm': return value * 60 * 1000;
@@ -524,7 +524,7 @@ export class SecurityService {
   async getRateLimitStatus(identifier: string): Promise<RateLimitStatus | null> {
     const key = `rate_limit:${identifier}`;
     const current = this.rateLimitStore.get(key);
-    
+
     if (!current) return null;
 
     return {
