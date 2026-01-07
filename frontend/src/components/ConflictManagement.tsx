@@ -3,6 +3,7 @@ import apiService from '../services/api';
 import AutoFixPreview, { AssignmentProposal } from './AutoFixPreview';
 import { formatDateTime } from '../utils/formatDateTime';
 import moment from 'moment-timezone';
+import SpringDropdown from './ui/SpringDropdown';
 
 interface ConflictManagementProps {
   activeTab: 'critical' | 'recommended';
@@ -201,22 +202,17 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
                         <div key={shiftType} className="space-y-2">
                           <label className="text-sm font-medium text-foreground">{shiftType} Shift</label>
                           <div className="flex gap-2">
-                            <select
-                              className="flex-1 px-3 py-1 bg-background border border-border rounded text-foreground"
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  handleManualAssignment(conflict, e.target.value, shiftType);
+                            <SpringDropdown
+                              value=""
+                              onChange={(val) => {
+                                if (val) {
+                                  handleManualAssignment(conflict, val, shiftType);
                                 }
                               }}
+                              options={analysts.map((analyst) => ({ value: analyst.id, label: analyst.name }))}
+                              placeholder="Select Analyst"
                               disabled={autoFixing}
-                            >
-                              <option value="">Select Analyst</option>
-                              {analysts.map((analyst) => (
-                                <option key={analyst.id} value={analyst.id}>
-                                  {analyst.name}
-                                </option>
-                              ))}
-                            </select>
+                            />
                           </div>
                         </div>
                       ))}

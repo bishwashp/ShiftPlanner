@@ -3,6 +3,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import ReactDOM from 'react-dom';
 import { Analyst, apiService } from '../../../services/api';
 import moment from 'moment';
+import SpringDropdown from '../../ui/SpringDropdown';
 
 import Button from '../../ui/Button';
 
@@ -171,26 +172,23 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Analyst</label>
-                        <select
+                        <SpringDropdown
+                            required
                             value={analystId}
-                            onChange={(e) => {
-                                const selectedId = e.target.value;
-                                setAnalystId(selectedId);
-                                const selectedAnalyst = analysts.find(a => a.id === selectedId);
+                            onChange={(val) => {
+                                setAnalystId(val);
+                                const selectedAnalyst = analysts.find(a => a.id === val);
                                 if (selectedAnalyst) {
                                     setShiftType(selectedAnalyst.shiftType);
                                 }
                             }}
-                            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-white/20 bg-white dark:bg-white/10 text-gray-900 dark:text-white backdrop-blur-sm focus:ring-2 focus:ring-primary focus:border-primary"
-                            required
-                        >
-                            <option value="" className="bg-white dark:bg-gray-900">Select Analyst</option>
-                            {analysts.map((analyst) => (
-                                <option key={analyst.id} value={analyst.id} className="bg-white dark:bg-gray-900">
-                                    {analyst.name} ({analyst.shiftType})
-                                </option>
-                            ))}
-                        </select>
+                            options={analysts.map((analyst) => ({
+                                value: analyst.id,
+                                label: `${analyst.name} (${analyst.shiftType})`
+                            }))}
+                            placeholder="Select Analyst"
+                            className="bg-white dark:bg-gray-900"
+                        />
                     </div>
 
                     <div>

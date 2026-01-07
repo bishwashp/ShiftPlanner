@@ -24,6 +24,7 @@ import { View as SidebarView } from './CollapsibleSidebar';
 import ViewSettingsMenu from './ViewSettingsMenu';
 import ExportModal from '../modals/ExportModal';
 import { usePeriod } from '../../context/PeriodContext';
+import SpringDropdown from '../ui/SpringDropdown';
 
 
 interface AppHeaderProps {
@@ -86,8 +87,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     setDate(moment().tz(timezone).toDate());
   };
 
-  const handleViewChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setView(e.target.value as 'month' | 'week' | 'day');
+  const handleViewChange = (val: string) => {
+    setView(val as 'month' | 'week' | 'day');
   }
 
   const getTitle = () => {
@@ -369,18 +370,14 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               </div>
 
               {/* View Selector */}
-              <div className="relative">
-                <select
-                  value={view}
-                  onChange={handleViewChange}
-                  className="appearance-none h-9 pl-4 pr-9 py-1 text-sm font-medium rounded-full border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 backdrop-blur-md text-gray-700 dark:text-gray-200 shadow-sm hover:shadow-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-400 cursor-pointer"
-                >
-
-                  <option value="week" className="bg-white dark:bg-gray-900">Week</option>
-                  <option value="month" className="bg-white dark:bg-gray-900">Month</option>
-                </select>
-                <CaretDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 dark:text-gray-400 pointer-events-none" weight="bold" />
-              </div>
+              <SpringDropdown
+                value={view}
+                onChange={handleViewChange}
+                options={[
+                  { value: "week", label: "Week" },
+                  { value: "month", label: "Month" }
+                ]}
+              />
 
               {/* Export Button */}
               <Button

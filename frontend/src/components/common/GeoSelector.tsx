@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRegion } from '../../contexts/RegionContext';
 import { apiClient as api } from '../../services/api';
+import SpringDropdown from '../ui/SpringDropdown';
 
 interface Region {
     id: string;
@@ -60,9 +61,6 @@ export const GeoSelector: React.FC<GeoSelectorProps> = ({ className = '' }) => {
         fetchRegions();
     }, []);
 
-    // DEBUG: Log render state
-    // console.log('GeoSelector Render:', { isFetching, isContextLoading, regionsCount: regions.length, selectedRegionId });
-
     if (loading) return <span className="text-sm text-gray-400">Loading Regions...</span>;
 
     if (regions.length === 0) {
@@ -71,27 +69,22 @@ export const GeoSelector: React.FC<GeoSelectorProps> = ({ className = '' }) => {
 
     return (
         <div className={`flex items-center ${className}`}>
-            <select
+            <SpringDropdown
                 value={selectedRegionId}
-                onChange={(e) => {
-                    const newId = e.target.value;
-                    const regionName = regions.find(r => r.id === newId)?.name || 'Unknown';
-                    console.log(`GeoSelector: User selected ${regionName} (${newId})`);
-                    setSelectedRegionId(newId);
+                onChange={(val) => {
+                    const regionName = regions.find(r => r.id === val)?.name || 'Unknown';
+                    console.log(`GeoSelector: User selected ${regionName} (${val})`);
+                    setSelectedRegionId(val);
                     window.location.reload();
                 }}
-                className="bg-transparent text-xl font-bold brand-text cursor-pointer border border-gray-600 rounded px-2 py-1"
-                aria-label="Select Region"
-            >
-                {/* Fallback option if selection is somehow invalid */}
-                {!regions.find(r => r.id === selectedRegionId) && <option value="">Select...</option>}
-
-                {regions.map((region) => (
-                    <option key={region.id} value={region.id} className="text-gray-900">
-                        {REGION_FLAGS[region.name] || '🌍'} {region.name}
-                    </option>
-                ))}
-            </select>
+                options={regions.map(r => ({
+                    value: r.id,
+                    label: `${REGION_FLAGS[r.name] || '🌍'} ${r.name}`
+                }))}
+                className="font-bold"
+                variant="ghost"
+                size="lg"
+            />
         </div>
     );
 };

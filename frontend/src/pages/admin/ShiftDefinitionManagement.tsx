@@ -5,6 +5,7 @@ import { apiClient as api } from '../../services/api';
 import { useRegion } from '../../contexts/RegionContext';
 import Button from '../../components/ui/Button';
 import { Plus, Trash, Clock, ArrowRight, Globe, PencilSimple, FloppyDisk, X } from '@phosphor-icons/react';
+import SpringDropdown from '../../components/ui/SpringDropdown';
 
 interface Region {
     id: string;
@@ -534,15 +535,13 @@ const ShiftDefinitionManagement: React.FC = () => {
                             <form onSubmit={handleCreateShift} className="space-y-4">
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">Region</label>
-                                    <select
-                                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-                                        value={shiftForm.regionId}
-                                        onChange={e => setShiftForm({ ...shiftForm, regionId: e.target.value })}
+                                    <SpringDropdown
                                         required
-                                    >
-                                        <option value="">Select Region...</option>
-                                        {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                                    </select>
+                                        value={shiftForm.regionId}
+                                        onChange={val => setShiftForm({ ...shiftForm, regionId: val })}
+                                        options={regions.map(r => ({ value: r.id, label: r.name }))}
+                                        placeholder="Select Region..."
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">Name</label>
@@ -601,17 +600,13 @@ const ShiftDefinitionManagement: React.FC = () => {
                                 {/* Source Shift */}
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">From (Source Shift)</label>
-                                    <select
-                                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-                                        value={handoverForm.sourceShiftId}
-                                        onChange={e => setHandoverForm({ ...handoverForm, sourceShiftId: e.target.value })}
+                                    <SpringDropdown
                                         required
-                                    >
-                                        <option value="">Select Shift...</option>
-                                        {shifts.map(s => (
-                                            <option key={s.id} value={s.id}>[{s.region?.name}] {s.name}</option>
-                                        ))}
-                                    </select>
+                                        value={handoverForm.sourceShiftId}
+                                        onChange={val => setHandoverForm({ ...handoverForm, sourceShiftId: val })}
+                                        options={shifts.map(s => ({ value: s.id, label: `[${s.region?.name}] ${s.name}` }))}
+                                        placeholder="Select Shift..."
+                                    />
                                 </div>
 
                                 {/* Handover Time */}
@@ -629,34 +624,26 @@ const ShiftDefinitionManagement: React.FC = () => {
                                 {/* Target Region */}
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">To (Target Region)</label>
-                                    <select
-                                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-                                        value={handoverForm.targetRegionId}
-                                        onChange={e => setHandoverForm({ ...handoverForm, targetRegionId: e.target.value, targetShiftId: '' })}
+                                    <SpringDropdown
                                         required
-                                    >
-                                        <option value="">Select Region...</option>
-                                        {regions.map(r => (
-                                            <option key={r.id} value={r.id}>{r.name}</option>
-                                        ))}
-                                    </select>
+                                        value={handoverForm.targetRegionId}
+                                        onChange={val => setHandoverForm({ ...handoverForm, targetRegionId: val, targetShiftId: '' })}
+                                        options={regions.map(r => ({ value: r.id, label: r.name }))}
+                                        placeholder="Select Region..."
+                                    />
                                 </div>
 
                                 {/* Target Shift */}
                                 <div>
                                     <label className="block text-xs font-medium text-gray-500 mb-1">To (Target Shift)</label>
-                                    <select
-                                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-                                        value={handoverForm.targetShiftId}
-                                        onChange={e => setHandoverForm({ ...handoverForm, targetShiftId: e.target.value })}
+                                    <SpringDropdown
                                         required
+                                        value={handoverForm.targetShiftId}
+                                        onChange={val => setHandoverForm({ ...handoverForm, targetShiftId: val })}
+                                        options={targetRegionShifts.map(s => ({ value: s.id, label: s.name }))}
+                                        placeholder="Select Target Shift..."
                                         disabled={!handoverForm.targetRegionId}
-                                    >
-                                        <option value="">Select Target Shift...</option>
-                                        {targetRegionShifts.map(s => (
-                                            <option key={s.id} value={s.id}>{s.name}</option>
-                                        ))}
-                                    </select>
+                                    />
                                 </div>
 
                                 <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-border">

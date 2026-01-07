@@ -127,7 +127,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
       >
         {/* Header */}
         <div className={`flex items-center mb-4 p-4 ${isOpen ? 'space-x-3' : 'justify-center'}`}>
-          <div className="w-8 h-8 flex items-center justify-center">
+          <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
             <AnimatedAppIcon className="w-full h-full" />
           </div>
           <div className={`flex items-center gap-2 transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>

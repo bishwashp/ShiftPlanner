@@ -11,10 +11,13 @@ const holidayService = new HolidayService(prisma);
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { year, timezone, isActive } = req.query;
-    
-    // Create cache key based on filters (timezone not included since we don't filter by it)
-    const filters = `year:${year || 'all'}_active:${isActive || 'all'}`;
-    
+
+    // Get regionId from header (set by frontend interceptor)
+    const regionId = req.headers['x-region-id'] as string | undefined;
+
+    // Create cache key based on filters including regionId
+    const filters = `year:${year || 'all'}_active:${isActive || 'all'}_region:${regionId || 'all'}`;
+
     // Try to get from cache first
     const cachedHolidays = await cacheService.get(`holidays:${filters}`);
     if (cachedHolidays) {
@@ -23,15 +26,20 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Build query conditions
     const where: any = {};
-    
+
+    // Filter by regionId if provided
+    if (regionId) {
+      where.regionId = regionId;
+    }
+
     if (year) {
       const yearNum = parseInt(year as string);
       const startOfYear = moment.tz(`${yearNum}-01-01`, timezone as string || 'America/New_York').toDate();
       const endOfYear = moment.tz(`${yearNum}-12-31`, timezone as string || 'America/New_York').endOf('day').toDate();
-      
+
       where.OR = [
         { year: yearNum },
-        { 
+        {
           isRecurring: true,
           date: {
             gte: startOfYear,
@@ -40,11 +48,7 @@ router.get('/', async (req: Request, res: Response) => {
         }
       ];
     }
-    
-    // Note: We don't filter by timezone in the database query
-    // because holidays should be available regardless of the requesting timezone
-    // The timezone parameter is used for date calculations in the year filter above
-    
+
     if (isActive !== undefined) {
       where.isActive = isActive === 'true';
     }
@@ -56,7 +60,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Cache the result
     await cacheService.set(`holidays:${filters}`, holidays, 300); // Cache for 5 minutes
-    
+
     res.json(holidays);
   } catch (error) {
     console.error('Error fetching holidays:', error);
@@ -68,7 +72,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     // Try to get from cache first
     const cachedHoliday = await cacheService.get(`holiday:${id}`);
     if (cachedHoliday) {
@@ -78,14 +82,14 @@ router.get('/:id', async (req: Request, res: Response) => {
     const holiday = await prisma.holiday.findUnique({
       where: { id }
     });
-    
+
     if (!holiday) {
       return res.status(404).json({ error: 'Holiday not found' });
     }
 
     // Cache the result
     await cacheService.set(`holiday:${id}`, holiday, 300);
-    
+
     res.json(holiday);
   } catch (error) {
     console.error('Error fetching holiday:', error);
@@ -96,32 +100,36 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create new holiday
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, date, timezone, isRecurring, year, description, isActive } = req.body;
+    const { name, date, timezone, isRecurring, year, description, isActive, regionId } = req.body;
 
     // Validate required fields
     if (!name || !date) {
       return res.status(400).json({ error: 'Name and date are required' });
     }
 
-    // Convert date to UTC for storage
-    const timezoneToUse = timezone || 'America/New_York';
-    const momentDate = moment.tz(date, timezoneToUse);
-    
-    if (!momentDate.isValid()) {
-      return res.status(400).json({ error: 'Invalid date format' });
+    // Determine regionId to use
+    let targetRegionId = regionId;
+    if (!targetRegionId) {
+      const defaultRegion = await prisma.region.findUnique({ where: { name: 'AMR' } });
+      if (defaultRegion) {
+        targetRegionId = defaultRegion.id;
+      } else {
+        return res.status(400).json({ error: 'Region ID is required and default region not found' });
+      }
     }
 
-    const holiday = await prisma.holiday.create({
-      data: {
-        name,
-        date: momentDate.utc().toDate(),
-        timezone: timezoneToUse,
-        isRecurring: isRecurring || false,
-        year: year ? parseInt(year) : null,
-        description,
-        isActive: isActive !== undefined ? isActive : true
-      }
-    });
+    const holidayData = {
+      name,
+      date,
+      timezone: timezone || 'America/New_York',
+      isRecurring: isRecurring || false,
+      year: year ? parseInt(year) : undefined,
+      description,
+      isActive: isActive !== undefined ? isActive : true,
+      regionId: targetRegionId
+    };
+
+    const holiday = await holidayService.createHoliday(holidayData);
 
     // Invalidate relevant caches
     await cacheService.invalidatePattern('holidays:*');
@@ -141,16 +149,16 @@ router.put('/:id', async (req: Request, res: Response) => {
     const { name, date, timezone, isRecurring, year, description, isActive } = req.body;
 
     const updateData: any = {};
-    
+
     if (name) updateData.name = name;
     if (date) {
       const timezoneToUse = timezone || 'America/New_York';
       const momentDate = moment.tz(date, timezoneToUse);
-      
+
       if (!momentDate.isValid()) {
         return res.status(400).json({ error: 'Invalid date format' });
       }
-      
+
       updateData.date = momentDate.utc().toDate();
       updateData.timezone = timezoneToUse;
     }
@@ -208,15 +216,18 @@ router.get('/year/:year', async (req: Request, res: Response) => {
   try {
     const { year } = req.params;
     const { timezone = 'America/New_York' } = req.query;
-    
+
+    // Get regionId from header (set by frontend interceptor)
+    const regionId = req.headers['x-region-id'] as string | undefined;
+
     const yearNum = parseInt(year);
     if (isNaN(yearNum)) {
       return res.status(400).json({ error: 'Invalid year' });
     }
 
-    // Create cache key
-    const cacheKey = `holidays:year:${yearNum}:${timezone}`;
-    
+    // Create cache key including regionId
+    const cacheKey = `holidays:year:${yearNum}:${timezone}:region:${regionId || 'all'}`;
+
     // Try to get from cache first
     const cachedHolidays = await cacheService.get(cacheKey);
     if (cachedHolidays) {
@@ -226,20 +237,28 @@ router.get('/year/:year', async (req: Request, res: Response) => {
     const startOfYear = moment.tz(`${yearNum}-01-01`, timezone as string).toDate();
     const endOfYear = moment.tz(`${yearNum}-12-31`, timezone as string).endOf('day').toDate();
 
-    const holidays = await prisma.holiday.findMany({
-      where: {
-        isActive: true,
-        OR: [
-          { year: yearNum },
-          { 
-            isRecurring: true,
-            date: {
-              gte: startOfYear,
-              lte: endOfYear
-            }
+    // Build where clause
+    const where: any = {
+      isActive: true,
+      OR: [
+        { year: yearNum },
+        {
+          isRecurring: true,
+          date: {
+            gte: startOfYear,
+            lte: endOfYear
           }
-        ]
-      },
+        }
+      ]
+    };
+
+    // Filter by regionId if provided
+    if (regionId) {
+      where.regionId = regionId;
+    }
+
+    const holidays = await prisma.holiday.findMany({
+      where,
       orderBy: { date: 'asc' }
     });
 
@@ -251,7 +270,7 @@ router.get('/year/:year', async (req: Request, res: Response) => {
 
     // Cache the result
     await cacheService.set(cacheKey, formattedHolidays, 600); // Cache for 10 minutes
-    
+
     res.json(formattedHolidays);
   } catch (error) {
     console.error('Error fetching holidays for year:', error);
@@ -262,8 +281,8 @@ router.get('/year/:year', async (req: Request, res: Response) => {
 // Initialize default holidays for a year
 router.post('/initialize-defaults', async (req: Request, res: Response) => {
   try {
-    const { year, timezone = 'America/New_York' } = req.body;
-    
+    const { year, timezone = 'America/New_York', regionId } = req.body;
+
     if (!year) {
       return res.status(400).json({ error: 'Year is required' });
     }
@@ -273,12 +292,24 @@ router.post('/initialize-defaults', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid year format' });
     }
 
-    // Check if holidays already exist for this year
+    // Resolve regionId to use
+    let targetRegionId = regionId;
+    if (!targetRegionId) {
+      const defaultRegion = await prisma.region.findUnique({ where: { name: 'AMR' } });
+      if (defaultRegion) {
+        targetRegionId = defaultRegion.id;
+      } else {
+        return res.status(400).json({ error: 'Region ID is required and default region not found' });
+      }
+    }
+
+    // Check if holidays already exist for this year AND this region
     const existingHolidays = await prisma.holiday.count({
       where: {
+        regionId: targetRegionId,
         OR: [
           { year: yearNum },
-          { 
+          {
             isRecurring: true,
             date: {
               gte: moment.tz(`${yearNum}-01-01`, timezone).toDate(),
@@ -290,14 +321,14 @@ router.post('/initialize-defaults', async (req: Request, res: Response) => {
     });
 
     if (existingHolidays > 0) {
-      return res.status(400).json({ 
-        error: `Holidays already exist for year ${yearNum}`,
+      return res.status(400).json({
+        error: `Holidays already exist for year ${yearNum} in this region`,
         existingCount: existingHolidays
       });
     }
 
     // Initialize default holidays
-    const createdHolidays = await holidayService.initializeDefaultHolidays(yearNum, timezone);
+    const createdHolidays = await holidayService.initializeDefaultHolidays(yearNum, timezone, regionId);
 
     // Invalidate relevant caches
     await cacheService.invalidatePattern('holidays:*');

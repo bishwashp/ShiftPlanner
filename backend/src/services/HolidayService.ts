@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../generated/prisma';
 import moment from 'moment-timezone';
+import Holidays from 'date-holidays';
 
 export interface HolidayData {
   name: string;
@@ -9,6 +10,7 @@ export interface HolidayData {
   year?: number;
   description?: string;
   isActive?: boolean;
+  regionId: string;
 }
 
 export interface HolidayConflict {
@@ -91,7 +93,7 @@ export class HolidayService {
    * Create a new holiday
    */
   async createHoliday(holidayData: HolidayData): Promise<any> {
-    const { name, date, timezone, isRecurring, year, description, isActive } = holidayData;
+    const { name, date, timezone, isRecurring, year, description, isActive, regionId } = holidayData;
 
     // Convert date to UTC for storage
     const momentDate = moment.tz(date, timezone);
@@ -108,7 +110,10 @@ export class HolidayService {
         isRecurring: isRecurring || false,
         year: year || null,
         description,
-        isActive: isActive !== undefined ? isActive : true
+        isActive: isActive !== undefined ? isActive : true,
+        region: {
+          connect: { id: regionId }
+        }
       }
     });
 
@@ -137,6 +142,8 @@ export class HolidayService {
     if (holidayData.description !== undefined) updateData.description = holidayData.description;
     if (holidayData.isActive !== undefined) updateData.isActive = holidayData.isActive;
 
+    // Note: updating region is generally not supported/needed for existing holidays but could be added
+
     const holiday = await this.prisma.holiday.update({
       where: { id },
       data: updateData
@@ -155,89 +162,91 @@ export class HolidayService {
   }
 
   /**
-   * Initialize default holidays for a year
+   * Initialize default holidays for a year for a specific region
+   * @param year Year to initialize
+   * @param timezone Timezone
+   * @param regionId UUID of the Region
    */
-  async initializeDefaultHolidays(year: number, timezone: string = 'America/New_York'): Promise<any[]> {
-    const defaultHolidays = [
-      {
-        name: "New Year's Day",
-        date: `${year}-01-01`,
-        isRecurring: true,
-        description: "New Year's Day"
-      },
-      {
-        name: "Martin Luther King Jr. Day",
-        date: this.getMLKDay(year),
-        isRecurring: true,
-        description: "Martin Luther King Jr. Day"
-      },
-      {
-        name: "Presidents' Day",
-        date: this.getPresidentsDay(year),
-        isRecurring: true,
-        description: "Presidents' Day"
-      },
-      {
-        name: "Memorial Day",
-        date: this.getMemorialDay(year),
-        isRecurring: true,
-        description: "Memorial Day"
-      },
-      {
-        name: "Independence Day",
-        date: `${year}-07-04`,
-        isRecurring: true,
-        description: "Independence Day"
-      },
-      {
-        name: "Labor Day",
-        date: this.getLaborDay(year),
-        isRecurring: true,
-        description: "Labor Day"
-      },
-      {
-        name: "Columbus Day",
-        date: this.getColumbusDay(year),
-        isRecurring: true,
-        description: "Columbus Day"
-      },
-      {
-        name: "Veterans Day",
-        date: `${year}-11-11`,
-        isRecurring: true,
-        description: "Veterans Day"
-      },
-      {
-        name: "Thanksgiving Day",
-        date: this.getThanksgivingDay(year),
-        isRecurring: true,
-        description: "Thanksgiving Day"
-      },
-      {
-        name: "Christmas Day",
-        date: `${year}-12-25`,
-        isRecurring: true,
-        description: "Christmas Day"
-      }
-    ];
+  async initializeDefaultHolidays(year: number, timezone: string = 'America/New_York', regionId?: string): Promise<any[]> {
+    // If no regionId provided, we try to find a default or active region. 
+    // Ideally regionId is mandatory now. But for backward compatibility we handle it.
+
+    let targetRegion: any = null;
+
+    if (regionId) {
+      targetRegion = await this.prisma.region.findUnique({ where: { id: regionId } });
+    } else {
+      // Fallback: try to find region by name "AMR" as default
+      targetRegion = await this.prisma.region.findUnique({ where: { name: 'AMR' } });
+    }
+
+    if (!targetRegion) {
+      throw new Error('Region not found or invalid regionId');
+    }
+
+    const regionName = targetRegion.name; // e.g., AMR, SGP, LDN
+
+    // Map region to country code for date-holidays library
+    let countryCode = 'US'; // Default to US
+
+    // Map AMR/LDN/SGP to ISO 3166-1 alpha-2 codes
+    const regionMap: Record<string, string> = {
+      'AMR': 'US',
+      'LDN': 'GB',
+      'SGP': 'SG'
+    };
+
+    if (regionMap[regionName]) {
+      countryCode = regionMap[regionName];
+    } else {
+      console.warn(`Unknown region name: ${regionName}, defaulting to US holidays.`);
+    }
+
+    // Initialize Holidays library
+    // For SG (Singapore), region is 'SG'.
+    // For LDN (UK), region is 'GB'.
+    // For AMR (US), region is 'US'.
+    const hd = new Holidays(countryCode);
+
+    // Fetch holidays for the year
+    const holidayList = hd.getHolidays(year);
+
+    if (!holidayList) {
+      console.log(`No holidays found for country ${countryCode} year ${year}`);
+      return [];
+    }
+
+    // Filter for public/bank holidays
+    // Also ensuring status is 'public' if possible, but bank holidays are also important in UK.
+    const publicHolidays = holidayList.filter((h: any) =>
+      h.type === 'public' || h.type === 'bank'
+    );
 
     const createdHolidays = [];
 
-    for (const holidayData of defaultHolidays) {
-      // Check if holiday already exists
+    for (const h of publicHolidays) {
+      const holidayData: HolidayData = {
+        name: h.name,
+        date: moment(h.date).format('YYYY-MM-DD'),
+        isRecurring: false,
+        description: h.name,
+        year: year,
+        timezone: timezone,
+        regionId: targetRegion.id
+      };
+
+      // Check if this specific holiday instance already exists for this year within this region
+      // We limit scope to regionId to avoid cross-region conflict if names are same
       const existingHoliday = await this.prisma.holiday.findFirst({
         where: {
           name: holidayData.name,
-          year: year
+          year: year,
+          regionId: targetRegion.id
         }
       });
 
       if (!existingHoliday) {
-        const holiday = await this.createHoliday({
-          ...holidayData,
-          timezone,
-          year
-        });
+        const holiday = await this.createHoliday(holidayData);
         createdHolidays.push(holiday);
       }
     }
@@ -253,6 +262,8 @@ export class HolidayService {
     const momentDate = moment.tz(date, timezone);
 
     // Check for existing schedules on this date
+    // Note: should scope by region ideally, but schedules also have regionId.
+    // For now keeping it broad as per existing logic, or assumes context is managed upstream.
     const existingSchedules = await this.prisma.schedule.findMany({
       where: {
         date: {
@@ -307,75 +318,6 @@ export class HolidayService {
     }
 
     return conflicts;
-  }
-
-  /**
-   * Auto-refresh holidays for next year when current date changes
-   */
-  async autoRefreshHolidays(currentTimezone: string = 'America/New_York'): Promise<void> {
-    const currentYear = moment.tz(currentTimezone).year();
-    const nextYear = currentYear + 1;
-
-    // Check if next year's holidays are already initialized
-    const nextYearHolidays = await this.prisma.holiday.count({
-      where: { year: nextYear }
-    });
-
-    if (nextYearHolidays === 0) {
-      await this.initializeDefaultHolidays(nextYear, currentTimezone);
-    }
-  }
-
-  // Helper methods for calculating floating holidays
-  private getMLKDay(year: number): string {
-    // Third Monday in January
-    const firstMonday = moment(`${year}-01-01`).day(1);
-    if (firstMonday.date() > 7) {
-      firstMonday.add(1, 'week');
-    }
-    return firstMonday.add(2, 'weeks').format('YYYY-MM-DD');
-  }
-
-  private getPresidentsDay(year: number): string {
-    // Third Monday in February
-    const firstMonday = moment(`${year}-02-01`).day(1);
-    if (firstMonday.date() > 7) {
-      firstMonday.add(1, 'week');
-    }
-    return firstMonday.add(2, 'weeks').format('YYYY-MM-DD');
-  }
-
-  private getMemorialDay(year: number): string {
-    // Last Monday in May
-    const lastDayOfMay = moment(`${year}-05-31`);
-    return lastDayOfMay.day(1).format('YYYY-MM-DD');
-  }
-
-  private getLaborDay(year: number): string {
-    // First Monday in September
-    const firstMonday = moment(`${year}-09-01`).day(1);
-    if (firstMonday.date() > 7) {
-      firstMonday.add(1, 'week');
-    }
-    return firstMonday.format('YYYY-MM-DD');
-  }
-
-  private getColumbusDay(year: number): string {
-    // Second Monday in October
-    const firstMonday = moment(`${year}-10-01`).day(1);
-    if (firstMonday.date() > 7) {
-      firstMonday.add(1, 'week');
-    }
-    return firstMonday.add(1, 'week').format('YYYY-MM-DD');
-  }
-
-  private getThanksgivingDay(year: number): string {
-    // Fourth Thursday in November
-    const firstThursday = moment(`${year}-11-01`).day(4);
-    if (firstThursday.date() > 7) {
-      firstThursday.add(1, 'week');
-    }
-    return firstThursday.add(3, 'weeks').format('YYYY-MM-DD');
   }
 }
 

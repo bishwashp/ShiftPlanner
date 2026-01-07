@@ -7,6 +7,7 @@ import { dateUtils } from '../../utils/dateUtils';
 import Checkbox from '../ui/Checkbox';
 import Button from '../ui/Button';
 import { X, CalendarBlank, Warning } from '@phosphor-icons/react';
+import SpringDropdown from '../ui/SpringDropdown';
 
 interface CreateAbsenceModalProps {
     isOpen: boolean;
@@ -206,19 +207,16 @@ const CreateAbsenceModal: React.FC<CreateAbsenceModalProps> = ({
                             <label className="block text-sm font-medium text-foreground mb-1">
                                 Analyst *
                             </label>
-                            <select
-                                value={formData.analystId}
-                                onChange={(e) => setFormData({ ...formData, analystId: e.target.value })}
-                                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:ring-2 focus:ring-primary"
+                            <SpringDropdown
                                 required
-                            >
-                                <option value="">Select Analyst</option>
-                                {analysts.map(analyst => (
-                                    <option key={analyst.id} value={analyst.id}>
-                                        {analyst.name} ({analyst.shiftType})
-                                    </option>
-                                ))}
-                            </select>
+                                value={formData.analystId}
+                                onChange={(val) => setFormData({ ...formData, analystId: val })}
+                                options={analysts.map(analyst => ({
+                                    value: analyst.id,
+                                    label: `${analyst.name} (${analyst.shiftType})`
+                                }))}
+                                placeholder="Select Analyst"
+                            />
                         </div>
                     )}
 
@@ -226,18 +224,12 @@ const CreateAbsenceModal: React.FC<CreateAbsenceModalProps> = ({
                         <label className="block text-sm font-medium text-foreground mb-1">
                             Type *
                         </label>
-                        <select
-                            value={formData.type}
-                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                            className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:ring-2 focus:ring-primary"
+                        <SpringDropdown
                             required
-                        >
-                            {absenceTypes.map(type => (
-                                <option key={type.value} value={type.value}>
-                                    {type.label}
-                                </option>
-                            ))}
-                        </select>
+                            value={formData.type}
+                            onChange={(val) => setFormData({ ...formData, type: val })}
+                            options={absenceTypes}
+                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

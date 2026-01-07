@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, CalendarBlank, Trash, PencilSimple, Warning, CheckCircle, XCircle } from '@phosphor-icons/react';
+import { Plus, CalendarBlank, Warning, CheckCircle, XCircle } from '@phosphor-icons/react';
 import { apiService } from '../services/api';
 import moment from 'moment-timezone';
-import Checkbox from './ui/Checkbox';
 import HeaderActionPortal from './layout/HeaderActionPortal';
 import HeaderActionButton from './layout/HeaderActionButton';
 import Button from './ui/Button';
+import SpringDropdown from './ui/SpringDropdown';
 import { useAuth } from '../contexts/AuthContext';
+import { useRegion } from '../contexts/RegionContext';
+import CreateHolidayModal from './modals/CreateHolidayModal';
 
 interface Holiday {
   id: string;
@@ -21,38 +23,21 @@ interface Holiday {
   updatedAt: string;
 }
 
-interface HolidayFormData {
-  name: string;
-  date: string;
-  timezone: string;
-  isRecurring: boolean;
-  year?: number;
-  description: string;
-  isActive: boolean;
-}
-
 interface HolidayManagementProps {
   timezone?: string;
 }
 
 const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'America/New_York' }) => {
   const { isManager } = useAuth();
+  const { selectedRegionId } = useRegion();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
-  const [formData, setFormData] = useState<HolidayFormData>({
-    name: '',
-    date: '',
-    timezone: timezone,
-    isRecurring: false,
-    year: new Date().getFullYear(),
-    description: '',
-    isActive: true
-  });
-  const [submitting, setSubmitting] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
 
   const fetchHolidays = async () => {
     try {
@@ -72,66 +57,6 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
     fetchHolidays();
   }, [selectedYear, timezone]);
 
-  const handleAddHoliday = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      setSubmitting(true);
-      const holidayData = {
-        ...formData,
-        year: formData.isRecurring ? undefined : formData.year
-      };
-
-      await apiService.createHoliday(holidayData);
-      setFormData({
-        name: '',
-        date: '',
-        timezone: timezone,
-        isRecurring: false,
-        year: new Date().getFullYear(),
-        description: '',
-        isActive: true
-      });
-      setShowAddForm(false);
-      fetchHolidays();
-    } catch (err: any) {
-      console.error('Error creating holiday:', err);
-      setError(err.response?.data?.error || 'Failed to create holiday. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleEditHoliday = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingHoliday) return;
-
-    try {
-      setSubmitting(true);
-      const holidayData = {
-        ...formData,
-        year: formData.isRecurring ? undefined : formData.year
-      };
-
-      await apiService.updateHoliday(editingHoliday.id, holidayData);
-      setEditingHoliday(null);
-      setFormData({
-        name: '',
-        date: '',
-        timezone: timezone,
-        isRecurring: false,
-        year: new Date().getFullYear(),
-        description: '',
-        isActive: true
-      });
-      fetchHolidays();
-    } catch (err: any) {
-      console.error('Error updating holiday:', err);
-      setError(err.response?.data?.error || 'Failed to update holiday. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleDeleteHoliday = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this holiday?')) return;
 
@@ -144,56 +69,41 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
     }
   };
 
-  const startEdit = (holiday: Holiday) => {
-    setEditingHoliday(holiday);
-    setFormData({
-      name: holiday.name,
-      date: moment(holiday.date).format('YYYY-MM-DD'),
-      timezone: holiday.timezone,
-      isRecurring: holiday.isRecurring,
-      year: holiday.year || new Date().getFullYear(),
-      description: holiday.description || '',
-      isActive: holiday.isActive
-    });
-    setShowAddForm(true);
+  const handleOpenAddModal = () => {
+    setEditingHoliday(null);
+    setIsModalOpen(true);
   };
 
-  const cancelEdit = () => {
+  const handleOpenEditModal = (holiday: Holiday) => {
+    setEditingHoliday(holiday);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
     setEditingHoliday(null);
-    setShowAddForm(false);
-    setFormData({
-      name: '',
-      date: '',
-      timezone: 'America/New_York',
-      isRecurring: false,
-      year: new Date().getFullYear(),
-      description: '',
-      isActive: true
-    });
+  };
+
+  const handleModalSuccess = () => {
+    fetchHolidays();
   };
 
   const initializeDefaultHolidays = async () => {
-    if (!window.confirm(`This will create default US holidays for ${selectedYear}. Continue?`)) return;
+    if (!window.confirm(`This will create default holidays for ${selectedYear} in the selected region. Continue?`)) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      const response = await apiService.initializeDefaultHolidays(selectedYear, timezone);
-
-      // Show success message
+      const response = await apiService.initializeDefaultHolidays(selectedYear, timezone, selectedRegionId);
       alert(`Successfully initialized ${response.count} default holidays for ${selectedYear}`);
-
-      // Refresh the holidays list
       fetchHolidays();
     } catch (err: any) {
       console.error('Error initializing holidays:', err);
 
-      // Check if holidays already exist (400 error)
       if (err.response?.status === 400 && err.response?.data?.error?.includes('already exist')) {
         const existingCount = err.response?.data?.existingCount || 0;
-        alert(`Holidays already exist for ${selectedYear} (${existingCount} holidays found). Refreshing the list.`);
-        // Still refresh the holidays list to show existing ones
+        alert(`Holidays already exist for ${selectedYear} in this region (${existingCount} holidays found). Refreshing the list.`);
         fetchHolidays();
       } else {
         setError(err.response?.data?.error || 'Failed to initialize default holidays.');
@@ -221,7 +131,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
             <HeaderActionButton
               icon={Plus}
               label="Add New"
-              onClick={() => setShowAddForm(true)}
+              onClick={handleOpenAddModal}
             />
             <Button
               onClick={initializeDefaultHolidays}
@@ -235,28 +145,17 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
       )}
 
       {/* Filters */}
-      <div className="mb-6 flex items-center space-x-4 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10">
-        <div className="flex items-center space-x-2">
+      <div className="mb-6 flex items-center space-x-4 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10 relative z-20">
+        <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-foreground">Year:</label>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary"
-          >
-            {Array.from({ length: 5 }, (_, i) => {
+          <SpringDropdown
+            value={selectedYear.toString()}
+            onChange={(val) => setSelectedYear(parseInt(val))}
+            options={Array.from({ length: 5 }, (_, i) => {
               const year = new Date().getFullYear() + i;
-              return (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              );
+              return { value: year.toString(), label: year.toString() };
             })}
-          </select>
-        </div>
-        <div className="h-4 w-px bg-gray-300 dark:bg-gray-700" />
-        <div className="text-sm text-gray-700 dark:text-gray-200">
-          <span className="opacity-70">Timezone: </span>
-          <span className="font-medium">{timezone}</span>
+          />
         </div>
       </div>
 
@@ -267,107 +166,6 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
             <Warning className="h-5 w-5 text-destructive" />
             <span className="text-destructive">{error}</span>
           </div>
-        </div>
-      )}
-
-      {/* Add/Edit Form */}
-      {showAddForm && (
-        <div className="mb-6 p-4 glass-static">
-          <h3 className="text-lg font-semibold mb-4">
-            {editingHoliday ? 'Edit Holiday' : 'Add New Holiday'}
-          </h3>
-          <form onSubmit={editingHoliday ? handleEditHoliday : handleAddHoliday} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Holiday Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Timezone
-                </label>
-                <div className="w-full px-3 py-2 border border-border rounded-md bg-muted text-gray-700 dark:text-gray-200">
-                  {timezone}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Year (for non-recurring holidays)
-                </label>
-                <input
-                  type="number"
-                  value={formData.year}
-                  onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
-                  disabled={formData.isRecurring}
-                  className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Description
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-                rows={3}
-              />
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  checked={formData.isRecurring}
-                  onChange={(checked) => setFormData({ ...formData, isRecurring: checked })}
-                />
-                <span className="text-sm text-foreground">Recurring annually</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  checked={formData.isActive}
-                  onChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                />
-                <span className="text-sm text-foreground">Active (affects scheduling)</span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Button
-                type="submit"
-                disabled={submitting}
-                variant="primary"
-              >
-                {submitting ? 'Saving...' : (editingHoliday ? 'Update Holiday' : 'Add Holiday')}
-              </Button>
-              <Button
-                type="button"
-                onClick={editingHoliday ? cancelEdit : () => setShowAddForm(false)} // Changed handleCancelEdit to cancelEdit
-                variant="secondary"
-                className="ml-3"
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
         </div>
       )}
 
@@ -383,9 +181,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                  Timezone
-                </th>
+
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                   Type
                 </th>
@@ -402,10 +198,10 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
             <tbody className="divide-y divide-border">
               {holidays.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-700 dark:text-gray-200">
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-700 dark:text-gray-200">
                     <CalendarBlank className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No holidays found for {selectedYear}</p>
-                    <p className="text-sm">Click "Add Holiday" to create your first holiday</p>
+                    <p className="text-sm">Click "Add New" or "Initialize Defaults" to get started</p>
                   </td>
                 </tr>
               ) : (
@@ -424,9 +220,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                         {moment(holiday.date).format('MMM DD, YYYY')}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-700 dark:text-gray-200">{holiday.timezone}</div>
-                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${holiday.isRecurring
                         ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
@@ -457,7 +251,7 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center space-x-2">
                           <Button
-                            onClick={() => startEdit(holiday)} // Changed handleEditClick to startEdit
+                            onClick={() => handleOpenEditModal(holiday)}
                             variant="ghost"
                             size="sm"
                             className="mr-2"
@@ -481,6 +275,15 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
           </table>
         </div>
       </div>
+
+      {/* Holiday Modal */}
+      <CreateHolidayModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSuccess={handleModalSuccess}
+        timezone={timezone}
+        editingHoliday={editingHoliday}
+      />
     </div>
   );
 };

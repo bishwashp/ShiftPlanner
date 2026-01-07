@@ -10,6 +10,7 @@ import Button from './ui/Button';
 import { AbsenceApprovalDashboard } from './AbsenceApprovalDashboard';
 import { useAuth } from '../contexts/AuthContext';
 import CreateAbsenceModal from './modals/CreateAbsenceModal';
+import SpringDropdown from './ui/SpringDropdown';
 
 interface Absence {
   id: string;
@@ -393,70 +394,61 @@ const AbsenceManagement: React.FC = () => {
         ) : (
           <>
             {/* Filters */}
-            <div className="mb-6 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10">
+            <div className="mb-6 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10 relative z-20">
               <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-foreground whitespace-nowrap">Analyst:</label>
-                  <select
+                <div className="flex items-center gap-3">
+                  <SpringDropdown
                     value={filters.analystId}
-                    onChange={(e) => setFilters({ ...filters, analystId: e.target.value })}
-                    className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary max-w-[150px]"
-                  >
-                    <option value="">All Analysts</option>
-                    {analysts.map(analyst => (
-                      <option key={analyst.id} value={analyst.id}>
-                        {analyst.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setFilters({ ...filters, analystId: val })}
+                    options={[
+                      { value: "", label: "All Analysts" },
+                      ...analysts.map(a => ({ value: a.id, label: a.name }))
+                    ]}
+                  />
                 </div>
 
                 <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 hidden md:block" />
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-3">
                   <label className="text-sm font-medium text-foreground whitespace-nowrap">Type:</label>
-                  <select
+                  <SpringDropdown
                     value={filters.type}
-                    onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-                    className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">All Types</option>
-                    {absenceTypes.map(type => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => setFilters({ ...filters, type: val })}
+                    options={[
+                      { value: "", label: "All Types" },
+                      ...absenceTypes
+                    ]}
+                  />
                 </div>
 
                 <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 hidden md:block" />
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-3">
                   <label className="text-sm font-medium text-foreground whitespace-nowrap">Status:</label>
-                  <select
+                  <SpringDropdown
                     value={filters.isApproved}
-                    onChange={(e) => setFilters({ ...filters, isApproved: e.target.value })}
-                    className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">All</option>
-                    <option value="true">Approved</option>
-                    <option value="false">Pending</option>
-                  </select>
+                    onChange={(val) => setFilters({ ...filters, isApproved: val })}
+                    options={[
+                      { value: "", label: "All" },
+                      { value: "true", label: "Approved" },
+                      { value: "false", label: "Pending" }
+                    ]}
+                  />
                 </div>
 
                 <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 hidden md:block" />
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-3">
                   <label className="text-sm font-medium text-foreground whitespace-nowrap">Plan:</label>
-                  <select
+                  <SpringDropdown
                     value={filters.isPlanned}
-                    onChange={(e) => setFilters({ ...filters, isPlanned: e.target.value })}
-                    className="px-2 py-1 text-sm border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">All</option>
-                    <option value="true">Planned</option>
-                    <option value="false">Unplanned</option>
-                  </select>
+                    onChange={(val) => setFilters({ ...filters, isPlanned: val })}
+                    options={[
+                      { value: "", label: "All" },
+                      { value: "true", label: "Planned" },
+                      { value: "false", label: "Unplanned" }
+                    ]}
+                  />
                 </div>
               </div>
             </div>
@@ -483,36 +475,27 @@ const AbsenceManagement: React.FC = () => {
                       <label className="block text-sm font-medium text-foreground mb-1">
                         Analyst *
                       </label>
-                      <select
-                        value={formData.analystId}
-                        onChange={(e) => setFormData({ ...formData, analystId: e.target.value })}
-                        className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                      <SpringDropdown
                         required
-                      >
-                        <option value="">Select Analyst</option>
-                        {analysts.map(analyst => (
-                          <option key={analyst.id} value={analyst.id}>
-                            {analyst.name} ({analyst.shiftType})
-                          </option>
-                        ))}
-                      </select>
+                        value={formData.analystId}
+                        onChange={(val) => setFormData({ ...formData, analystId: val })}
+                        options={analysts.map(analyst => ({
+                          value: analyst.id,
+                          label: `${analyst.name} (${analyst.shiftType})`
+                        }))}
+                        placeholder="Select Analyst"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1">
                         Type *
                       </label>
-                      <select
-                        value={formData.type}
-                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                        className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                      <SpringDropdown
                         required
-                      >
-                        {absenceTypes.map(type => (
-                          <option key={type.value} value={type.value}>
-                            {type.label}
-                          </option>
-                        ))}
-                      </select>
+                        value={formData.type}
+                        onChange={(val) => setFormData({ ...formData, type: val })}
+                        options={absenceTypes}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1">

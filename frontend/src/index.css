@@ -301,6 +301,71 @@
   .highlight-glow {
     animation: highlight-glow 3s ease-in-out;
   }
+
+  /* ========================================
+     FORM & DROPDOWN STYLING
+     ======================================== */
+
+  /* Form label with proper spacing */
+  .form-label {
+    @apply block text-sm font-medium text-foreground mb-2;
+  }
+
+  /* Base select styling - automatically applied to selects in forms */
+  .form-select,
+  form select,
+  .modal-content select {
+    @apply appearance-none cursor-pointer w-full;
+    @apply px-4 py-2.5 pr-10;
+    @apply border border-border rounded-lg;
+    @apply bg-background text-foreground;
+    @apply text-sm font-medium;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary;
+    @apply transition-all duration-200;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25em 1.25em;
+  }
+
+  .form-select:hover:not(:disabled),
+  form select:hover:not(:disabled),
+  .modal-content select:hover:not(:disabled) {
+    @apply border-gray-400 dark:border-gray-500;
+  }
+
+  .form-select:disabled,
+  form select:disabled,
+  .modal-content select:disabled {
+    @apply opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800;
+  }
+
+  /* Dark mode chevron */
+  [data-theme="dark"] .form-select,
+  [data-theme="dark"] form select,
+  [data-theme="dark"] .modal-content select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  }
+
+  /* Compact pill style for headers/filters */
+  .select-pill {
+    @apply rounded-full py-1.5 pl-4 pr-9 text-sm;
+    @apply bg-white/50 dark:bg-gray-800/50 backdrop-blur-md;
+    @apply border-gray-300 dark:border-gray-600;
+    @apply shadow-sm hover:shadow-md;
+  }
+
+  /* Inline select for table cells */
+  .select-inline {
+    @apply rounded-full border-none px-3 py-1 text-xs font-semibold;
+    @apply bg-gray-100 dark:bg-gray-700/50;
+    @apply w-auto;
+  }
+
+  /* Option styling for dark mode */
+  select option {
+    @apply bg-background text-foreground;
+  }
 }
 
 html,

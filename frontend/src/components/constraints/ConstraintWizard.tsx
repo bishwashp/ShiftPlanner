@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { CaretRight, Warning, Check, X } from '@phosphor-icons/react';
+import { CaretRight, Warning, Check, X, Plus } from '@phosphor-icons/react';
+import SpringDropdown from '../ui/SpringDropdown';
 import { SchedulingConstraint, Analyst, apiService } from '../../services/api';
 import { constraintService, ImpactPreview } from '../../services/constraintService';
 import Button from '../ui/Button';
@@ -147,18 +148,16 @@ const ConstraintWizard: React.FC<ConstraintWizardProps> = ({ isOpen, onClose, on
                     {currentStep === 0 && (
                         <div className="space-y-4">
                             <label className="block text-sm font-medium mb-2">Constraint Type</label>
-                            <select
-                                className="w-full input bg-input border-border"
-                                value={formData.constraintType}
-                                onChange={e => setFormData({ ...formData, constraintType: e.target.value as any })}
-                            >
-                                <option value="BLACKOUT_DATE">Blackout Date</option>
-                                <option value="PREFERRED_SCREENER">Preferred Screener</option>
-                                <option value="UNAVAILABLE_SCREENER">Unavailable for Screener</option>
-                                <option value="TEMPLATE">
-                                    Add a Template Constraint {templates.length > 0 ? `(${templates.length} Available)` : ''}
-                                </option>
-                            </select>
+                            <SpringDropdown
+                                value={formData.constraintType as string}
+                                onChange={(val) => setFormData({ ...formData, constraintType: val as any })}
+                                options={[
+                                    { value: "BLACKOUT_DATE", label: "Blackout Date" },
+                                    { value: "PREFERRED_SCREENER", label: "Preferred Screener" },
+                                    { value: "UNAVAILABLE_SCREENER", label: "Unavailable for Screener" },
+                                    { value: "TEMPLATE", label: `Add a Template Constraint ${templates.length > 0 ? `(${templates.length} Available)` : ''}` }
+                                ]}
+                            />
                         </div>
                     )}
 
@@ -191,16 +190,13 @@ const ConstraintWizard: React.FC<ConstraintWizardProps> = ({ isOpen, onClose, on
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Analyst</label>
                                     {/* Placeholder for analyst select - in real app would use a combo box */}
-                                    <select
-                                        className="w-full input bg-input border-border"
+                                    {/* Placeholder for analyst select - in real app would use a combo box */}
+                                    <SpringDropdown
                                         value={formData.analystId || ''}
-                                        onChange={e => setFormData({ ...formData, analystId: e.target.value })}
-                                    >
-                                        <option value="">-- Select Analyst --</option>
-                                        {analysts.map(a => (
-                                            <option key={a.id} value={a.id}>{a.name}</option>
-                                        ))}
-                                    </select>
+                                        onChange={(val) => setFormData({ ...formData, analystId: val })}
+                                        options={analysts.map(a => ({ value: a.id, label: a.name }))}
+                                        placeholder="-- Select Analyst --"
+                                    />
                                 </div>
                             )}
 
@@ -208,25 +204,21 @@ const ConstraintWizard: React.FC<ConstraintWizardProps> = ({ isOpen, onClose, on
                                 <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Select Template</label>
-                                        <select
-                                            className="w-full input bg-input border-border"
+                                        <SpringDropdown
                                             value={formData.templateId || ''}
-                                            onChange={e => {
-                                                const tmpl = templates.find(t => t.id === e.target.value);
+                                            onChange={(val) => {
+                                                const tmpl = templates.find(t => t.id === val);
                                                 setSelectedTemplate(tmpl);
                                                 setFormData({
                                                     ...formData,
-                                                    templateId: e.target.value,
+                                                    templateId: val,
                                                     description: tmpl?.description || '',
                                                     templateParams: {} // Reset params on template change
                                                 });
                                             }}
-                                        >
-                                            <option value="">-- Select a Rule Template --</option>
-                                            {templates.map(t => (
-                                                <option key={t.id} value={t.id}>{t.name.replace(/_/g, ' ')}</option>
-                                            ))}
-                                        </select>
+                                            options={templates.map(t => ({ value: t.id, label: t.name.replace(/_/g, ' ') }))}
+                                            placeholder="-- Select a Rule Template --"
+                                        />
                                     </div>
 
                                     {selectedTemplate && selectedTemplate.parsedParameters && (
@@ -251,22 +243,18 @@ const ConstraintWizard: React.FC<ConstraintWizardProps> = ({ isOpen, onClose, on
                                                             })}
                                                         />
                                                     ) : param.type === 'analystId' ? (
-                                                        <select
-                                                            className="w-full input bg-input border-border"
+                                                        <SpringDropdown
                                                             value={formData.templateParams?.[param.name] || ''}
-                                                            onChange={e => setFormData({
+                                                            onChange={(val) => setFormData({
                                                                 ...formData,
                                                                 templateParams: {
                                                                     ...formData.templateParams,
-                                                                    [param.name]: e.target.value
+                                                                    [param.name]: val
                                                                 }
                                                             })}
-                                                        >
-                                                            <option value="">-- Select Analyst --</option>
-                                                            {analysts.map(a => (
-                                                                <option key={a.id} value={a.id}>{a.name}</option>
-                                                            ))}
-                                                        </select>
+                                                            options={analysts.map(a => ({ value: a.id, label: a.name }))}
+                                                            placeholder="-- Select Analyst --"
+                                                        />
                                                     ) : (
                                                         <input
                                                             type="text"

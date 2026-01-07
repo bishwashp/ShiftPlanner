@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { apiClient as api } from '../../services/api';
 import Button from '../../components/ui/Button';
-import { Globe, Plus, Trash, PencilSimple, FloppyDisk, X } from '@phosphor-icons/react';
+import { Plus, Trash, Clock, ArrowRight, Globe, PencilSimple, FloppyDisk, X } from '@phosphor-icons/react';
+import SpringDropdown from '../../components/ui/SpringDropdown';
 
 interface Region {
     id: string;
@@ -148,18 +149,19 @@ const RegionManagement: React.FC = () => {
                                                     />
                                                 </td>
                                                 <td className="px-6 py-3">
-                                                    <select
-                                                        className="w-full px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    <SpringDropdown
                                                         value={editForm.timezone}
-                                                        onChange={e => setEditForm({ ...editForm, timezone: e.target.value })}
-                                                    >
-                                                        <option value="America/New_York">America/New_York (AMR)</option>
-                                                        <option value="Asia/Singapore">Asia/Singapore (SGP)</option>
-                                                        <option value="Europe/London">Europe/London (LDN)</option>
-                                                        <option value="Asia/Tokyo">Asia/Tokyo (TYO)</option>
-                                                        <option value="Australia/Sydney">Australia/Sydney (SYD)</option>
-                                                        <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-                                                    </select>
+                                                        onChange={val => setEditForm({ ...editForm, timezone: val })}
+                                                        options={[
+                                                            { value: "America/New_York", label: "America/New_York (AMR)" },
+                                                            { value: "Asia/Singapore", label: "Asia/Singapore (SGP)" },
+                                                            { value: "Europe/London", label: "Europe/London (LDN)" },
+                                                            { value: "Asia/Tokyo", label: "Asia/Tokyo (TYO)" },
+                                                            { value: "Australia/Sydney", label: "Australia/Sydney (SYD)" },
+                                                            { value: "Asia/Kolkata", label: "Asia/Kolkata (IST)" }
+                                                        ]}
+                                                        className="min-w-[200px]"
+                                                    />
                                                 </td>
                                                 <td className="px-6 py-3">
                                                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${region.isActive
@@ -271,20 +273,20 @@ const RegionManagement: React.FC = () => {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Timezone</label>
-                                        <select
+                                        <SpringDropdown
                                             required
-                                            className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
                                             value={formData.timezone}
-                                            onChange={e => setFormData({ ...formData, timezone: e.target.value })}
-                                        >
-                                            <option value="">Select Timezone...</option>
-                                            <option value="America/New_York">America/New_York (AMR)</option>
-                                            <option value="Asia/Singapore">Asia/Singapore (SGP)</option>
-                                            <option value="Europe/London">Europe/London (LDN)</option>
-                                            <option value="Asia/Tokyo">Asia/Tokyo (TYO)</option>
-                                            <option value="Australia/Sydney">Australia/Sydney (SYD)</option>
-                                            <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-                                        </select>
+                                            onChange={val => setFormData({ ...formData, timezone: val })}
+                                            placeholder="Select Timezone..."
+                                            options={[
+                                                { value: "America/New_York", label: "America/New_York (AMR)" },
+                                                { value: "Asia/Singapore", label: "Asia/Singapore (SGP)" },
+                                                { value: "Europe/London", label: "Europe/London (LDN)" },
+                                                { value: "Asia/Tokyo", label: "Asia/Tokyo (TYO)" },
+                                                { value: "Australia/Sydney", label: "Australia/Sydney (SYD)" },
+                                                { value: "Asia/Kolkata", label: "Asia/Kolkata (IST)" }
+                                            ]}
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-end space-x-4 mt-8 pt-6 border-t border-border">

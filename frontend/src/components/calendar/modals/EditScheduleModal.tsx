@@ -5,6 +5,7 @@ import { Analyst, Schedule, apiService } from '../../../services/api';
 import moment from 'moment';
 import GlassCard from '../../common/GlassCard';
 import Button from '../../ui/Button';
+import SpringDropdown from '../../ui/SpringDropdown';
 
 interface EditScheduleModalProps {
     isOpen: boolean;
@@ -261,26 +262,22 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
 
                         <div>
                             <label className="block text-sm font-medium mb-1">Analyst</label>
-                            <select
+                            <SpringDropdown
+                                required
                                 value={analystId}
-                                onChange={(e) => {
-                                    const selectedId = e.target.value;
-                                    setAnalystId(selectedId);
-                                    const selectedAnalyst = analysts.find(a => a.id === selectedId);
+                                onChange={(val) => {
+                                    setAnalystId(val);
+                                    const selectedAnalyst = analysts.find(a => a.id === val);
                                     if (selectedAnalyst) {
                                         setShiftType(selectedAnalyst.shiftType);
                                     }
                                 }}
-                                className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
-                                required
-                            >
-                                <option value="">Select Analyst</option>
-                                {analysts.map((analyst) => (
-                                    <option key={analyst.id} value={analyst.id}>
-                                        {analyst.name} ({analyst.shiftType})
-                                    </option>
-                                ))}
-                            </select>
+                                options={analysts.map((analyst) => ({
+                                    value: analyst.id,
+                                    label: `${analyst.name} (${analyst.shiftType})`
+                                }))}
+                                placeholder="Select Analyst"
+                            />
                         </div>
 
                         <div>

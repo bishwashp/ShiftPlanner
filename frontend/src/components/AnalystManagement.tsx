@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { PencilSimple, Trash, UserPlus, UserMinus, Users } from '@phosphor-icons/react';
+import { PencilSimple, Trash, UserPlus, UserMinus, Plus, Users } from '@phosphor-icons/react';
+import SpringDropdown from './ui/SpringDropdown';
 import { apiService, Analyst } from '../services/api';
 import HeaderActionPortal from './layout/HeaderActionPortal';
 import HeaderActionButton from './layout/HeaderActionButton';
@@ -218,28 +219,28 @@ const AnalystManagement: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         Shift Type
                       </label>
-                      <select
+                      <SpringDropdown
                         value={formData.shiftType}
-                        onChange={(e) => setFormData({ ...formData, shiftType: e.target.value as 'MORNING' | 'EVENING' })}
-                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
-                      >
-                        <option value="MORNING">Morning Shift (AM)</option>
-                        <option value="EVENING">Evening Shift (PM)</option>
-                      </select>
+                        onChange={(val) => setFormData({ ...formData, shiftType: val as 'MORNING' | 'EVENING' })}
+                        options={[
+                          { value: "MORNING", label: "Morning Shift (AM)" },
+                          { value: "EVENING", label: "Evening Shift (PM)" }
+                        ]}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         Employee Type
                       </label>
-                      <select
-                        value={formData.employeeType}
-                        onChange={(e) => setFormData({ ...formData, employeeType: e.target.value as 'EMPLOYEE' | 'CONTRACTOR' })}
-                        className="w-full px-4 py-2 border border-border rounded-lg bg-input focus:ring-2 focus:ring-ring focus:border-transparent"
+                      <SpringDropdown
                         required
-                      >
-                        <option value="EMPLOYEE">Employee</option>
-                        <option value="CONTRACTOR">Contractor</option>
-                      </select>
+                        value={formData.employeeType}
+                        onChange={(val) => setFormData({ ...formData, employeeType: val as 'EMPLOYEE' | 'CONTRACTOR' })}
+                        options={[
+                          { value: "EMPLOYEE", label: "Employee" },
+                          { value: "CONTRACTOR", label: "Contractor" }
+                        ]}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
@@ -350,17 +351,17 @@ const AnalystManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {isManager ? (
-                        <select
-                          value={analyst.isActive ? 'active' : 'inactive'}
-                          onChange={(e) => handleStatusChange(analyst, e.target.value === 'active')}
-                          className={`text-xs font-semibold rounded-full px-2 py-1 border-none focus:ring-2 focus:ring-offset-1 cursor-pointer ${analyst.isActive
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 focus:ring-green-500'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 focus:ring-red-500'
-                            }`}
-                        >
-                          <option value="active">Active</option>
-                          <option value="inactive">Inactive</option>
-                        </select>
+                        <div className="w-32">
+                          <SpringDropdown
+                            value={analyst.isActive ? 'active' : 'inactive'}
+                            onChange={(val) => handleStatusChange(analyst, val === 'active')}
+                            options={[
+                              { value: "active", label: "Active" },
+                              { value: "inactive", label: "Inactive" }
+                            ]}
+                            className="w-full"
+                          />
+                        </div>
                       ) : (
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${analyst.isActive
                           ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'

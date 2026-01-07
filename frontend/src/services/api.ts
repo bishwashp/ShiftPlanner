@@ -994,10 +994,11 @@ export const apiService = {
     return response.data as any[];
   },
 
-  initializeDefaultHolidays: async (year: number, timezone?: string): Promise<any> => {
+  initializeDefaultHolidays: async (year: number, timezone?: string, regionId?: string): Promise<any> => {
     const response = await apiClient.post('/holidays/initialize-defaults', {
       year,
-      timezone: timezone || 'America/New_York'
+      timezone: timezone || 'America/New_York',
+      regionId
     });
     return response.data as any;
   },
