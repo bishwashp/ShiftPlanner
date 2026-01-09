@@ -6,31 +6,39 @@ import { prisma } from '../lib/prisma';
 async function main() {
     console.log('🌱 Seeding test data...');
 
-    // 0. Clear existing data
+    // 0. Get AMR Region (required for analysts)
+    const amrRegion = await prisma.region.findFirst({ where: { name: 'AMR' } });
+    if (!amrRegion) {
+        console.error('❌ AMR region not found. Run migrate-multiregion.ts first.');
+        return;
+    }
+
+    // 0b. Clear existing data
     console.log('🧹 Clearing existing analysts...');
     await prisma.analyst.deleteMany({});
 
     // 1. Create Test Analysts
     const analysts = [
         // Morning Shift (7 Total: 2 Employees, 5 Contractors)
-        { name: 'Alice Morning (Emp)', email: 'alice@example.com', shiftType: 'MORNING', employeeType: 'EMPLOYEE', isActive: true },
-        { name: 'Bob Morning (Emp)', email: 'bob@example.com', shiftType: 'MORNING', employeeType: 'EMPLOYEE', isActive: true },
-        { name: 'Charlie Morning (Cont)', email: 'charlie@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true },
-        { name: 'David Morning (Cont)', email: 'david@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true },
-        { name: 'Eve Morning (Cont)', email: 'eve@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true },
-        { name: 'Frank Morning (Cont)', email: 'frank@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true },
-        { name: 'Grace Morning (Cont)', email: 'grace@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true },
+        { name: 'Alice Morning (Emp)', email: 'alice@example.com', shiftType: 'MORNING', employeeType: 'EMPLOYEE', isActive: true, regionId: amrRegion.id },
+        { name: 'Bob Morning (Emp)', email: 'bob@example.com', shiftType: 'MORNING', employeeType: 'EMPLOYEE', isActive: true, regionId: amrRegion.id },
+        { name: 'Charlie Morning (Cont)', email: 'charlie@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true, regionId: amrRegion.id },
+        { name: 'David Morning (Cont)', email: 'david@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true, regionId: amrRegion.id },
+        { name: 'Eve Morning (Cont)', email: 'eve@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true, regionId: amrRegion.id },
+        { name: 'Frank Morning (Cont)', email: 'frank@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true, regionId: amrRegion.id },
+        { name: 'Grace Morning (Cont)', email: 'grace@example.com', shiftType: 'MORNING', employeeType: 'CONTRACTOR', isActive: true, regionId: amrRegion.id },
 
         // Evening Shift (3 Total: 1 Employee, 2 Contractors)
-        { name: 'Helen Evening (Emp)', email: 'helen@example.com', shiftType: 'EVENING', employeeType: 'EMPLOYEE', isActive: true },
-        { name: 'Ivan Evening (Cont)', email: 'ivan@example.com', shiftType: 'EVENING', employeeType: 'CONTRACTOR', isActive: true },
-        { name: 'Jack Evening (Cont)', email: 'jack@example.com', shiftType: 'EVENING', employeeType: 'CONTRACTOR', isActive: true },
+        { name: 'Helen Evening (Emp)', email: 'helen@example.com', shiftType: 'EVENING', employeeType: 'EMPLOYEE', isActive: true, regionId: amrRegion.id },
+        { name: 'Ivan Evening (Cont)', email: 'ivan@example.com', shiftType: 'EVENING', employeeType: 'CONTRACTOR', isActive: true, regionId: amrRegion.id },
+        { name: 'Jack Evening (Cont)', email: 'jack@example.com', shiftType: 'EVENING', employeeType: 'CONTRACTOR', isActive: true, regionId: amrRegion.id },
     ];
 
     for (const analyst of analysts) {
         await prisma.analyst.create({ data: analyst });
         console.log(`✅ Created analyst: ${analyst.name}`);
     }
+
 
     // 2. Create Test Constraints (Blackout Dates)
     // Create a blackout date for next Monday

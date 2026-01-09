@@ -169,7 +169,7 @@ export interface Analyst {
   id: string;
   name: string;
   email: string;
-  shiftType: 'MORNING' | 'EVENING';  // AM or PM shift assignment
+  shiftType: string;  // AM, PM, LDN, or legacy MORNING/EVENING
   employeeType: 'EMPLOYEE' | 'CONTRACTOR';  // Employee type classification
   isActive: boolean;
   customAttributes?: any;
@@ -180,12 +180,28 @@ export interface Analyst {
   schedules?: Schedule[];
   vacations?: Vacation[];
   constraints?: SchedulingConstraint[];
+  // Phase 1: ShiftDefinition relation (optional for backward compatibility)
+  shiftDefinitionId?: string;
+  shiftDefinition?: {
+    id: string;
+    name: string;
+    regionId: string;
+    startResult: string;
+    endResult: string;
+  };
+  regionId?: string;
+  region?: {
+    id: string;
+    name: string;
+    timezone: string;
+  };
 }
+
 
 export interface AnalystPreference {
   id: string;
   analystId: string;
-  shiftType: 'MORNING' | 'EVENING';
+  shiftType: string;
   dayOfWeek: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
   preference: 'PREFERRED' | 'AVAILABLE' | 'UNAVAILABLE';
   createdAt: string;
@@ -207,7 +223,7 @@ export interface Vacation {
 export interface SchedulingConstraint {
   id: string;
   analystId?: string;
-  shiftType?: 'MORNING' | 'EVENING';
+  shiftType?: string;
   startDate: string;
   endDate: string;
   constraintType: 'BLACKOUT_DATE' | 'MAX_SCREENER_DAYS' | 'MIN_SCREENER_DAYS' | 'PREFERRED_SCREENER' | 'UNAVAILABLE_SCREENER';
@@ -222,7 +238,7 @@ export interface Schedule {
   id: string;
   analystId: string;
   date: string;
-  shiftType: 'MORNING' | 'EVENING';
+  shiftType: string;
   isScreener: boolean;  // Whether this analyst is designated as Screener for this shift
   createdAt: string;
   updatedAt: string;
@@ -337,7 +353,7 @@ export interface SchedulePreview {
     date: string;
     analystId: string;
     analystName: string;
-    shiftType: 'MORNING' | 'EVENING';
+    shiftType: string;
     isScreener: boolean;
     type: 'NEW_SCHEDULE';
   }>;
@@ -460,12 +476,12 @@ export const apiService = {
     return response.data as Analyst;
   },
 
-  createAnalyst: async (data: { name: string; email: string; shiftType: 'MORNING' | 'EVENING'; employeeType: 'EMPLOYEE' | 'CONTRACTOR'; customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
+  createAnalyst: async (data: { name: string; email: string; shiftType: string; employeeType: 'EMPLOYEE' | 'CONTRACTOR'; customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
     const response = await apiClient.post('/analysts', data);
     return response.data as Analyst;
   },
 
-  updateAnalyst: async (id: string, data: { name?: string; email?: string; shiftType?: 'MORNING' | 'EVENING'; employeeType?: 'EMPLOYEE' | 'CONTRACTOR'; isActive?: boolean, customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
+  updateAnalyst: async (id: string, data: { name?: string; email?: string; shiftType?: string; employeeType?: 'EMPLOYEE' | 'CONTRACTOR'; isActive?: boolean, customAttributes?: any, skills?: string[] }): Promise<Analyst> => {
     const response = await apiClient.put(`/analysts/${id}`, data);
     return response.data as Analyst;
   },
@@ -479,7 +495,7 @@ export const apiService = {
     return response.data as AnalystPreference[];
   },
 
-  updateAnalystPreference: async (id: string, data: { shiftType: 'MORNING' | 'EVENING'; dayOfWeek: string; preference: 'PREFERRED' | 'AVAILABLE' | 'UNAVAILABLE' }): Promise<AnalystPreference> => {
+  updateAnalystPreference: async (id: string, data: { shiftType: string; dayOfWeek: string; preference: 'PREFERRED' | 'AVAILABLE' | 'UNAVAILABLE' }): Promise<AnalystPreference> => {
     const response = await apiClient.put(`/analysts/${id}/preferences`, data);
     return response.data as AnalystPreference;
   },
@@ -547,7 +563,7 @@ export const apiService = {
     return response.data as SchedulingConstraint[];
   },
 
-  createConstraint: async (data: { analystId?: string; shiftType?: 'MORNING' | 'EVENING'; startDate: string; endDate: string; constraintType: 'BLACKOUT_DATE' | 'MAX_SCREENER_DAYS' | 'MIN_SCREENER_DAYS' | 'PREFERRED_SCREENER' | 'UNAVAILABLE_SCREENER'; description?: string; isActive?: boolean }): Promise<SchedulingConstraint> => {
+  createConstraint: async (data: { analystId?: string; shiftType?: string; startDate: string; endDate: string; constraintType: 'BLACKOUT_DATE' | 'MAX_SCREENER_DAYS' | 'MIN_SCREENER_DAYS' | 'PREFERRED_SCREENER' | 'UNAVAILABLE_SCREENER'; description?: string; isActive?: boolean }): Promise<SchedulingConstraint> => {
     const response = await apiClient.post('/constraints', data);
     return response.data as SchedulingConstraint;
   },
@@ -581,12 +597,12 @@ export const apiService = {
     return response.data as Schedule;
   },
 
-  createSchedule: async (data: { analystId: string; date: string; shiftType: 'MORNING' | 'EVENING'; isScreener: boolean }): Promise<Schedule> => {
+  createSchedule: async (data: { analystId: string; date: string; shiftType: string; isScreener: boolean }): Promise<Schedule> => {
     const response = await apiClient.post('/schedules', data);
     return response.data as Schedule;
   },
 
-  updateSchedule: async (id: string, data: { analystId?: string; date?: string; shiftType?: 'MORNING' | 'EVENING'; isScreener?: boolean }): Promise<Schedule> => {
+  updateSchedule: async (id: string, data: { analystId?: string; date?: string; shiftType?: string; isScreener?: boolean }): Promise<Schedule> => {
     // Fix for potential ID corruption (e.g. :1 suffix)
     const cleanId = id.includes(':') ? id.split(':')[0] : id;
     console.log(`apiService.updateSchedule called with id: ${id} -> cleaned to ${cleanId}`, data);
@@ -600,7 +616,7 @@ export const apiService = {
     await apiClient.delete(`/schedules/${cleanId}`);
   },
 
-  validateSchedule: async (data: { analystId: string; date: string; shiftType: 'MORNING' | 'EVENING'; isScreener?: boolean; scheduleId?: string }): Promise<{ isValid: boolean; violations: any[] }> => {
+  validateSchedule: async (data: { analystId: string; date: string; shiftType: string; isScreener?: boolean; scheduleId?: string }): Promise<{ isValid: boolean; violations: any[] }> => {
     const response = await apiClient.post('/schedules/validate', data);
     return response.data as { isValid: boolean; violations: any[] };
   },
@@ -622,7 +638,7 @@ export const apiService = {
     }>;
   },
 
-  createBulkSchedules: async (schedules: Array<{ analystId: string; date: string; shiftType: 'MORNING' | 'EVENING'; isScreener?: boolean }>): Promise<{ message: string; count: number }> => {
+  createBulkSchedules: async (schedules: Array<{ analystId: string; date: string; shiftType: string; isScreener?: boolean }>): Promise<{ message: string; count: number }> => {
     const response = await apiClient.post('/schedules/bulk', { schedules });
     return response.data as { message: string; count: number };
   },
@@ -635,7 +651,7 @@ export const apiService = {
         date: string;
         analystId: string;
         analystName: string;
-        shiftType: 'MORNING' | 'EVENING';
+        shiftType: string;
         isScreener: boolean;
         type: 'NEW_SCHEDULE';
       }>;
@@ -672,12 +688,12 @@ export const apiService = {
   },
 
   // Legacy Automated Scheduling (for compatibility)
-  generateSchedulePreview: async (data: { startDate: string; endDate: string; shiftType?: 'MORNING' | 'EVENING'; algorithmType?: string }): Promise<SchedulePreview> => {
+  generateSchedulePreview: async (data: { startDate: string; endDate: string; shiftType?: string; algorithmType?: string }): Promise<SchedulePreview> => {
     const response = await apiClient.post('/algorithms/generate-preview', data);
     return response.data as SchedulePreview;
   },
 
-  applyAutomatedSchedule: async (data: { startDate: string; endDate: string; shiftType?: 'MORNING' | 'EVENING'; algorithmType?: string; overwriteExisting?: boolean }): Promise<ScheduleResult> => {
+  applyAutomatedSchedule: async (data: { startDate: string; endDate: string; shiftType?: string; algorithmType?: string; overwriteExisting?: boolean }): Promise<ScheduleResult> => {
     const response = await apiClient.post('/algorithms/apply-schedule', data);
     return response.data as ScheduleResult;
   },
@@ -769,7 +785,7 @@ export const apiService = {
     return (response.data as any).data;
   },
 
-  getOptimalAssignment: async (date: string, shiftType: 'MORNING' | 'EVENING'): Promise<any> => {
+  getOptimalAssignment: async (date: string, shiftType: string): Promise<any> => {
     const response = await apiClient.get('/ml/optimal-assignment', {
       params: { date, shiftType }
     });
@@ -779,6 +795,16 @@ export const apiService = {
   getDemandForecast: async (period: 'WEEK' | 'MONTH'): Promise<any> => {
     const response = await apiClient.get(`/ml/demand-forecast/${period}`);
     return (response.data as any).data;
+  },
+
+  // Shift Definitions
+  getShiftDefinitions: async (regionId?: string): Promise<any[]> => {
+    const headers: any = {};
+    if (regionId) {
+      headers['x-region-id'] = regionId;
+    }
+    const response = await apiClient.get('/shift-definitions', { headers });
+    return response.data as any[];
   },
 
   getConflictPrediction: async (startDate: string, endDate: string): Promise<any> => {
@@ -1104,6 +1130,44 @@ export const apiService = {
       };
     };
   },
+  // Shift Swaps
+  createSwapRequest: async (data: { requestingShiftDate: string; targetAnalystId?: string; targetShiftDate?: string; isBroadcast?: boolean; parentId?: string }): Promise<ShiftSwap> => {
+    const response = await apiClient.post('/shift-swaps', data);
+    return response.data as ShiftSwap;
+  },
+
+  getMySwaps: async (): Promise<{ incoming: ShiftSwap[]; outgoing: ShiftSwap[]; history: ShiftSwap[] }> => {
+    const response = await apiClient.get('/shift-swaps/mine');
+    return response.data as { incoming: ShiftSwap[]; outgoing: ShiftSwap[]; history: ShiftSwap[] };
+  },
+
+  getBroadcasts: async (): Promise<ShiftSwap[]> => {
+    const response = await apiClient.get('/shift-swaps/broadcasts');
+    return response.data as ShiftSwap[];
+  },
+
+  approveSwap: async (id: string): Promise<ShiftSwap> => {
+    const response = await apiClient.post(`/shift-swaps/${id}/approve`);
+    return response.data as ShiftSwap;
+  },
 };
+
+// Shift Swap Types
+export interface ShiftSwap {
+  id: string;
+  requestingAnalystId: string;
+  requestingShiftDate: string;
+  targetAnalystId?: string;
+  targetShiftDate?: string;
+  isBroadcast: boolean;
+  status: 'PENDING_PARTNER' | 'OPEN' | 'COMPLETED' | 'CANCELLED';
+  parentId?: string;
+  createdAt: string;
+  updatedAt: string;
+  requestingAnalyst?: Analyst;
+  targetAnalyst?: Analyst;
+  parent?: ShiftSwap;
+  offers?: ShiftSwap[];
+}
 
 export default apiService; 

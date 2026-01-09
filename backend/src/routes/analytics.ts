@@ -3,13 +3,14 @@ import { prisma } from '../lib/prisma';
 import { cacheService } from '../lib/cache';
 import { AnalyticsEngine } from '../services/AnalyticsEngine';
 import { PredictiveEngine } from '../services/PredictiveEngine';
-import { DashboardService } from '../services/DashboardService';
+import { dashboardService } from '../services/DashboardService';
 
 const router = Router();
 
 const analyticsEngine = new AnalyticsEngine(prisma, cacheService);
 const predictiveEngine = new PredictiveEngine(prisma, cacheService);
-const dashboardService = new DashboardService(prisma, cacheService, analyticsEngine, predictiveEngine);
+// dashboardService is already imported as singleton
+
 
 // Get monthly tallies for a specific month and year
 router.get('/monthly-tallies/:year/:month', async (req: Request, res: Response) => {

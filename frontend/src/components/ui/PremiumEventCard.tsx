@@ -4,7 +4,7 @@ import clsx from 'clsx';
 
 interface PremiumEventCardProps {
   title: string;
-  shiftType: 'MORNING' | 'EVENING' | 'NIGHT' | 'WEEKEND';
+  shiftType: string;
   isScreener?: boolean;
   analystName?: string;
   isHovered?: boolean;
@@ -70,13 +70,13 @@ export const PremiumEventCard: React.FC<PremiumEventCardProps> = ({
       >
         {/* Gradient overlay for premium look */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-        
+
         <div className={clsx(contentClasses, 'transform rotate-180')}>
           <div className="flex flex-col items-center justify-center h-full space-y-2">
             <span className="text-xs font-semibold truncate writing-mode-vertical-rl text-orientation-mixed transform rotate-180">
               {analystName || title}
             </span>
-            
+
             {isScreener && (
               <div className="bg-event-screener text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full writing-mode-horizontal-tb transform rotate-90">
                 S
@@ -99,10 +99,10 @@ export const PremiumEventCard: React.FC<PremiumEventCardProps> = ({
     >
       {/* Gradient overlay for premium look */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-      
+
       {/* Glassmorphism effect */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
-      
+
       <div className={contentClasses}>
         <div className="flex items-center justify-between w-full">
           <div className="flex-1 min-w-0">
@@ -113,7 +113,7 @@ export const PremiumEventCard: React.FC<PremiumEventCardProps> = ({
               {shiftType.toLowerCase()}
             </div>
           </div>
-          
+
           {isScreener && (
             <motion.div
               className="bg-event-screener text-black text-xs font-bold px-2 py-1 rounded-full ml-2 shadow-sm"
@@ -125,7 +125,7 @@ export const PremiumEventCard: React.FC<PremiumEventCardProps> = ({
             </motion.div>
           )}
         </div>
-        
+
         {/* Premium border accent */}
         <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
       </div>

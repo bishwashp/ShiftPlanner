@@ -27,7 +27,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
 
 
     const [analystId, setAnalystId] = useState('');
-    const [shiftType, setShiftType] = useState<'MORNING' | 'EVENING'>('MORNING');
+    const [shiftType, setShiftType] = useState<string>('MORNING');
     const [isScreener, setIsScreener] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);

@@ -26,6 +26,8 @@ import regionRoutes from './routes/regions';
 import shiftDefinitionsRoutes from './routes/shiftDefinitions';
 import dashboardRoutes from './routes/dashboard';
 
+import shiftSwapsRoutes from './routes/shift-swaps';
+
 const router = Router();
 
 // Health check endpoint
@@ -120,6 +122,7 @@ router.use('/special-events', specialEventsRoutes);
 router.use('/regions', regionRoutes);
 router.use('/shift-definitions', shiftDefinitionsRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/shift-swaps', shiftSwapsRoutes);
 router.use('/ical', icalRoutes);
 
 export default router;

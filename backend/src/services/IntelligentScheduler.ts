@@ -74,11 +74,9 @@ export class IntelligentScheduler implements SchedulingStrategy {
     this.patternContinuityService = new PatternContinuityService(prisma);
     this.rotationManager = new RotationManager(this.patternContinuityService);
 
-    this.shiftDefinitions = {
-      MORNING: { startHour: 9, endHour: 18, tz: 'America/Chicago' },
-      EVENING: { startHour: 9, endHour: 18, tz: 'America/Los_Angeles' },
-      WEEKEND: { startHour: 9, endHour: 18, tz: 'America/Los_Angeles' },
-    };
+    // this.shiftDefinitions will be loaded dynamically per region
+    // Leaving empty initialization or relying on dynamic loading
+    this.shiftDefinitions = {};
   }
 
   /**
@@ -438,6 +436,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
   /**
    * Generate screener assignments
    * HOLISTIC FIX: Uses unified ScreenerFairnessTracker (per-analyst, not per-shift)
+   * PHASE 1 UPDATE: Now works with dynamic shift types, not just MORNING/EVENING
    */
   private async generateScreenerSchedules(
     startDate: Date, endDate: Date, analysts: any[], existingSchedules: any[],
@@ -456,51 +455,37 @@ export class IntelligentScheduler implements SchedulingStrategy {
       const dateStr = currentMoment.format('YYYY-MM-DD');
       const currentDate = currentMoment.toDate();
       const daySchedules = baseSchedules.filter(s => s.date === dateStr);
-      const morningSchedules = daySchedules.filter(s => s.shiftType === 'MORNING');
-      const eveningSchedules = daySchedules.filter(s => s.shiftType === 'EVENING');
 
-      // MORNING SCREENER
-      if (morningSchedules.length > 0) {
-        const availableMorning = [];
-        for (const schedule of morningSchedules) {
-          const isAbsent = await this.absenceService.isAnalystAbsent(schedule.analystId, dateStr);
-          if (!isAbsent) {
-            // Build analyst object for tracker
-            availableMorning.push({ id: schedule.analystId, name: schedule.analystName, ...schedule });
-          }
+      // PHASE 1 UPDATE: Group by shiftType dynamically instead of hardcoded MORNING/EVENING
+      const schedulesByShift = new Map<string, any[]>();
+      for (const schedule of daySchedules) {
+        const shiftType = schedule.shiftType;
+        if (!schedulesByShift.has(shiftType)) {
+          schedulesByShift.set(shiftType, []);
         }
-
-        if (availableMorning.length > 0) {
-          // Use unified fairness tracker
-          const selectedAnalyst = screenerTracker.selectScreener(availableMorning, currentDate);
-          if (selectedAnalyst) {
-            const selectedSchedule = availableMorning.find(s => s.id === selectedAnalyst.id);
-            if (selectedSchedule) {
-              result.proposedSchedules.push({ ...selectedSchedule, isScreener: true });
-              screenerTracker.recordScreenerAssignment(selectedAnalyst.id, currentDate);
-            }
-          }
-        }
+        schedulesByShift.get(shiftType)!.push(schedule);
       }
 
-      // EVENING SCREENER
-      if (eveningSchedules.length > 0) {
-        const availableEvening = [];
-        for (const schedule of eveningSchedules) {
-          const isAbsent = await this.absenceService.isAnalystAbsent(schedule.analystId, dateStr);
-          if (!isAbsent) {
-            availableEvening.push({ id: schedule.analystId, name: schedule.analystName, ...schedule });
+      // For each shift type, assign one screener
+      for (const [shiftType, shiftSchedules] of schedulesByShift) {
+        if (shiftSchedules.length > 0) {
+          const available = [];
+          for (const schedule of shiftSchedules) {
+            const isAbsent = await this.absenceService.isAnalystAbsent(schedule.analystId, dateStr);
+            if (!isAbsent) {
+              available.push({ id: schedule.analystId, name: schedule.analystName, ...schedule });
+            }
           }
-        }
 
-        if (availableEvening.length > 0) {
-          // Use unified fairness tracker
-          const selectedAnalyst = screenerTracker.selectScreener(availableEvening, currentDate);
-          if (selectedAnalyst) {
-            const selectedSchedule = availableEvening.find(s => s.id === selectedAnalyst.id);
-            if (selectedSchedule) {
-              result.proposedSchedules.push({ ...selectedSchedule, isScreener: true });
-              screenerTracker.recordScreenerAssignment(selectedAnalyst.id, currentDate);
+          if (available.length > 0) {
+            // Use unified fairness tracker
+            const selectedAnalyst = screenerTracker.selectScreener(available, currentDate);
+            if (selectedAnalyst) {
+              const selectedSchedule = available.find(s => s.id === selectedAnalyst.id);
+              if (selectedSchedule) {
+                result.proposedSchedules.push({ ...selectedSchedule, isScreener: true });
+                screenerTracker.recordScreenerAssignment(selectedAnalyst.id, currentDate);
+              }
             }
           }
         }
@@ -512,40 +497,50 @@ export class IntelligentScheduler implements SchedulingStrategy {
     return result;
   }
 
+
   /**
    * Detect conflicts in proposed schedules
+   * PHASE 1 UPDATE: Now works with dynamic shift types
    */
   private generateConflicts(schedules: any[], context: SchedulingContext): any[] {
     const conflicts: any[] = [];
-    const dailyCoverage = new Map<string, { morning: number; evening: number }>();
+    // PHASE 1 UPDATE: Track coverage per shift type dynamically
+    const dailyCoverage = new Map<string, Map<string, number>>();
 
     for (const schedule of schedules) {
       const date = schedule.date;
       if (!dailyCoverage.has(date)) {
-        dailyCoverage.set(date, { morning: 0, evening: 0 });
+        dailyCoverage.set(date, new Map<string, number>());
       }
-      const coverage = dailyCoverage.get(date)!;
-      if (schedule.shiftType === 'MORNING') coverage.morning++;
-      else if (schedule.shiftType === 'EVENING') coverage.evening++;
+      const dateCoverage = dailyCoverage.get(date)!;
+      const shiftType = schedule.shiftType;
+      dateCoverage.set(shiftType, (dateCoverage.get(shiftType) || 0) + 1);
     }
 
-    for (const [date, coverage] of dailyCoverage) {
-      if (coverage.morning === 0) {
-        conflicts.push({
-          date, type: 'INSUFFICIENT_STAFF', description: 'No morning shift coverage',
-          severity: 'HIGH', suggestedResolution: 'Assign additional morning analyst'
-        });
-      }
-      if (coverage.evening === 0) {
-        conflicts.push({
-          date, type: 'INSUFFICIENT_STAFF', description: 'No evening shift coverage',
-          severity: 'HIGH', suggestedResolution: 'Assign additional evening analyst'
-        });
+    // Collect all unique shift types from schedules
+    const allShiftTypes = new Set<string>();
+    for (const schedule of schedules) {
+      allShiftTypes.add(schedule.shiftType);
+    }
+
+    // Check each date has at least one analyst per shift type
+    for (const [date, shiftCoverage] of dailyCoverage) {
+      for (const shiftType of allShiftTypes) {
+        if ((shiftCoverage.get(shiftType) || 0) === 0) {
+          conflicts.push({
+            date,
+            type: 'INSUFFICIENT_STAFF',
+            description: `No ${shiftType} shift coverage`,
+            severity: 'HIGH',
+            suggestedResolution: `Assign additional ${shiftType} analyst`
+          });
+        }
       }
     }
 
     return conflicts;
   }
+
 
   /**
    * Detect overwrites where proposed schedules differ from existing

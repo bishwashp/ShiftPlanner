@@ -316,6 +316,7 @@ export class RecalculationEngine {
                                 date: new Date(schedule.date),
                                 shiftType: schedule.shiftType,
                                 analystId: assignee.id,
+                                regionId: assignee.regionId, // Use analyst's region
                                 isScreener: false, // Default, can be adjusted
                             },
                         });
@@ -330,6 +331,7 @@ export class RecalculationEngine {
                 } else {
                     failed++;
                 }
+
             }
         }
 

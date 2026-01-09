@@ -59,7 +59,9 @@ router.get('/', async (req: Request, res: Response) => {
             shiftType: true,
             isScreener: true
           }
-        }
+        },
+        region: true,
+        shiftDefinition: true // Phase 0: Include for backward-compatible responses
       },
       orderBy: { name: 'asc' }
     });
@@ -133,7 +135,9 @@ router.get('/:id', async (req: Request, res: Response) => {
             reason: true,
             isApproved: true
           }
-        }
+        },
+        region: true,
+        shiftDefinition: true // Phase 0: Include for backward-compatible responses
       }
     });
 
@@ -202,9 +206,11 @@ router.post('/', async (req: Request, res: Response) => {
     // Log activity
     const activityData = ActivityService.ActivityTemplates.ANALYST_ADDED(
       analyst.name,
-      analyst.shiftType,
+      analyst.shiftType ?? 'Unknown',
       (req as any).user?.name || 'admin'
     );
+
+
     await ActivityService.logActivity({
       ...activityData,
       impact: activityData.impact as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'

@@ -3,7 +3,7 @@ import React from 'react';
 // Defines the structure of a single assignment proposal
 export interface AssignmentProposal {
   date: string;
-  shiftType: 'MORNING' | 'EVENING';
+  shiftType: string;
   analystId: string;
   analystName: string;
   action: 'add' | 'remove' | 'swap' | 'move' | 'regenerate';

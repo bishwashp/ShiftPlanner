@@ -15,6 +15,7 @@ import CalendarFilterPanel from './calendar/filtering/CalendarFilterPanel';
 import { useCalendarFilters } from '../hooks/useCalendarFilters';
 import CreateScheduleModal from './calendar/modals/CreateScheduleModal';
 import EditScheduleModal from './calendar/modals/EditScheduleModal';
+import SwapRequestModal from './calendar/modals/SwapRequestModal';
 
 // Performance monitoring utilities
 interface PerformanceMetrics {
@@ -368,6 +369,16 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
 
   const { isManager } = useAuth();
 
+  // Swap Modal State
+  const [swapModalOpen, setSwapModalOpen] = useState(false);
+  const [swapSourceSchedule, setSwapSourceSchedule] = useState<Schedule | null>(null);
+
+  const handleRequestSwap = useCallback((event: CalendarEvent) => {
+    console.log('Request swap for:', event);
+    setSwapSourceSchedule(event.resource);
+    setSwapModalOpen(true);
+  }, []);
+
   // Enhanced event handlers matching original ScheduleView functionality
   const handleDateSelect = useCallback((date: Date) => {
     // Restrict to managers
@@ -407,8 +418,6 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
     }
     setEditModalOpen(true);
   }, [isManager]);
-
-
 
 
   // Data fetching is now handled by parent App component
@@ -587,6 +596,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
               onDateSelect={handleDateSelect}
               onShowMoreClick={handleShowMoreClick}
               onEventSelect={handleEditSchedule}
+              onRequestSwap={handleRequestSwap}
             />
           )}
         </main>
@@ -649,6 +659,17 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
         schedule={selectedSchedule}
         schedules={selectedSchedules}
         analysts={analysts}
+      />
+
+      <SwapRequestModal
+        isOpen={swapModalOpen}
+        onClose={() => setSwapModalOpen(false)}
+        schedule={swapSourceSchedule}
+        analysts={analysts}
+        onSuccess={() => {
+          onRefreshData();
+          onSuccess?.('Swap request created successfully');
+        }}
       />
 
     </div>

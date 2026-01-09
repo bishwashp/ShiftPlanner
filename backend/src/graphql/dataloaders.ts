@@ -13,7 +13,7 @@ export const createAnalystLoader = () => {
         constraints: true,
       }
     });
-    
+
     // Return analysts in the same order as the requested IDs
     return ids.map(id => analysts.find(analyst => analyst.id === id));
   });
@@ -26,7 +26,7 @@ export const createScheduleLoader = () => {
       where: { id: { in: [...ids] } },
       include: { analyst: true }
     });
-    
+
     return ids.map(id => schedules.find(schedule => schedule.id === id));
   });
 };
@@ -38,7 +38,7 @@ export const createVacationLoader = () => {
       where: { id: { in: [...ids] } },
       include: { analyst: true }
     });
-    
+
     return ids.map(id => vacations.find(vacation => vacation.id === id));
   });
 };
@@ -50,7 +50,7 @@ export const createConstraintLoader = () => {
       where: { id: { in: [...ids] } },
       include: { analyst: true }
     });
-    
+
     return ids.map(id => constraints.find(constraint => constraint.id === id));
   });
 };
@@ -63,12 +63,12 @@ export const createSchedulesByAnalystLoader = () => {
       include: { analyst: true },
       orderBy: { date: 'asc' }
     });
-    
+
     // Group schedules by analyst ID
-    const schedulesByAnalyst = analystIds.map(analystId => 
+    const schedulesByAnalyst = analystIds.map(analystId =>
       schedules.filter(schedule => schedule.analystId === analystId)
     );
-    
+
     return schedulesByAnalyst;
   });
 };
@@ -81,12 +81,12 @@ export const createVacationsByAnalystLoader = () => {
       include: { analyst: true },
       orderBy: { startDate: 'asc' }
     });
-    
+
     // Group vacations by analyst ID
-    const vacationsByAnalyst = analystIds.map(analystId => 
+    const vacationsByAnalyst = analystIds.map(analystId =>
       vacations.filter(vacation => vacation.analystId === analystId)
     );
-    
+
     return vacationsByAnalyst;
   });
 };
@@ -99,12 +99,12 @@ export const createConstraintsByAnalystLoader = () => {
       include: { analyst: true },
       orderBy: { startDate: 'asc' }
     });
-    
+
     // Group constraints by analyst ID
-    const constraintsByAnalyst = analystIds.map(analystId => 
+    const constraintsByAnalyst = analystIds.map(analystId =>
       constraints.filter(constraint => constraint.analystId === analystId)
     );
-    
+
     return constraintsByAnalyst;
   });
 };
@@ -124,14 +124,14 @@ export const createSchedulesByDateRangeLoader = () => {
       include: { analyst: true },
       orderBy: { date: 'asc' }
     });
-    
+
     // Group schedules by date range
-    const schedulesByRange = dateRanges.map(range => 
-      schedules.filter(schedule => 
+    const schedulesByRange = dateRanges.map(range =>
+      schedules.filter(schedule =>
         schedule.date >= range.start && schedule.date <= range.end
       )
     );
-    
+
     return schedulesByRange;
   });
 };
@@ -140,25 +140,30 @@ export const createSchedulesByDateRangeLoader = () => {
 export const createBatchOperations = () => {
   return new DataLoader(async (operations: readonly { type: 'create' | 'update' | 'delete'; data: any }[]) => {
     const results = [];
-    
+
     for (const operation of operations) {
       try {
         switch (operation.type) {
           case 'create':
+            const analyst = await prisma.analyst.findUnique({
+              where: { id: operation.data.analystId }
+            });
+
             const creation = {
               analystId: operation.data.analystId,
               date: new Date(operation.data.date),
               shiftType: operation.data.shiftType as any,
-              isScreener: operation.data.isScreener
+              isScreener: operation.data.isScreener,
+              regionId: analyst?.regionId || 'default'
             };
-            
+
             const created = await prisma.schedule.create({
               data: creation,
               include: { analyst: true }
             });
             results.push(created);
             break;
-            
+
           case 'update':
             const updated = await prisma.schedule.update({
               where: { id: operation.data.id },
@@ -170,7 +175,7 @@ export const createBatchOperations = () => {
             });
             results.push(updated);
             break;
-            
+
           case 'delete':
             const deleted = await prisma.schedule.delete({
               where: { id: operation.data.id },
@@ -183,7 +188,7 @@ export const createBatchOperations = () => {
         results.push(null);
       }
     }
-    
+
     return results;
   });
 }; 

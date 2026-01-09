@@ -64,7 +64,7 @@ async function main() {
     console.log('👥 Migrating Analysts to AMR...');
     const analystUpdate = await prisma.analyst.updateMany({
         where: {
-            regionId: null,
+            regionId: null as any, // Legacy: filter records without regionId
         },
         data: {
             regionId: amrRegion.id,
@@ -77,7 +77,7 @@ async function main() {
     // Update in batches if massive, but for now assuming reasonable size
     const scheduleUpdate = await prisma.schedule.updateMany({
         where: {
-            regionId: null,
+            regionId: null as any, // Legacy: filter records without regionId
         },
         data: {
             regionId: amrRegion.id,
@@ -89,7 +89,7 @@ async function main() {
     console.log('🎉 Migrating Holidays to AMR...');
     const holidayUpdate = await prisma.holiday.updateMany({
         where: {
-            regionId: null,
+            regionId: null as any, // Legacy: filter records without regionId
         },
         data: {
             regionId: amrRegion.id,

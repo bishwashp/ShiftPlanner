@@ -47,7 +47,7 @@ interface DashboardProps {
 
 
 const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess, isLoading, onRefresh, isRefreshing, onConflictTabChange, onAvailabilityTabChange }) => {
-  const { isManager } = useAuth();
+  const { isManager, user } = useAuth();
 
   const [conflicts, setConflicts] = useState<{ critical: any[]; recommended: any[] }>({ critical: [], recommended: [] });
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
@@ -69,6 +69,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
 
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Analyst-specific state for header
+  const [pendingSwapsCount, setPendingSwapsCount] = useState(0);
+  const [nextScreenerShift, setNextScreenerShift] = useState<{ date: string; shiftType: string } | null>(null);
+  const [nextWeekendShift, setNextWeekendShift] = useState<{ date: string; shiftType: string } | null>(null);
+  const [analystName, setAnalystName] = useState<string>('');
+
   const fetchDashboardData = async (refreshChildren: boolean = false) => {
     setLoading(true);
     setError(null);
@@ -77,28 +83,77 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
       const startDate = moment().startOf('month').format('YYYY-MM-DD');
       const endDate = moment().endOf('month').format('YYYY-MM-DD');
 
-      const conflictsData = await apiService.getAllConflicts(startDate, endDate);
-      setConflicts(conflictsData);
+      // Manager-specific data
+      if (isManager) {
+        const conflictsData = await apiService.getAllConflicts(startDate, endDate);
+        setConflicts(conflictsData);
 
-      // Add a small delay between requests
-      await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 100));
 
-      const activityData = await apiService.getRecentActivities(3);
-      setRecentActivity(activityData);
+        const activityData = await apiService.getRecentActivities(3);
+        setRecentActivity(activityData);
 
-      // Also fetch all activities for the "All Activities" tab
-      const allActivityData = await apiService.getActivities({ limit: 50 });
-      setAllActivities(allActivityData);
+        const allActivityData = await apiService.getActivities({ limit: 50 });
+        setAllActivities(allActivityData);
+      }
+
+      // Analyst-specific data for header
+      if (!isManager) {
+        try {
+          // Fetch pending swaps
+          const swapsData = await apiService.getMySwaps();
+          const pendingCount = (swapsData.incoming?.length || 0);
+          setPendingSwapsCount(pendingCount);
+
+          // Fetch analyst name using analystId
+          if (user?.analystId) {
+            try {
+              const analystData = await apiService.getAnalysts();
+              const myAnalyst = analystData.find((a: any) => a.id === user.analystId);
+              if (myAnalyst) {
+                setAnalystName(myAnalyst.name);
+              }
+            } catch (e) {
+              console.warn('Could not fetch analyst name:', e);
+            }
+          }
+
+          // Fetch upcoming schedules to find next screener/weekend shift
+          const futureStart = moment().format('YYYY-MM-DD');
+          const futureEnd = moment().add(60, 'days').format('YYYY-MM-DD');
+          const schedules = await apiService.getSchedules(futureStart, futureEnd);
+
+          // Filter for current user's schedules (match by analystId from auth)
+          const mySchedules = schedules.filter((s: any) =>
+            s.analyst?.id === user?.analystId || s.analystId === user?.analystId
+          ).sort((a: any, b: any) => moment(a.date).diff(moment(b.date)));
+
+          // Find next screener shift
+          const screenerShift = mySchedules.find((s: any) => s.isScreener && moment(s.date).isAfter(moment()));
+          if (screenerShift) {
+            setNextScreenerShift({ date: screenerShift.date, shiftType: screenerShift.shiftType });
+          }
+
+          // Find next weekend shift
+          const weekendShift = mySchedules.find((s: any) => {
+            const dayOfWeek = moment(s.date).day();
+            return (dayOfWeek === 0 || dayOfWeek === 6) && moment(s.date).isAfter(moment());
+          });
+          if (weekendShift) {
+            setNextWeekendShift({ date: weekendShift.date, shiftType: weekendShift.shiftType });
+          }
+        } catch (analystErr) {
+          console.warn('Error fetching analyst-specific data:', analystErr);
+        }
+      }
 
       // Increment refresh key to force re-mount of child components that fetch their own data
-      // Only do this if explicitly requested (e.g. manual refresh), not on initial load
       if (refreshChildren) {
         setRefreshKey(prev => prev + 1);
       }
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
 
-      // Handle rate limiting specifically
       if (err.response?.status === 429) {
         const retryAfter = err.response.data?.retryAfter || 60;
         setError(`Rate limit exceeded. Please wait ${retryAfter} seconds and try again.`);
@@ -262,21 +317,50 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
         )}
 
 
+        {/* Typography Header for Analysts */}
+        {!isManager && (
+          <div className="mb-6">
+            <h1 className="text-3xl md:text-4xl font-display font-medium text-gray-900 dark:text-white tracking-tight">
+              Good {moment().hour() < 12 ? 'Morning' : moment().hour() < 17 ? 'Afternoon' : 'Evening'}, {analystName || user?.firstName || 'Analyst'}.
+            </h1>
+            <p className="mt-2 text-lg text-gray-600 dark:text-gray-300">
+              {pendingSwapsCount > 0 && (
+                <>
+                  You have <button onClick={() => onViewChange('analysts')} className="font-semibold text-primary hover:underline">{pendingSwapsCount} swap request{pendingSwapsCount !== 1 ? 's' : ''}</button> pending review.
+                  {' '}
+                </>
+              )}
+              {nextScreenerShift ? (
+                <>
+                  Your next <span className="font-semibold text-amber-600 dark:text-amber-400">Screening Shift</span> is {moment(nextScreenerShift.date).calendar(null, { sameDay: '[Today]', nextDay: '[Tomorrow]', nextWeek: 'dddd', sameElse: 'MMMM D' })}.
+                </>
+              ) : nextWeekendShift ? (
+                <>
+                  Your next <span className="font-semibold text-green-600 dark:text-green-400">Weekend Shift</span> is {moment(nextWeekendShift.date).format('MMMM D')}.
+                </>
+              ) : (
+                <>No upcoming screener or weekend shifts.</>
+              )}
+              {pendingSwapsCount === 0 && <> No pending actions.</>}
+            </p>
+          </div>
+        )}
 
+        {/* System Health & Last Updated - Manager Only */}
         <div className="flex items-center justify-end gap-3 mb-4">
-          <SystemHealth
-            key={refreshKey}
-            onResolveCritical={() => {
-              // Ensure we're on the critical tab
-              onConflictTabChange?.('critical');
-              onViewChange('conflicts');
-            }}
-            onReviewRecommended={() => {
-              // Switch to recommended tab
-              onConflictTabChange?.('recommended');
-              onViewChange('conflicts');
-            }}
-          />
+          {isManager && (
+            <SystemHealth
+              key={refreshKey}
+              onResolveCritical={() => {
+                onConflictTabChange?.('critical');
+                onViewChange('conflicts');
+              }}
+              onReviewRecommended={() => {
+                onConflictTabChange?.('recommended');
+                onViewChange('conflicts');
+              }}
+            />
+          )}
           <div className="text-sm text-gray-700 dark:text-gray-200 bg-white/5 px-3 py-1 rounded-full backdrop-blur-sm whitespace-nowrap">
             Last updated: {formatDateTime(lastUpdated, moment.tz.guess())}
           </div>

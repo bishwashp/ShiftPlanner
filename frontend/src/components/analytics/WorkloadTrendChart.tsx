@@ -12,7 +12,7 @@ import {
 import { Schedule, Analyst } from '../../services/api';
 import { Period } from '../../context/PeriodContext';
 import moment from 'moment-timezone';
-import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/solid';
+import SpringDropdown from '../ui/SpringDropdown';
 
 interface WorkloadTrendChartProps {
     schedules: Schedule[];
@@ -28,7 +28,6 @@ export const WorkloadTrendChart: React.FC<WorkloadTrendChartProps> = ({
     dateOffset
 }) => {
     const [selectedAnalyst, setSelectedAnalyst] = useState<string>('ALL');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     // Process Data based on Selection
     const { chartData, avgShifts, avgScreener, avgWeekend } = useMemo(() => {
@@ -201,33 +200,17 @@ export const WorkloadTrendChart: React.FC<WorkloadTrendChartProps> = ({
 
                 {/* Analyst Dropdown */}
                 <div className="relative z-20">
-                    <button
-                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                    >
-                        {selectedAnalyst === 'ALL' ? 'ALL' : analysts.find(a => a.id === selectedAnalyst)?.name || 'Unknown'}
-                        {isDropdownOpen ? <ChevronUpIcon className="h-4 w-4" /> : <ChevronDownIcon className="h-4 w-4" />}
-                    </button>
-
-                    {isDropdownOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto z-50">
-                            <button
-                                onClick={() => { setSelectedAnalyst('ALL'); setIsDropdownOpen(false); }}
-                                className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedAnalyst === 'ALL' ? 'text-blue-600 font-bold' : 'text-gray-700 dark:text-gray-200'}`}
-                            >
-                                ALL
-                            </button>
-                            {analysts.map(a => (
-                                <button
-                                    key={a.id}
-                                    onClick={() => { setSelectedAnalyst(a.id); setIsDropdownOpen(false); }}
-                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedAnalyst === a.id ? 'text-blue-600 font-bold' : 'text-gray-700 dark:text-gray-200'}`}
-                                >
-                                    {a.name}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <SpringDropdown
+                        value={selectedAnalyst}
+                        onChange={setSelectedAnalyst}
+                        align="end"
+                        options={[
+                            { value: 'ALL', label: 'ALL' },
+                            ...analysts.map(a => ({ value: a.id, label: a.name }))
+                        ]}
+                        variant="minimal"
+                        triggerClassName="font-bold text-sm text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-0"
+                    />
                 </div>
             </div>
 

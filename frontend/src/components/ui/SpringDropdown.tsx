@@ -21,7 +21,9 @@ interface SpringDropdownProps {
     name?: string;
     required?: boolean;
     size?: 'sm' | 'md' | 'lg';
-    variant?: 'default' | 'outline' | 'ghost';
+    variant?: 'default' | 'outline' | 'ghost' | 'minimal';
+    triggerClassName?: string;
+    align?: 'start' | 'end';
 }
 
 // Helper to merge tailwind classes
@@ -41,7 +43,9 @@ const SpringDropdown: React.FC<SpringDropdownProps> = ({
     name,
     required = false,
     size = 'md',
-    variant = 'default'
+    variant = 'default',
+    triggerClassName,
+    align = 'start'
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -57,7 +61,8 @@ const SpringDropdown: React.FC<SpringDropdownProps> = ({
     const variantClasses = {
         default: 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 shadow-sm hover:border-gray-400 dark:hover:border-gray-500',
         outline: 'bg-transparent border border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500',
-        ghost: 'bg-transparent border-none shadow-none hover:bg-black/5 dark:hover:bg-white/10'
+        ghost: 'bg-transparent border-none shadow-none hover:bg-black/5 dark:hover:bg-white/10',
+        minimal: 'bg-transparent border-none shadow-none hover:bg-transparent p-0' // Zero padding/bg for custom triggers
     };
 
     // Close on click outside
@@ -148,13 +153,14 @@ const SpringDropdown: React.FC<SpringDropdownProps> = ({
                 className={cn(
                     // Base: inline-flex with gap, no absolute positioning needed
                     'inline-flex items-center justify-between gap-2 rounded-lg font-medium transition-colors duration-150',
-                    // Thin padding using em (scales with font size)
-                    'py-[0.25em] px-[0.5em]',
+                    // Thin padding using em (scales with font size) - skipped for minimal variant if desired, but base classes might override
+                    variant !== 'minimal' && 'py-[0.25em] px-[0.5em]',
                     fontSizeClasses[size],
                     variantClasses[variant],
                     disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer text-foreground',
-                    isOpen && !disabled && variant !== 'ghost' && 'border-primary ring-2 ring-primary/20',
-                    isOpen && !disabled && variant === 'ghost' && 'bg-black/5 dark:bg-white/10'
+                    isOpen && !disabled && variant !== 'ghost' && variant !== 'minimal' && 'border-primary ring-2 ring-primary/20',
+                    isOpen && !disabled && variant === 'ghost' && 'bg-black/5 dark:bg-white/10',
+                    triggerClassName // Allow override from parent
                 )}
             >
                 <span className="whitespace-nowrap">{selectedLabel}</span>
@@ -175,7 +181,10 @@ const SpringDropdown: React.FC<SpringDropdownProps> = ({
                         initial="hidden"
                         animate="visible"
                         exit="exit"
-                        className="absolute top-full left-0 z-[100] mt-1 min-w-full w-max rounded-lg bg-white dark:bg-gray-800 shadow-xl ring-1 ring-black/5 border border-gray-100 dark:border-gray-700 overflow-hidden"
+                        className={cn(
+                            "absolute top-full z-[100] mt-1 min-w-full w-max rounded-lg bg-white dark:bg-gray-800 shadow-xl ring-1 ring-black/5 border border-gray-100 dark:border-gray-700 overflow-hidden",
+                            align === 'end' ? 'right-0' : 'left-0'
+                        )}
                     >
                         <div className="max-h-60 overflow-auto py-1 custom-scrollbar">
                             {groupedOptions ? (

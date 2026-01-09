@@ -110,7 +110,7 @@ model Analyst {
   id               String   @id @default(cuid())
   name             String
   email            String   @unique
-  shiftType        String // AM or PM shift assignment (MORNING, EVENING, WEEKEND)
+  shiftType        String?  // DEPRECATED: Legacy field kept for rollback. Use shiftDefinition instead.
   employeeType     String   @default("employee") // EMPLOYEE, CONTRACTOR
   isActive         Boolean  @default(true)
   customAttributes String? // JSON as string for SQLite compatibility
@@ -136,8 +136,12 @@ model Analyst {
   targetedShiftSwaps     ShiftSwap[]             @relation("TargetAnalyst")
 
   // Multi-Region Support
-  regionId       String // FK to Region
-  region         Region @relation(fields: [regionId], references: [id])
+  regionId          String // FK to Region
+  region            Region @relation(fields: [regionId], references: [id])
+  
+  // Shift Definition (Phase 0 Enhancement)
+  shiftDefinitionId String?          // FK to ShiftDefinition (nullable for migration)
+  shiftDefinition   ShiftDefinition? @relation(fields: [shiftDefinitionId], references: [id])
 
   // Performance indexes for common queries
   @@index([isActive, shiftType]) // For filtering active analysts by shift
@@ -145,8 +149,10 @@ model Analyst {
   @@index([email]) // Already unique, but explicit for performance
   @@index([createdAt]) // For sorting and date-based queries
   @@index([regionId]) // For region filtering
+  @@index([shiftDefinitionId]) // For shift definition filtering
   @@map("analysts")
 }
+
 
 model AnalystPreference {
   id         String   @id @default(cuid())
@@ -507,19 +513,33 @@ model ShiftSwap {
   id                  String   @id @default(cuid())
   requestingAnalystId String
   requestingShiftDate DateTime
-  targetAnalystId     String
-  targetShiftDate     DateTime
-  status              String   @default("PENDING_PARTNER") // PENDING_PARTNER, PENDING_MANAGER, APPROVED, REJECTED
+  
+  // Target can be null for Broadcast requests
+  targetAnalystId     String?
+  targetShiftDate     DateTime?
+  
+  status              String   @default("PENDING_PARTNER") // PENDING_PARTNER, PENDING_MANAGER, APPROVED, REJECTED, OPEN (for broadcast), FILLED, CANCELLED
   managerNotified     Boolean  @default(false)
+  
+  // Broadcast fields
+  isBroadcast         Boolean  @default(false)
+  
+  // Offer linking (Hierarchical)
+  parentId            String?
+  parent              ShiftSwap? @relation("SwapOffers", fields: [parentId], references: [id], onDelete: Cascade)
+  offers              ShiftSwap[] @relation("SwapOffers")
+
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   requestingAnalyst Analyst @relation("RequestingAnalyst", fields: [requestingAnalystId], references: [id], onDelete: Cascade)
-  targetAnalyst     Analyst @relation("TargetAnalyst", fields: [targetAnalystId], references: [id], onDelete: Cascade)
+  targetAnalyst     Analyst? @relation("TargetAnalyst", fields: [targetAnalystId], references: [id], onDelete: Cascade)
 
   @@index([requestingAnalystId])
   @@index([targetAnalystId])
   @@index([status])
+  @@index([isBroadcast])
+  @@index([parentId])
   @@map("shift_swaps")
 }
 
@@ -627,6 +647,9 @@ model ShiftDefinition {
   updatedAt   DateTime @updatedAt
   
   region      Region   @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  
+  // Analysts assigned to this shift
+  analysts    Analyst[]
 
   @@unique([regionId, name])
   @@index([regionId])
@@ -636,6 +659,7 @@ model ShiftDefinition {
   outgoingHandovers HandoverDefinition[] @relation("SourceShift")
   incomingHandovers HandoverDefinition[] @relation("TargetShift")
 }
+
 
 model HandoverDefinition {
   id            String   @id @default(cuid())

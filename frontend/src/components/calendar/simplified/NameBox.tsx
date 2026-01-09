@@ -9,6 +9,7 @@ interface NameBoxProps {
   date?: string; // YYYY-MM-DD format
   size?: 'small' | 'medium' | 'large';
   onClick?: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 export const NameBox: React.FC<NameBoxProps> = ({
@@ -17,7 +18,8 @@ export const NameBox: React.FC<NameBoxProps> = ({
   isScreener,
   date,
   size = 'medium',
-  onClick
+  onClick,
+  onContextMenu
 }) => {
   // Determine if this is a weekend shift based on the date
   const isWeekendShift = date ? (() => {
@@ -145,6 +147,7 @@ export const NameBox: React.FC<NameBoxProps> = ({
         ${onClick ? `cursor-pointer ${colorScheme.glow} hover:shadow-sm` : ''}
       `}
       onClick={onClick}
+      onContextMenu={onContextMenu}
       onKeyDown={(e: React.KeyboardEvent) => {
         if (onClick && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();

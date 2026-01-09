@@ -9,7 +9,7 @@ export interface AbsenceData {
   analystId: string;
   startDate: string; // ISO date string
   endDate: string; // ISO date string
-  type: 'VACATION' | 'SICK_LEAVE' | 'PERSONAL' | 'EMERGENCY' | 'TRAINING' | 'CONFERENCE';
+  type: 'VACATION' | 'SICK_LEAVE' | 'PERSONAL' | 'EMERGENCY' | 'TRAINING' | 'CONFERENCE' | 'COMPOFF';
   reason?: string;
   isApproved?: boolean;
   isPlanned?: boolean;
@@ -581,6 +581,35 @@ export class AbsenceService {
           absence.id,
           absence.type
         );
+      }
+
+      // Auto-debit CompOff balance when COMPOFF absence is approved
+      if (absence.type === 'COMPOFF') {
+        const days = DateUtils.getDurationInDays(absence.startDate, absence.endDate);
+
+        try {
+          // Dynamic import to avoid circular dependency
+          const { compOffService } = await import('./CompOffService');
+
+          // Check if analyst has sufficient balance
+          const hasBalance = await compOffService.hasAvailableBalance(absence.analystId, days);
+
+          if (hasBalance) {
+            await compOffService.debitForAbsence(
+              absence.analystId,
+              absence.id,
+              days
+            );
+            console.log(`💸 Auto-debited ${days} compoff units for absence ${absence.id}`);
+          } else {
+            console.warn(`⚠️ Analyst ${absence.analystId} has insufficient compoff balance for ${days} days`);
+            // Note: The approval still proceeds - this is just a warning
+            // In production, you might want to block approval if insufficient balance
+          }
+        } catch (error) {
+          console.error('Failed to auto-debit compoff:', error);
+          // Don't fail the approval, just log the error
+        }
       }
 
       // Notify Analyst of Approval

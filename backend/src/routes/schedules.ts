@@ -6,6 +6,30 @@ import { DateUtils } from '../utils/dateUtils';
 
 const router = Router();
 
+/**
+ * Normalize shift types to handle legacy MORNING/EVENING vs new AM/PM naming.
+ * Returns true if the two shift types are compatible.
+ */
+function areShiftTypesCompatible(analystShift: string | null, scheduleShift: string): boolean {
+  // If analyst has no shiftType set (edge case during migration), allow any shift
+  if (!analystShift) return true;
+
+  // Direct match
+  if (analystShift === scheduleShift) return true;
+
+  // Normalize both to a common form
+  const normalize = (s: string) => {
+    const upper = s.toUpperCase();
+    if (upper === 'MORNING' || upper === 'AM') return 'AM';
+    if (upper === 'EVENING' || upper === 'PM') return 'PM';
+    return upper;
+  };
+
+  return normalize(analystShift) === normalize(scheduleShift);
+}
+
+
+
 // Get all schedules with optional filters
 router.get('/', async (req: Request, res: Response) => {
   try {
@@ -84,7 +108,7 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Analyst not found' });
     }
 
-    if (analyst.shiftType !== shiftType) {
+    if (!areShiftTypesCompatible(analyst.shiftType, shiftType)) {
       return res.status(400).json({
         error: `Analyst is assigned to ${analyst.shiftType} shift but schedule is for ${shiftType} shift`
       });
@@ -247,7 +271,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         return res.status(404).json({ error: 'Analyst not found' });
       }
 
-      if (analyst.shiftType !== shiftType) {
+      if (!areShiftTypesCompatible(analyst.shiftType, shiftType)) {
         return res.status(400).json({
           error: `Analyst is assigned to ${analyst.shiftType} shift but schedule is for ${shiftType} shift`
         });
@@ -446,7 +470,7 @@ router.post('/bulk', async (req: Request, res: Response) => {
           continue;
         }
 
-        if (analyst.shiftType !== shiftType) {
+        if (!areShiftTypesCompatible(analyst.shiftType, shiftType)) {
           errors.push({
             schedule: scheduleData,
             error: `Analyst is assigned to ${analyst.shiftType} shift but schedule is for ${shiftType} shift`
@@ -530,7 +554,8 @@ router.get('/health/conflicts', async (req: Request, res: Response) => {
 
     // Use the centralized conflict detection service
     const { conflictDetectionService } = await import('../services/conflict');
-    const conflicts = await conflictDetectionService.detectConflicts(start, end);
+    const regionId = req.headers['x-region-id'] as string;
+    const conflicts = await conflictDetectionService.detectConflicts(start, end, regionId);
 
     res.json(conflicts);
   } catch (error) {

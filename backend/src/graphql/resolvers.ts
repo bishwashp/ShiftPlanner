@@ -256,6 +256,7 @@ const Query = {
       analysts,
       existingSchedules,
       globalConstraints,
+      regionId: analysts[0]?.regionId || 'default',
       algorithmConfig: input.algorithmConfig
     });
 
@@ -290,16 +291,17 @@ const Query = {
   },
 
   // Advanced Analytics
-  monthlyTallies: async (_: any, { month, year }: { month: number, year: number }) => {
+  // Advanced Analytics
+  monthlyTallies: async (_: any, { month, year, regionId }: { month: number, year: number, regionId?: string }) => {
     const { AnalyticsEngine } = await import('../services/AnalyticsEngine');
     const analyticsEngine = new AnalyticsEngine(prisma, cacheService);
-    return await analyticsEngine.calculateMonthlyTallies(month, year);
+    return await analyticsEngine.calculateMonthlyTallies(month, year, regionId || 'default');
   },
 
-  fairnessReport: async (_: any, { startDate, endDate }: { startDate: Date, endDate: Date }) => {
+  fairnessReport: async (_: any, { startDate, endDate, regionId }: { startDate: Date, endDate: Date, regionId?: string }) => {
     const { AnalyticsEngine } = await import('../services/AnalyticsEngine');
     const analyticsEngine = new AnalyticsEngine(prisma, cacheService);
-    return await analyticsEngine.generateFairnessReport({ startDate, endDate });
+    return await analyticsEngine.generateFairnessReport({ startDate, endDate }, regionId || 'default');
   },
 
   workloadPredictions: async (_: any, { months }: { months: number }) => {
@@ -598,7 +600,8 @@ const Mutation = {
         email: input.email,
         shiftType: input.shiftType,
         customAttributes: input.customAttributes,
-        skills: input.skills || []
+        skills: input.skills || [],
+        region: { connect: { id: input.regionId || 'default' } }
       },
       include: {
         preferences: true,
@@ -722,12 +725,19 @@ const Mutation = {
 
   // Schedules
   createSchedule: async (_: any, { analystId, date, shiftType, isScreener }: { analystId: string, date: Date, shiftType: string, isScreener: boolean }) => {
+    const analyst = await prisma.analyst.findUnique({
+      where: { id: analystId }
+    });
+
+    if (!analyst) throw new GraphQLError('Analyst not found');
+
     const schedule = await prisma.schedule.create({
       data: {
         analystId,
         date,
         shiftType: shiftType as any,
-        isScreener
+        isScreener,
+        regionId: analyst.regionId
       },
       include: { analyst: true }
     });
@@ -818,6 +828,7 @@ const Mutation = {
       analysts,
       existingSchedules,
       globalConstraints,
+      regionId: analysts[0]?.regionId || 'default', // Default to first analyst's region or global default
       algorithmConfig: input.algorithmConfig
     });
 
@@ -861,6 +872,7 @@ const Mutation = {
       analysts,
       existingSchedules,
       globalConstraints,
+      regionId: analysts[0]?.regionId || 'default',
       algorithmConfig: input.algorithmConfig
     });
 
@@ -883,12 +895,15 @@ const Mutation = {
             });
           }
         } else {
+          const analyst = analysts.find(a => a.id === schedule.analystId);
+          const regionId = analyst?.regionId || 'default';
           await prisma.schedule.create({
             data: {
               analystId: schedule.analystId,
               date: new Date(schedule.date),
               shiftType: schedule.shiftType,
-              isScreener: schedule.isScreener
+              isScreener: schedule.isScreener,
+              regionId: regionId
             }
           });
         }

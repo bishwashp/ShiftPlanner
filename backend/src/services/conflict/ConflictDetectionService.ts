@@ -8,6 +8,7 @@ export interface Conflict {
   type: ConflictType;
   missingShifts: string[];
   severity: ConflictSeverity;
+  regionId?: string;
 }
 
 export type ConflictType =
@@ -25,17 +26,6 @@ export interface ConflictResult {
   recommended: Conflict[];
 }
 
-export interface ScheduledShifts {
-  morning: boolean;
-  evening: boolean;
-  weekend: boolean;
-}
-
-export interface ScreenerAssignments {
-  morning: number;
-  evening: number;
-}
-
 export class ConflictDetectionService {
   private prisma: PrismaClient;
 
@@ -46,51 +36,60 @@ export class ConflictDetectionService {
   /**
    * Detect conflicts for a given date range
    */
-  async detectConflicts(startDate: Date, endDate: Date): Promise<ConflictResult> {
-    console.log(`🔍 Detecting conflicts from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+  async detectConflicts(startDate: Date, endDate: Date, regionId?: string): Promise<ConflictResult> {
+    console.log(`🔍 Detecting conflicts from ${startDate.toISOString()} to ${endDate.toISOString()} ${regionId ? `for region ${regionId}` : '(Global)'}`);
 
     // Get all dates in the range
     const allDates = this.generateDateRange(startDate, endDate);
 
     // Get all schedules in the range
-    const schedules = await this.prisma.schedule.findMany({
-      where: {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
+    const scheduleWhere: any = {
+      date: {
+        gte: startDate,
+        lte: endDate,
       },
+    };
+    if (regionId) {
+      scheduleWhere.regionId = regionId;
+    }
+
+    const schedules = await this.prisma.schedule.findMany({
+      where: scheduleWhere,
+      include: { analyst: true } // Include analyst to get their data if needed
     });
 
     // Get shift definitions to know what shifts each region has
+    const shiftDefWhere: any = {};
+    if (regionId) {
+      shiftDefWhere.regionId = regionId;
+    }
     const shiftDefinitions = await this.prisma.shiftDefinition.findMany({
+      where: shiftDefWhere,
       include: { region: true }
     });
 
-    // Build a map of region -> configured shift types (morning/evening based on shift name)
+    // Build a map of region -> Set of configured shift names (e.g. "AM", "PM", "DAY")
     const regionShiftConfig = new Map<string, Set<string>>();
     for (const shift of shiftDefinitions) {
       if (!regionShiftConfig.has(shift.regionId)) {
-        regionShiftConfig.set(shift.regionId, new Set());
+        regionShiftConfig.set(shift.regionId, new Set<string>());
       }
-      const shiftSet = regionShiftConfig.get(shift.regionId)!;
-      // Map shift names to MORNING/EVENING based on common patterns
-      const nameLower = shift.name.toLowerCase();
-      if (nameLower.includes('am') || nameLower.includes('morning')) {
-        shiftSet.add('MORNING');
-      } else if (nameLower.includes('pm') || nameLower.includes('evening')) {
-        shiftSet.add('EVENING');
-      } else {
-        // Single shift regions (like LDN) - add as both to indicate they only need one
-        // Actually, mark them specially so we know they're single-shift
-        shiftSet.add('SINGLE');
-      }
+      // Store the actual shift name
+      regionShiftConfig.get(shift.regionId)!.add(shift.name);
+    }
+
+    // If specific region requested but no config found, try to look up region manually to ensure we process it
+    if (regionId && !regionShiftConfig.has(regionId)) {
+      // Fallback: If no definitions, we might still want to check basic coverage if legacy?
+      // For now, let's trust the DB. If no definitions, maybe no conflicts?
+      // Or better, fetch the region to confirm it exists and initialize empty set
+      regionShiftConfig.set(regionId, new Set<string>());
     }
 
     console.log(`🔍 Found ${schedules.length} schedules in date range`);
 
     // Process schedules and detect conflicts
-    const conflicts = this.processSchedules(schedules, allDates, startDate, endDate, regionShiftConfig);
+    const conflicts = this.processSchedules(schedules, allDates, startDate, endDate, regionShiftConfig, regionId);
 
     // Categorize conflicts by severity
     const criticalConflicts = conflicts.filter(c => c.severity === 'critical');
@@ -119,6 +118,23 @@ export class ConflictDetectionService {
   }
 
   /**
+   * Helper: Check if two shifts are equivalent (Legacy Support)
+   */
+  private areShiftsEquivalent(shiftA: string, shiftB: string): boolean {
+    if (!shiftA || !shiftB) return false;
+    if (shiftA === shiftB) return true;
+
+    const normalize = (s: string) => {
+      const upper = s.toUpperCase();
+      if (upper === 'MORNING') return 'AM';
+      if (upper === 'EVENING') return 'PM';
+      return upper;
+    };
+
+    return normalize(shiftA) === normalize(shiftB);
+  }
+
+  /**
    * Process schedules and detect conflicts
    */
   private processSchedules(
@@ -126,117 +142,358 @@ export class ConflictDetectionService {
     allDates: Set<string>,
     startDate: Date,
     endDate: Date,
-    regionShiftConfig?: Map<string, Set<string>>
+    regionShiftConfig: Map<string, Set<string>>,
+    targetRegionId?: string
   ): Conflict[] {
     const conflicts: Conflict[] = [];
 
-    // Map schedules by date
-    const scheduledDates = new Map<string, ScheduledShifts>();
+    // Map schedules by Region -> Date -> Set<ShiftType>
+    const regionDateCoverage = new Map<string, Map<string, Set<string>>>();
+    const regionsToProcess = targetRegionId ? [targetRegionId] : Array.from(regionShiftConfig.keys());
 
+    // Initialize coverage map
+    regionsToProcess.forEach(rid => {
+      regionDateCoverage.set(rid, new Map());
+      allDates.forEach(date => {
+        regionDateCoverage.get(rid)!.set(date, new Set<string>());
+      });
+    });
+
+    // Populate coverage from schedules
     for (const schedule of schedules) {
-      const scheduleDate = moment.utc(schedule.date);
-      const dateStr = scheduleDate.format('YYYY-MM-DD');
+      // Use schedule.regionId if avail, else fallback (legacy data might lack it, but we filtered query by it so safe if targetRegionId set)
+      const rId = schedule.regionId || schedule.analyst?.regionId;
+      if (!rId) continue;
 
-      if (!scheduledDates.has(dateStr)) {
-        scheduledDates.set(dateStr, { morning: false, evening: false, weekend: false });
-      }
-      const shifts = scheduledDates.get(dateStr)!;
-      if (schedule.shiftType === 'MORNING') {
-        shifts.morning = true;
-      }
-      if (schedule.shiftType === 'EVENING') {
-        shifts.evening = true;
+      // If we are filtering by region, skip others (double check)
+      if (targetRegionId && rId !== targetRegionId) continue;
+
+      const dateStr = moment.utc(schedule.date).format('YYYY-MM-DD');
+
+      if (!regionDateCoverage.has(rId)) {
+        // If we encounter a region purely from schedule data that wasn't in definitions
+        if (!targetRegionId) {
+          regionDateCoverage.set(rId, new Map());
+        } else {
+          continue; // Should not happen given query
+        }
       }
 
-      const day = scheduleDate.day();
-      if (day === 0 || day === 6) { // 0=Sun, 6=Sat
-        shifts.weekend = true;
+      const dateMap = regionDateCoverage.get(rId)!;
+      if (!dateMap.has(dateStr)) {
+        dateMap.set(dateStr, new Set<string>());
       }
+      dateMap.get(dateStr)!.add(schedule.shiftType);
     }
 
-    // SIMPLIFIED LOGIC: Check for complete, partial, and missing schedules
-    if (schedules.length === 0) {
-      // No schedules exist at all for the entire period
-      conflicts.push(this.createNoScheduleConflict(startDate, endDate));
-      return conflicts;
-    }
+    // Iterate per region to check compliance
+    regionsToProcess.forEach(regionId => {
+      const dateMap = regionDateCoverage.get(regionId);
+      if (!dateMap) return;
 
-    // Categorize dates
-    const datesWithCompleteSchedules = new Set<string>();
-    const datesWithPartialSchedules = new Set<string>();
-    const datesWithNoSchedules = new Set<string>();
+      const requiredShifts = regionShiftConfig.get(regionId) || new Set<string>();
 
-    // First, mark all dates as having no schedules
-    Array.from(allDates).forEach(dateStr => {
-      datesWithNoSchedules.add(dateStr);
-    });
+      // Track stats for this region
+      const datesWithNoSchedules = new Set<string>();
+      const datesWithPartialSchedules = new Set<string>();
+      const datesWithCompleteSchedules = new Set<string>();
 
-    // Then, check each date with schedules
-    // Then, check each date with schedules
-    scheduledDates.forEach((shifts, dateStr) => {
-      // Remove from datesWithNoSchedules since we have at least one shift
-      datesWithNoSchedules.delete(dateStr);
+      // Check each date
+      allDates.forEach(dateStr => {
+        const coveredShifts = dateMap.get(dateStr) || new Set<string>();
 
-      const dayOfWeek = moment.utc(dateStr).day();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 0=Sun, 6=Sat
+        if (coveredShifts.size === 0) {
+          datesWithNoSchedules.add(dateStr);
+          return;
+        }
 
-      if (isWeekend) {
-        // Weekend logic: Complete if 'weekend' shift exists OR (morning AND evening)
-        // Some implementations might just use 'WEEKEND' shift type, others might use M/E.
-        // We'll accept either 'WEEKEND' shift OR (Morning + Evening) as complete, 
-        // OR just Morning or Evening if that's the weekend model (often reduced staff).
-        // Based on user feedback, let's assume Weekends just need *coverage*.
+        const dayOfWeek = moment.utc(dateStr).day();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-        if (shifts.weekend || shifts.morning || shifts.evening) {
+        let isComplete = false;
+
+        if (isWeekend) {
+          // Weekend Logic
+          if (requiredShifts.has('WEEKEND')) {
+            // Check if we have 'WEEKEND' or equivalent
+            isComplete = false;
+            for (const s of coveredShifts) {
+              if (this.areShiftsEquivalent(s, 'WEEKEND')) { isComplete = true; break; }
+            }
+          } else {
+            // Fallback: any coverage
+            isComplete = coveredShifts.size > 0;
+          }
+        } else {
+          // Weekday Logic
+          let missing = false;
+          for (const req of requiredShifts) {
+            if (req === 'WEEKEND') continue;
+
+            // Check equivalence
+            let found = false;
+            for (const covered of coveredShifts) {
+              if (this.areShiftsEquivalent(req, covered)) {
+                found = true;
+                break;
+              }
+            }
+
+            if (!found) {
+              missing = true;
+              break;
+            }
+          }
+          isComplete = !missing && (requiredShifts.size > 0 || coveredShifts.size > 0);
+          // Edge case: No requirements logic -> if we have coverage it's "complete" enough?
+          if (requiredShifts.size === 0 && coveredShifts.size > 0) isComplete = true;
+        }
+
+        if (isComplete) {
           datesWithCompleteSchedules.add(dateStr);
         } else {
           datesWithPartialSchedules.add(dateStr);
         }
+      });
+
+      // 1. Check No Schedules (Critical mass?)
+      // Only trigger "No Schedules" warning if we actually expect activity? 
+      // For now, keep existing logic but scoped to region.
+      if (datesWithNoSchedules.size === allDates.size && schedules.length === 0) {
+        // Only push this if context implies we should have schedules? 
+        // The user complained about empty regions showing errors.
+        // If the region is totally empty, we report ONE "No Schedule" warning, not 30 "Missing Shift" errors.
+        conflicts.push(this.createNoScheduleConflict(startDate, endDate, regionId));
       } else {
-        // Weekday logic: Needs Morning AND Evening
-        if (shifts.morning && shifts.evening) {
-          datesWithCompleteSchedules.add(dateStr);
-        } else {
-          datesWithPartialSchedules.add(dateStr);
+        // If we have mixed content, report specific gaps
+        if (datesWithNoSchedules.size > 0) {
+          // Only report "No Schedules generated" if it's a bulk block? 
+          // Actually, let's be more specific. 
+          // If > 70% empty, report generic warning
+          if ((datesWithNoSchedules.size / allDates.size) > 0.7) {
+            conflicts.push(this.createNoScheduleConflict(startDate, endDate, regionId));
+          } else {
+            conflicts.push(this.createMissingSchedulesConflict(datesWithNoSchedules, regionId));
+          }
         }
+
+        if (datesWithPartialSchedules.size > 0) {
+          conflicts.push(this.createIncompleteSchedulesConflict(datesWithPartialSchedules, regionId));
+
+          // Detail missing shifts
+          this.detectMissingShifts(
+            dateMap,
+            datesWithPartialSchedules,
+            conflicts,
+            requiredShifts,
+            regionId
+          );
+        }
+
+        // Check screeners, etc. scoped to this region
+        this.detectRegionScreenerConflicts(
+          schedules.filter(s => (s.regionId === regionId || s.analyst?.regionId === regionId)),
+          datesWithCompleteSchedules,
+          conflicts,
+          requiredShifts,
+          regionId
+        );
       }
     });
 
-    // Calculate the percentage of days with no schedules
-    const totalDays = allDates.size;
-    const daysWithNoSchedules = datesWithNoSchedules.size;
-    const noSchedulePercentage = (daysWithNoSchedules / totalDays) * 100;
+    // Note: Overstaffing and Consecutive days are Analyst-centric, not strict region-centric (though usually same region).
+    // pass filtered schedules?
+    const regionSchedules = targetRegionId
+      ? schedules.filter(s => (s.regionId === targetRegionId || s.analyst?.regionId === targetRegionId))
+      : schedules;
 
-    // If more than 70% of days have no schedules, treat it as "no schedules exist"
-    if (noSchedulePercentage > 70) {
-      // Most days have no schedules - treat as "no schedules exist"
-      conflicts.push(this.createNoScheduleConflict(startDate, endDate));
-      return conflicts;
-    }
-
-    // Add conflict for dates with no schedules (if less than 70% of days)
-    if (datesWithNoSchedules.size > 0) {
-      conflicts.push(this.createMissingSchedulesConflict(datesWithNoSchedules));
-    }
-
-    // Add conflict for dates with partial schedules
-    if (datesWithPartialSchedules.size > 0) {
-      conflicts.push(this.createIncompleteSchedulesConflict(datesWithPartialSchedules));
-    }
-
-    // Check for missing shifts in partial schedules
-    this.detectMissingShifts(scheduledDates, datesWithPartialSchedules, datesWithNoSchedules, conflicts);
-
-    // Check for screener conflicts in complete schedules
-    this.detectScreenerConflicts(schedules, datesWithCompleteSchedules, conflicts, regionShiftConfig);
-
-    // HOLISTIC FIX: Check for over-staffing (too many analysts per shift)
-    this.detectOverstaffing(schedules, conflicts);
-
-    // HOLISTIC FIX: Check for consecutive-day violations (>5 days)
-    this.detectConsecutiveDayViolations(schedules, conflicts);
+    this.detectOverstaffing(regionSchedules, conflicts);
+    this.detectConsecutiveDayViolations(regionSchedules, conflicts);
 
     return conflicts;
+  }
+
+  /**
+   * Create a conflict for no schedules
+   */
+  private createNoScheduleConflict(startDate: Date, endDate: Date, regionId?: string): Conflict {
+    return {
+      date: startDate.toISOString().split('T')[0],
+      message: `[${regionId || 'Global'}] Schedule does not exist for the next 30 days (${moment(startDate).format('MMM D')} - ${moment(endDate).format('MMM D')})`,
+      type: 'NO_SCHEDULE_EXISTS',
+      missingShifts: [],
+      severity: 'recommended',
+      regionId
+    };
+  }
+
+  /**
+   * Create a conflict for missing schedules
+   */
+  private createMissingSchedulesConflict(datesWithNoSchedules: Set<string>, regionId?: string): Conflict {
+    const noScheduleDates = Array.from(datesWithNoSchedules).sort();
+    return {
+      date: noScheduleDates[0],
+      message: `[${regionId || 'Global'}] No schedules generated for ${noScheduleDates.length} day(s) in the selected period`,
+      type: 'NO_SCHEDULE_EXISTS',
+      missingShifts: [],
+      severity: 'recommended',
+      regionId
+    };
+  }
+
+  /**
+   * Create a conflict for incomplete schedules
+   */
+  private createIncompleteSchedulesConflict(datesWithPartialSchedules: Set<string>, regionId?: string): Conflict {
+    const partialDates = Array.from(datesWithPartialSchedules).sort();
+    return {
+      date: partialDates[0],
+      message: `[${regionId || 'Global'}] Incomplete schedules detected for ${partialDates.length} day(s). Complete schedules are required for proper operations.`,
+      type: 'INCOMPLETE_SCHEDULES',
+      missingShifts: [],
+      severity: 'recommended',
+      regionId
+    };
+  }
+
+  /**
+   * Detect missing shifts in partial schedules (Region Aware)
+   */
+  private detectMissingShifts(
+    dateCoverageMap: Map<string, Set<string>>, // Date -> Shifts
+    datesWithPartialSchedules: Set<string>,
+    conflicts: Conflict[],
+    requiredShifts: Set<string>,
+    regionId: string
+  ): void {
+
+    datesWithPartialSchedules.forEach(dateStr => {
+      const coveredShifts = dateCoverageMap.get(dateStr)!;
+      const dayOfWeek = moment.utc(dateStr).day();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+      let missingShifts: string[] = [];
+
+      if (isWeekend) {
+        if (requiredShifts.has('WEEKEND')) {
+          let hasWeekend = false;
+          for (const s of coveredShifts) {
+            if (this.areShiftsEquivalent(s, 'WEEKEND')) { hasWeekend = true; break; }
+          }
+          if (!hasWeekend) missingShifts.push('WEEKEND');
+        } else if (coveredShifts.size === 0) {
+          missingShifts.push('Weekend Coverage');
+        }
+      } else {
+        for (const req of requiredShifts) {
+          if (req === 'WEEKEND') continue;
+
+          let found = false;
+          for (const covered of coveredShifts) {
+            if (this.areShiftsEquivalent(req, covered)) { found = true; break; }
+          }
+
+          if (!found) {
+            missingShifts.push(req);
+          }
+        }
+      }
+
+      if (missingShifts.length > 0) {
+        conflicts.push({
+          date: dateStr,
+          message: `[${regionId}] Missing ${missingShifts.join(' and ')} shift(s) on ${moment.utc(dateStr).format('MMM D')}`,
+          type: 'NO_ANALYST_ASSIGNED',
+          missingShifts,
+          severity: 'critical',
+          regionId
+        });
+      }
+    });
+  }
+
+  /**
+   * Detect screener conflicts in complete schedules (Region Scoped)
+   */
+  private detectRegionScreenerConflicts(
+    regionSchedules: any[],
+    datesWithCompleteSchedules: Set<string>,
+    conflicts: Conflict[],
+    requiredShifts: Set<string>,
+    regionId: string
+  ): void {
+    // Map: "dateStr" -> Map<shiftType, count>
+    const screenerAssignments = new Map<string, Map<string, number>>();
+    const activeDates = new Set<string>();
+
+    regionSchedules.forEach(schedule => {
+      const dateStr = schedule.date.toISOString().split('T')[0];
+
+      if (datesWithCompleteSchedules.has(dateStr)) {
+        activeDates.add(dateStr);
+        if (schedule.isScreener) {
+          if (!screenerAssignments.has(dateStr)) {
+            screenerAssignments.set(dateStr, new Map());
+          }
+          const shiftCounts = screenerAssignments.get(dateStr)!;
+          // Normalize shift type key? safer to rely on raw first, checking equivalent later?
+          // Actually, for counting purposes, we need to group AM/MORNING together.
+
+          let normalizedShift = schedule.shiftType;
+          if (this.areShiftsEquivalent(schedule.shiftType, 'MORNING')) normalizedShift = 'AM'; // Canonicalize?
+          // Let's use simple normalization
+          const simpleNorm = (s: string) => {
+            if (s === 'MORNING') return 'AM';
+            if (s === 'EVENING') return 'PM';
+            return s;
+          }
+          normalizedShift = simpleNorm(schedule.shiftType);
+
+          shiftCounts.set(normalizedShift, (shiftCounts.get(normalizedShift) || 0) + 1);
+        }
+      }
+    });
+
+    activeDates.forEach(dateStr => {
+      const dayOfWeek = moment.utc(dateStr).day();
+      if (dayOfWeek === 0 || dayOfWeek === 6) return; // Skip weekends
+
+      const screeners = screenerAssignments.get(dateStr) || new Map();
+      let screenerIssues: string[] = [];
+
+      // Use required shifts to check coverage
+      // We must normalize required shifts too if they are stored as AM/PM
+      const simpleNorm = (s: string) => {
+        if (s === 'MORNING') return 'AM';
+        if (s === 'EVENING') return 'PM';
+        return s;
+      }
+
+      for (const shift of requiredShifts) {
+        if (shift === 'WEEKEND') continue;
+
+        const normShift = simpleNorm(shift);
+        const count = screeners.get(normShift) || 0;
+
+        if (count === 0) {
+          screenerIssues.push(`${normShift} screener missing`);
+        } else if (count > 1) {
+          screenerIssues.push(`Multiple ${normShift} screeners (${count})`);
+        }
+      }
+
+      if (screenerIssues.length > 0) {
+        conflicts.push({
+          date: dateStr,
+          message: `[${regionId}] ${screenerIssues.join(', ')} on ${moment.utc(dateStr).format('MMM D')}`,
+          type: 'SCREENER_CONFLICT',
+          missingShifts: screenerIssues,
+          severity: screenerIssues.some(issue => issue.includes('missing')) ? 'critical' : 'recommended',
+          regionId
+        });
+      }
+    });
   }
 
   /**
@@ -279,7 +536,7 @@ export class ConflictDetectionService {
   }
 
   /**
-   * HOLISTIC FIX: Detect consecutive-day violations (>5 days in a row)
+   * HOLISTIC FIX: Detect consecutive-day violations (>5 days)
    */
   private detectConsecutiveDayViolations(schedules: any[], conflicts: Conflict[]): void {
     const maxConsecutive = 5;
@@ -320,194 +577,6 @@ export class ConflictDetectionService {
         }
       }
     }
-  }
-
-  /**
-   * Create a conflict for no schedules
-   */
-  private createNoScheduleConflict(startDate: Date, endDate: Date): Conflict {
-    return {
-      date: startDate.toISOString().split('T')[0],
-      message: `Schedule does not exist for the next 30 days (${moment(startDate).format('MMM D')} - ${moment(endDate).format('MMM D')})`,
-      type: 'NO_SCHEDULE_EXISTS',
-      missingShifts: [],
-      severity: 'recommended'
-    };
-  }
-
-  /**
-   * Create a conflict for missing schedules
-   */
-  private createMissingSchedulesConflict(datesWithNoSchedules: Set<string>): Conflict {
-    const noScheduleDates = Array.from(datesWithNoSchedules).sort();
-    return {
-      date: noScheduleDates[0],
-      message: `No schedules generated for ${noScheduleDates.length} day(s) in the selected period`,
-      type: 'NO_SCHEDULE_EXISTS',
-      missingShifts: [],
-      severity: 'recommended'
-    };
-  }
-
-  /**
-   * Create a conflict for incomplete schedules
-   */
-  private createIncompleteSchedulesConflict(datesWithPartialSchedules: Set<string>): Conflict {
-    const partialDates = Array.from(datesWithPartialSchedules).sort();
-    return {
-      date: partialDates[0],
-      message: `Incomplete schedules detected for ${partialDates.length} day(s). Complete schedules are required for proper operations.`,
-      type: 'INCOMPLETE_SCHEDULES',
-      missingShifts: [],
-      severity: 'recommended'
-    };
-  }
-
-  /**
-   * Detect missing shifts in partial schedules
-   */
-  private detectMissingShifts(
-    scheduledDates: Map<string, ScheduledShifts>,
-    datesWithPartialSchedules: Set<string>,
-    datesWithNoSchedules: Set<string>,
-    conflicts: Conflict[]
-  ): void {
-    scheduledDates.forEach((shifts, dateStr) => {
-      // Skip dates with no schedules - they're handled separately
-      if (datesWithNoSchedules.has(dateStr)) {
-        return;
-      }
-
-      const dayOfWeek = moment.utc(dateStr).day();
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-      let missingShifts: string[] = [];
-
-      if (isWeekend) {
-        // Weekend logic: If we have ANY coverage, we might be good, or we might need 'WEEKEND' shift.
-        // If the system uses 'WEEKEND' shift type:
-        if (!shifts.weekend && !shifts.morning && !shifts.evening) {
-          missingShifts.push('Weekend Coverage');
-        }
-      } else {
-        // Weekday logic
-        if (!shifts.morning) {
-          missingShifts.push('Morning');
-        }
-        if (!shifts.evening) {
-          missingShifts.push('Evening');
-        }
-      }
-
-      // Add missing shift conflicts for partial schedules
-      if (missingShifts.length > 0 && datesWithPartialSchedules.has(dateStr)) {
-        conflicts.push({
-          date: dateStr,
-          message: `Missing ${missingShifts.join(' and ')} shift(s) on ${moment.utc(dateStr).format('MMM D')}`,
-          type: 'NO_ANALYST_ASSIGNED',
-          missingShifts,
-          severity: 'critical'
-        });
-      }
-    });
-  }
-
-  /**
-   * Detect screener conflicts in complete schedules
-   * FIXED: Now counts screeners PER REGION and respects region shift configurations
-   */
-  private detectScreenerConflicts(
-    schedules: any[],
-    datesWithCompleteSchedules: Set<string>,
-    conflicts: Conflict[],
-    regionShiftConfig?: Map<string, Set<string>>
-  ): void {
-    // Get screener assignments for each region + date combination
-    // Key format: "regionId:dateStr"
-    const screenerAssignments = new Map<string, ScreenerAssignments>();
-    // Track which regions have data
-    const regionDateKeys = new Set<string>();
-
-    schedules.forEach(schedule => {
-      const dateStr = schedule.date.toISOString().split('T')[0];
-      const regionId = schedule.regionId || 'unknown';
-      const key = `${regionId}:${dateStr}`;
-
-      if (datesWithCompleteSchedules.has(dateStr) && schedule.isScreener) {
-        if (!screenerAssignments.has(key)) {
-          screenerAssignments.set(key, { morning: 0, evening: 0 });
-        }
-        const assignments = screenerAssignments.get(key)!;
-        if (schedule.shiftType === 'MORNING') {
-          assignments.morning++;
-        } else if (schedule.shiftType === 'EVENING') {
-          assignments.evening++;
-        }
-      }
-
-      // Track all region+date combinations to check for missing screeners
-      if (datesWithCompleteSchedules.has(dateStr)) {
-        regionDateKeys.add(key);
-      }
-    });
-
-    // Check each region + date combination for screener conflicts
-    regionDateKeys.forEach(key => {
-      const [regionId, dateStr] = key.split(':');
-
-      // Use UTC day to avoid timezone issues with the date string
-      const dayOfWeek = moment.utc(dateStr).day();
-
-      // Skip screener conflict checks for weekends (Saturday=6, Sunday=0)
-      // Weekends should have analysts but no screeners per business requirements
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        return;
-      }
-
-      const screeners = screenerAssignments.get(key) || { morning: 0, evening: 0 };
-      let screenerIssues: string[] = [];
-
-      // Get this region's configured shift types
-      const regionShifts = regionShiftConfig?.get(regionId) || new Set(['MORNING', 'EVENING']);
-      const isSingleShiftRegion = regionShifts.has('SINGLE');
-      const hasMorningShift = regionShifts.has('MORNING');
-      const hasEveningShift = regionShifts.has('EVENING');
-
-      // For single-shift regions (like LDN), only need one screener total
-      if (isSingleShiftRegion) {
-        const totalScreeners = screeners.morning + screeners.evening;
-        if (totalScreeners === 0) {
-          screenerIssues.push('Screener missing');
-        } else if (totalScreeners > 1) {
-          screenerIssues.push(`Multiple screeners (${totalScreeners})`);
-        }
-      } else {
-        // Standard regions with morning/evening shifts
-        if (hasMorningShift && screeners.morning === 0) {
-          screenerIssues.push('Morning screener missing');
-        }
-        if (hasEveningShift && screeners.evening === 0) {
-          screenerIssues.push('Evening screener missing');
-        }
-        if (screeners.morning > 1) {
-          screenerIssues.push(`Multiple morning screeners (${screeners.morning})`);
-        }
-        if (screeners.evening > 1) {
-          screenerIssues.push(`Multiple evening screeners (${screeners.evening})`);
-        }
-      }
-
-      // Add screener conflicts
-      if (screenerIssues.length > 0) {
-        conflicts.push({
-          date: dateStr,
-          message: `${screenerIssues.join(', ')} on ${moment.utc(dateStr).format('MMM D')}`,
-          type: 'SCREENER_CONFLICT',
-          missingShifts: screenerIssues,
-          severity: screenerIssues.some(issue => issue.includes('missing')) ? 'critical' : 'recommended'
-        });
-      }
-    });
   }
 }
 

@@ -10,7 +10,7 @@ interface GeneratedSchedule {
   date: string;
   analystId: string;
   analystName: string;
-  shiftType: 'MORNING' | 'EVENING';
+  shiftType: string;
   isScreener: boolean;
   type: 'NEW_SCHEDULE';
 }

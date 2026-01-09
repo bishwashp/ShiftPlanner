@@ -22,8 +22,8 @@ interface CollapsibleSidebarProps {
   isOpen: boolean;
   onViewChange: (view: View) => void;
   activeView: View;
-  activeAvailabilityTab?: 'holidays' | 'absences';
-  onAvailabilityTabChange?: (tab: 'holidays' | 'absences') => void;
+  activeAvailabilityTab?: 'absences' | 'approval' | 'holidays' | 'compoff';
+  onAvailabilityTabChange?: (tab: 'absences' | 'approval' | 'holidays' | 'compoff') => void;
   activeConflictTab?: 'critical' | 'recommended';
   onConflictTabChange?: (tab: 'critical' | 'recommended') => void;
 }
@@ -91,8 +91,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
           label: 'Availability',
           icon: Clock,
           subItems: [
-            { id: 'holidays', label: 'Holidays' },
-            { id: 'absences', label: 'Absences' }
+            { id: 'compoff', label: 'Comp-Off' }
           ]
         },
       ]
@@ -187,7 +186,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ isOpen, onViewC
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (item.view === 'availability' && props.onAvailabilityTabChange) {
-                                      props.onAvailabilityTabChange(subItem.id as 'holidays' | 'absences');
+                                      props.onAvailabilityTabChange(subItem.id as 'absences' | 'approval' | 'holidays' | 'compoff');
                                     } else if (item.view === 'conflicts' && props.onConflictTabChange) {
                                       props.onConflictTabChange(subItem.id as 'critical' | 'recommended');
                                     }

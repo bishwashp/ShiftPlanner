@@ -3,6 +3,7 @@ import { usePerformance } from '../../../contexts/PerformanceContext';
 import moment from 'moment-timezone';
 import { NameBox } from './NameBox';
 import { HolidayPill } from './HolidayPill';
+import { ContextMenu } from '../../ui/ContextMenu';
 
 interface CalendarEvent {
   id: string;
@@ -20,6 +21,7 @@ interface CalendarGridProps {
   onEventSelect?: (event: CalendarEvent) => void; // Optional - not used in current implementation
   onDateSelect?: (date: Date) => void;
   onShowMoreClick?: (date: Date) => void; // New prop for "+X more" clicks
+  onRequestSwap?: (event: CalendarEvent) => void;
 }
 
 interface CalendarDay {
@@ -37,11 +39,39 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   isMobile,
   onEventSelect,
   onDateSelect,
-  onShowMoreClick
+  onShowMoreClick,
+  onRequestSwap
 }) => {
   const { flags } = usePerformance();
   const gridRef = useRef<HTMLDivElement>(null);
   const [focusedDate, setFocusedDate] = React.useState<string | null>(null);
+
+  // Context Menu State
+  const [contextMenu, setContextMenu] = React.useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    event: CalendarEvent | null;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    event: null
+  });
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, event: CalendarEvent) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      event
+    });
+  }, []);
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(prev => ({ ...prev, visible: false }));
+  }, []);
   // Smart stacking configuration based on mockup specs
   const STACKING_CONFIG = {
     desktop: {
@@ -178,6 +208,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
                 onEventSelect(event);
               }
             }}
+            onContextMenu={(e) => handleContextMenu(e, event)}
           />
         ))}
 
@@ -408,6 +439,28 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         Use arrow keys to navigate between dates. Press Enter or Space to select a date.
         Use Page Up/Down to navigate between months. Use Home/End to go to start/end of week.
       </div>
+
+      {contextMenu.visible && contextMenu.event && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+          items={[
+            {
+              label: 'Request Swap',
+              icon: <span className="text-lg">⇄</span>,
+              onClick: () => {
+                console.log('Request Swap for:', contextMenu.event);
+                if (contextMenu.event) {
+                  onRequestSwap?.(contextMenu.event);
+                }
+              },
+              disabled: !((contextMenu.event.resource.isScreener) ||
+                (moment(contextMenu.event.date).day() === 0 || moment(contextMenu.event.date).day() === 6))
+            }
+          ]}
+        />
+      )}
     </div>
   );
 };

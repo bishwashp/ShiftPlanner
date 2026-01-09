@@ -104,6 +104,14 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
           navigate('/absences');
           onClose();
           break;
+        case 'SWAP_REQUEST':
+        case 'SWAP_OFFER':
+        case 'SWAP_ACCEPTED':
+        case 'SWAP_REJECTED':
+          console.log('[NotificationCenter] Navigating to analyst swaps');
+          navigate('/analysts?tab=swaps');
+          onClose();
+          break;
         default:
           console.log('[NotificationCenter] No navigation specified, just closing');
           onClose();

@@ -47,8 +47,13 @@ function App() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState<SidebarView>('dashboard');
-  const [activeAvailabilityTab, setActiveAvailabilityTab] = useState<'holidays' | 'absences'>(() => {
-    return window.location.pathname.startsWith('/absences') ? 'absences' : 'holidays';
+  const [activeAvailabilityTab, setActiveAvailabilityTab] = useState<'absences' | 'approval' | 'holidays' | 'compoff'>(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/absences')) return 'absences';
+    if (path.startsWith('/approval')) return 'approval';
+    if (path.startsWith('/compoff')) return 'compoff';
+    if (path.startsWith('/holidays')) return 'holidays';
+    return 'absences';
   });
   const [activeConflictTab, setActiveConflictTab] = useState<'critical' | 'recommended'>('critical');
 
@@ -59,12 +64,16 @@ function App() {
     if (path === '/' || path === '/dashboard') setActiveView('dashboard');
     else if (path === '/schedule' || path === '/calendar') setActiveView('schedule');
     else if (path.startsWith('/analysts')) setActiveView('analysts');
-    else if (path.startsWith('/availability') || path.startsWith('/absences')) {
+    else if (path.startsWith('/availability') || path.startsWith('/absences') || path.startsWith('/holidays')) {
       setActiveView('availability');
       if (path.startsWith('/absences')) {
         setActiveAvailabilityTab('absences');
-      } else {
+      } else if (path.startsWith('/compoff')) {
+        setActiveAvailabilityTab('compoff');
+      } else if (path.startsWith('/holidays')) {
         setActiveAvailabilityTab('holidays');
+      } else {
+        setActiveAvailabilityTab('absences');
       }
     }
     else if (path.startsWith('/conflicts')) setActiveView('conflicts');

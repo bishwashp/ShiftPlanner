@@ -25,6 +25,7 @@ import ViewSettingsMenu from './ViewSettingsMenu';
 import ExportModal from '../modals/ExportModal';
 import { usePeriod } from '../../context/PeriodContext';
 import SpringDropdown from '../ui/SpringDropdown';
+import SegmentedControl from '../ui/SegmentedControl';
 
 
 interface AppHeaderProps {
@@ -37,8 +38,8 @@ interface AppHeaderProps {
   activeView: SidebarView;
   timezone: string;
   onTimezoneChange: (tz: string) => void;
-  activeAvailabilityTab?: 'holidays' | 'absences';
-  onAvailabilityTabChange?: (tab: 'holidays' | 'absences') => void;
+  activeAvailabilityTab?: 'absences' | 'approval' | 'holidays' | 'compoff';
+  onAvailabilityTabChange?: (tab: 'absences' | 'approval' | 'holidays' | 'compoff') => void;
   activeConflictTab?: 'critical' | 'recommended';
   onConflictTabChange?: (tab: 'critical' | 'recommended') => void;
   onRefresh?: () => void;
@@ -110,7 +111,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
       case 'analysts':
         return 'Analyst Management';
       case 'availability':
-        return activeAvailabilityTab === 'holidays' ? 'Holidays' : 'Absences';
+        if (activeAvailabilityTab === 'holidays') return 'Holidays';
+        if (activeAvailabilityTab === 'absences') return 'Absences';
+        if (activeAvailabilityTab === 'approval') return 'Approval';
+        if (activeAvailabilityTab === 'compoff') return 'Comp-Offs';
+        return 'Availability';
       case 'conflicts':
         return 'Conflict Management';
       case 'analytics':
@@ -194,7 +199,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   {isManager && (
                     <button
                       onClick={() => {
-                        onViewChange?.('admin'); // 'admin' is not in SidebarView enum yet, need to add it or cast
+                        onViewChange?.('admin');
                         setIsOpen(false);
                       }}
                       className="text-xs bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-3 py-1 rounded-full font-bold hover:opacity-90 transition-opacity"
@@ -433,25 +438,24 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               </div>
 
               {/* Period Toggle */}
-              <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-800/50 rounded-lg p-1 mr-2 border border-gray-200 dark:border-gray-700">
-                {(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'] as const).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={`
-                      px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200
-                      ${period === p
-                        ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400'
-                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                      }
-                    `}
-                  >
-                    {p.charAt(0) + p.slice(1).toLowerCase()}
-                  </button>
-                ))}
+              <div className="hidden md:flex items-center mr-2">
+                <SegmentedControl
+                  value={period}
+                  onChange={(val) => setPeriod(val as 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY')}
+                  options={[
+                    { value: 'WEEKLY', label: 'Weekly' },
+                    { value: 'MONTHLY', label: 'Monthly' },
+                    { value: 'QUARTERLY', label: 'Quarterly' },
+                    { value: 'YEARLY', label: 'Yearly' }
+                  ]}
+                  className="shadow-sm border border-gray-200/50 dark:border-white/10"
+                />
               </div>
             </div>
           )}
+
+          {/* Right Portal Target for Page Actions (e.g. Admin Toggle) */}
+          <div id="app-header-right-actions" className="flex items-center mr-4" />
 
           {/* User Profile Menu with Settings */}
           <UserProfileMenu />

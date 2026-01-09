@@ -125,27 +125,8 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
 
   return (
     <div className="p-6">
-      {isManager && (
-        <HeaderActionPortal>
-          <div className="flex items-center space-x-2">
-            <HeaderActionButton
-              icon={Plus}
-              label="Add New"
-              onClick={handleOpenAddModal}
-            />
-            <Button
-              onClick={initializeDefaultHolidays}
-              variant="secondary"
-              size="sm"
-            >
-              Initialize Defaults
-            </Button>
-          </div>
-        </HeaderActionPortal>
-      )}
-
-      {/* Filters */}
-      <div className="mb-6 flex items-center space-x-4 bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10 relative z-20">
+      {/* Filters with Add/Initialize */}
+      <div className="mb-6 flex items-center justify-between bg-white/40 dark:bg-gray-800/40 p-3 rounded-xl backdrop-blur-sm border border-gray-200/50 dark:border-white/10 relative z-20">
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-foreground">Year:</label>
           <SpringDropdown
@@ -157,6 +138,25 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
             })}
           />
         </div>
+        {isManager && (
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={handleOpenAddModal}
+              variant="primary"
+              size="sm"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add Holiday
+            </Button>
+            <Button
+              onClick={initializeDefaultHolidays}
+              variant="secondary"
+              size="sm"
+            >
+              Initialize Defaults
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Error Message */}
