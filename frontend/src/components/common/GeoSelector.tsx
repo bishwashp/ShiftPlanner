@@ -59,7 +59,7 @@ export const GeoSelector: React.FC<GeoSelectorProps> = ({ className = '' }) => {
             }
         };
         fetchRegions();
-    }, []);
+    }, [selectedRegionId, setSelectedRegionId]); // Fixed: Added missing dependencies
 
     if (loading) return <span className="text-sm text-gray-400">Loading Regions...</span>;
 
@@ -75,7 +75,9 @@ export const GeoSelector: React.FC<GeoSelectorProps> = ({ className = '' }) => {
                     const regionName = regions.find(r => r.id === val)?.name || 'Unknown';
                     console.log(`GeoSelector: User selected ${regionName} (${val})`);
                     setSelectedRegionId(val);
-                    window.location.reload();
+                    // REMOVED: window.location.reload();
+                    // Region change is now handled reactively via key={selectedRegionId} in App.tsx
+                    // This forces child components to remount with fresh state, without losing auth
                 }}
                 options={regions.map(r => ({
                     value: r.id,

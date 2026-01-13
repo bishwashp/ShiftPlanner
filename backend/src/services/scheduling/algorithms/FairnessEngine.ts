@@ -98,11 +98,19 @@ export class FairnessEngine {
      */
     /**
      * Calculate screener assignment distribution fairness (Stratified by Shift Type)
+     * REFACTORED: Now groups by actual shiftType values instead of hardcoded MORNING/EVENING
      */
     private calculateScreenerDistribution(schedules: ProposedSchedule[], analysts: Analyst[]) {
-        // Stratify analysts by shift type
-        const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
-        const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
+        // DYNAMIC: Group analysts by their actual shiftType
+        const analystsByShift = new Map<string, Analyst[]>();
+
+        for (const analyst of analysts) {
+            const shiftType = analyst.shiftType || 'UNKNOWN';
+            if (!analystsByShift.has(shiftType)) {
+                analystsByShift.set(shiftType, []);
+            }
+            analystsByShift.get(shiftType)!.push(analyst);
+        }
 
         // Helper to calculate metrics for a group
         const calculateGroupMetrics = (group: Analyst[]) => {
@@ -124,16 +132,21 @@ export class FairnessEngine {
             return { standardDeviation, maxMinRatio, fairnessScore };
         };
 
-        const morningMetrics = calculateGroupMetrics(morningAnalysts);
-        const eveningMetrics = calculateGroupMetrics(eveningAnalysts);
+        // Calculate metrics for each shift type dynamically
+        const allMetrics: { standardDeviation: number; maxMinRatio: number; fairnessScore: number }[] = [];
+        for (const [, group] of analystsByShift) {
+            allMetrics.push(calculateGroupMetrics(group));
+        }
 
-        // Combine metrics (Weighted average based on pool size? Or simple average? Simple average is fairer to the "concept" of fairness)
-        // Actually, if we want the "Overall System Fairness", we should average the scores.
+        if (allMetrics.length === 0) {
+            return { standardDeviation: 0, maxMinRatio: 1, fairnessScore: 1 };
+        }
 
+        // Average metrics across all shift types
         return {
-            standardDeviation: (morningMetrics.standardDeviation + eveningMetrics.standardDeviation) / 2,
-            maxMinRatio: (morningMetrics.maxMinRatio + eveningMetrics.maxMinRatio) / 2,
-            fairnessScore: (morningMetrics.fairnessScore + eveningMetrics.fairnessScore) / 2
+            standardDeviation: allMetrics.reduce((sum, m) => sum + m.standardDeviation, 0) / allMetrics.length,
+            maxMinRatio: allMetrics.reduce((sum, m) => sum + m.maxMinRatio, 0) / allMetrics.length,
+            fairnessScore: allMetrics.reduce((sum, m) => sum + m.fairnessScore, 0) / allMetrics.length
         };
     }
 

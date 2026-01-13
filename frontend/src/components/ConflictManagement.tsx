@@ -4,6 +4,7 @@ import AutoFixPreview, { AssignmentProposal } from './AutoFixPreview';
 import { formatDateTime } from '../utils/formatDateTime';
 import moment from 'moment-timezone';
 import SpringDropdown from './ui/SpringDropdown';
+import { useShiftDefinitions } from '../contexts/ShiftDefinitionContext';
 
 interface ConflictManagementProps {
   activeTab: 'critical' | 'recommended';
@@ -11,6 +12,7 @@ interface ConflictManagementProps {
 }
 
 const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTabChange }) => {
+  const { shiftDefinitions } = useShiftDefinitions();
   const [conflicts, setConflicts] = useState<{ critical: any[]; recommended: any[] }>({ critical: [], recommended: [] });
   const [loading, setLoading] = useState(true);
   const [autoFixing, setAutoFixing] = useState(false);
@@ -198,24 +200,28 @@ const ConflictManagement: React.FC<ConflictManagementProps> = ({ activeTab, onTa
                       Manual Assignment for <span className="text-primary font-bold">{formatDateTime(conflict.date, moment.tz.guess(), 'MMM D, YYYY')}</span>
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {['Morning', 'Evening'].map((shiftType) => (
-                        <div key={shiftType} className="space-y-2">
-                          <label className="text-sm font-medium text-foreground">{shiftType} Shift</label>
-                          <div className="flex gap-2">
-                            <SpringDropdown
-                              value=""
-                              onChange={(val) => {
-                                if (val) {
-                                  handleManualAssignment(conflict, val, shiftType);
-                                }
-                              }}
-                              options={analysts.map((analyst) => ({ value: analyst.id, label: analyst.name }))}
-                              placeholder="Select Analyst"
-                              disabled={autoFixing}
-                            />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {shiftDefinitions.length > 0 ? shiftDefinitions.map((def) => (
+                          <div key={def.name} className="space-y-2">
+                            <label className="text-sm font-medium text-foreground capitalize">{def.name.toLowerCase().includes('shift') ? def.name : `${def.name} Shift`}</label>
+                            <div className="flex gap-2">
+                              <SpringDropdown
+                                value=""
+                                onChange={(val) => {
+                                  if (val) {
+                                    handleManualAssignment(conflict, val, def.name);
+                                  }
+                                }}
+                                options={analysts.map((analyst) => ({ value: analyst.id, label: analyst.name }))}
+                                placeholder="Select Analyst"
+                                disabled={autoFixing}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )) : (
+                          <div className="col-span-2 text-center text-sm text-gray-500">Loading shift types...</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

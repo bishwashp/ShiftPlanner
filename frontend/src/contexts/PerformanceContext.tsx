@@ -55,7 +55,12 @@ export const PerformanceProvider: React.FC<{ children: ReactNode }> = ({ childre
 export const usePerformance = () => {
     const context = useContext(PerformanceContext);
     if (context === undefined) {
-        throw new Error('usePerformance must be used within a PerformanceProvider');
+        // Fallback to default flags if used outside provider (e.g. in AuthProvider)
+        return {
+            flags: defaultFlags,
+            toggleFlag: () => console.warn('Performance context not available'),
+            resetFlags: () => console.warn('Performance context not available')
+        };
     }
     return context;
 };

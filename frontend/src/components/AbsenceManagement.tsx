@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Trash, PencilSimple, Warning, CheckCircle, XCircle, Clock, User } from '@phosphor-icons/react';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 import { useLocation } from 'react-router-dom';
 import { apiService, Analyst } from '../services/api';
 import { dateUtils } from '../utils/dateUtils';
@@ -152,12 +153,12 @@ const AbsenceManagement: React.FC = () => {
   useEffect(() => {
     if (highlightedId) {
       const timer = setTimeout(() => {
-        const element = document.getElementById(`absence-${highlightedId}`);
+        const element = document.getElementById(`absence - ${highlightedId} `);
         if (element) {
-          console.log(`[AbsenceManagement] Scrolling to absence-${highlightedId}`);
+          console.log(`[AbsenceManagement] Scrolling to absence - ${highlightedId} `);
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
-          console.warn(`[AbsenceManagement] Could not find element absence-${highlightedId}`);
+          console.warn(`[AbsenceManagement] Could not find element absence - ${highlightedId} `);
         }
       }, 100);
       return () => clearTimeout(timer);
@@ -347,8 +348,8 @@ const AbsenceManagement: React.FC = () => {
   if (loading) {
     return (
       <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="flex h-full items-center justify-center">
+          <LoadingSpinner size="large" />
         </div>
       </div>
     );
@@ -591,8 +592,8 @@ const AbsenceManagement: React.FC = () => {
                       return (
                         <tr
                           key={absence.id}
-                          id={`absence-${absence.id}`}
-                          className={`hover:bg-muted/50 transition-all ${highlightedId === absence.id ? 'highlight-glow' : ''}`}
+                          id={`absence - ${absence.id} `}
+                          className={`hover: bg - muted / 50 transition - all ${highlightedId === absence.id ? 'highlight-glow' : ''} `}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
@@ -606,7 +607,7 @@ const AbsenceManagement: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getAbsenceTypeColor(absence.type)} `}>
+                            <span className={`inline - flex px - 2 py - 1 text - xs font - semibold rounded - full ${getAbsenceTypeColor(absence.type)} `}>
                               {getAbsenceTypeLabel(absence.type)}
                             </span>
                           </td>
@@ -629,11 +630,11 @@ const AbsenceManagement: React.FC = () => {
 
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-1">
-                              <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${absence.status === 'APPROVED' || (absence.isApproved && !absence.status)
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                : absence.status === 'REJECTED'
-                                  ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                              <span className={`inline - flex items - center px - 2 py - 1 text - xs font - semibold rounded - full ${absence.status === 'APPROVED' || (absence.isApproved && !absence.status)
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                  : absence.status === 'REJECTED'
+                                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
                                 } `}>
                                 {absence.status === 'APPROVED' || (absence.isApproved && !absence.status) ? (
                                   <>
@@ -652,9 +653,9 @@ const AbsenceManagement: React.FC = () => {
                                   </>
                                 )}
                               </span>
-                              <div className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${absence.isPlanned
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                                : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
+                              <div className={`inline - flex items - center px - 2 py - 1 text - xs font - semibold rounded - full ${absence.isPlanned
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                  : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
                                 } `}>
                                 {absence.isPlanned ? 'Planned' : 'Unplanned'}
                               </div>

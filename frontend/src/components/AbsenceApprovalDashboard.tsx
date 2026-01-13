@@ -3,6 +3,7 @@ import { apiService } from '../services/api';
 import { AbsenceImpactReport } from './AbsenceImpactReport';
 import Button from './ui/Button';
 import { CheckCircle, XCircle, Warning, Spinner } from '@phosphor-icons/react';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 import moment from 'moment';
 import { dateUtils } from '../utils/dateUtils';
 
@@ -145,7 +146,7 @@ export const AbsenceApprovalDashboard: React.FC<AbsenceApprovalDashboardProps> =
                     <div className="w-1/3 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
                         {loading ? (
                             <div className="flex justify-center p-8">
-                                <Spinner className="animate-spin h-6 w-6 text-primary" />
+                                <LoadingSpinner size="medium" />
                             </div>
                         ) : pendingAbsences.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -224,8 +225,7 @@ export const AbsenceApprovalDashboard: React.FC<AbsenceApprovalDashboardProps> =
                                 <div className="flex-1 overflow-y-auto p-6">
                                     {analyzing ? (
                                         <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                                            <Spinner className="animate-spin h-8 w-8 mb-2" />
-                                            <p>Analyzing schedule impact...</p>
+                                            <LoadingSpinner size="medium" text="Analyzing schedule impact..." />
                                         </div>
                                     ) : impactReport ? (
                                         <AbsenceImpactReport report={impactReport} />

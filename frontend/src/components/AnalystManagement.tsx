@@ -10,6 +10,8 @@ import HeaderActionButton from './layout/HeaderActionButton';
 import Button from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useRegion } from '../contexts/RegionContext';
+import { useShiftDefinitions } from '../contexts/ShiftDefinitionContext';
+import { getShiftTypeColor } from '../utils/colors'; // Import color utility
 import SwapInbox from './availability/SwapInbox';
 
 interface ShiftDefinition {
@@ -32,8 +34,9 @@ interface AnalystFormData {
 const AnalystManagement: React.FC = () => {
   const { isManager } = useAuth();
   const { selectedRegionId } = useRegion();
+  const { shiftDefinitions } = useShiftDefinitions(); // Use context instead of local fetch
   const [analysts, setAnalysts] = useState<Analyst[]>([]);
-  const [shiftDefinitions, setShiftDefinitions] = useState<ShiftDefinition[]>([]);
+  // const [shiftDefinitions, setShiftDefinitions] = useState<ShiftDefinition[]>([]); // Removed local state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -81,23 +84,22 @@ const AnalystManagement: React.FC = () => {
     fetchAnalysts();
   }, []);
 
+  // Removed redundant shift definition fetching effect
+  /* 
   useEffect(() => {
-    const fetchShiftDefinitions = async () => {
-      try {
-        if (selectedRegionId) {
-          const defs = await apiService.getShiftDefinitions(selectedRegionId);
-          setShiftDefinitions(defs);
-          // Set default shift type if available and form is reset
-          if (defs.length > 0 && !formData.shiftType) {
-            setFormData(prev => ({ ...prev, shiftType: defs[0].id }));
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching shift definitions:', err);
-      }
-    };
-    fetchShiftDefinitions();
-  }, [selectedRegionId]);
+    // Context handles fetching now
+    if (shiftDefinitions.length > 0 && !formData.shiftType) {
+        setFormData(prev => ({ ...prev, shiftType: shiftDefinitions[0].id }));
+    }
+  }, [shiftDefinitions]); // Update default when definitions load
+  */
+
+  // Improved default setting logic inside generic effect or just let user select
+  useEffect(() => {
+    if (shiftDefinitions.length > 0 && !formData.shiftType) {
+      setFormData(prev => ({ ...prev, shiftType: shiftDefinitions[0].id }));
+    }
+  }, [shiftDefinitions]);
 
   const handleAddAnalyst = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -436,10 +438,7 @@ const AnalystManagement: React.FC = () => {
                           <div className="text-sm text-gray-700 dark:text-gray-200">{analyst.email}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${(analyst.shiftType === 'EVENING' || analyst.shiftType === 'PM')
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                            }`}>
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full" style={{ backgroundColor: getShiftTypeColor(analyst.shiftType) + '40', color: getShiftTypeColor(analyst.shiftType) }}>
                             {/* Phase 1: Display shiftDefinition.name if available, otherwise use shiftType */}
                             {analyst.shiftDefinition?.name || analyst.shiftType}
                           </span>

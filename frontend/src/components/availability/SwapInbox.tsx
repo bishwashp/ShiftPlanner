@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { apiService, ShiftSwap } from '../../services/api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { apiService, ShiftSwap, Analyst, Schedule } from '../../services/api';
 import moment from 'moment';
 import {
     Tray,
@@ -10,7 +10,9 @@ import {
     Clock,
     ArrowRight,
     User,
-    CalendarCheck
+    CalendarCheck,
+    Plus,
+    Swap
 } from '@phosphor-icons/react';
 import SwapRequestModal from '../calendar/modals/SwapRequestModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,14 +31,29 @@ export default function SwapInbox() {
     const [offerModalOpen, setOfferModalOpen] = useState(false);
     const [selectedBroadcast, setSelectedBroadcast] = useState<ShiftSwap | null>(null);
 
+    // For the Request Swap button modal
+    const [requestModalOpen, setRequestModalOpen] = useState(false);
+    const [analysts, setAnalysts] = useState<Analyst[]>([]);
+    const [userSchedules, setUserSchedules] = useState<Schedule[]>([]);
+
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [mySwaps, broadcasts] = await Promise.all([
+            const [mySwaps, broadcasts, fetchedAnalysts, allSchedules] = await Promise.all([
                 apiService.getMySwaps(),
-                apiService.getBroadcasts()
+                apiService.getBroadcasts(),
+                apiService.getAnalysts(),
+                apiService.getSchedules(
+                    moment().format('YYYY-MM-DD'),
+                    moment().add(3, 'months').format('YYYY-MM-DD')
+                )
             ]);
             setData({ ...mySwaps, broadcasts });
+            setAnalysts(fetchedAnalysts);
+            // Filter for current user's schedules
+            if (user?.analystId) {
+                setUserSchedules(allSchedules.filter(s => s.analystId === user.analystId));
+            }
         } catch (err) {
             console.error('Failed to fetch swaps:', err);
         } finally {
@@ -46,7 +63,7 @@ export default function SwapInbox() {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [user?.analystId]);
 
     const handleApprove = async (id: string) => {
         if (!window.confirm('Are you sure you want to approve this swap? This will update the schedule immediately.')) return;
@@ -91,12 +108,21 @@ export default function SwapInbox() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Shift Swap Center</h2>
-                <button
-                    onClick={fetchData}
-                    className="text-sm text-primary hover:underline"
-                >
-                    Refresh
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setRequestModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
+                    >
+                        <Plus className="w-4 h-4" weight="bold" />
+                        Request Swap
+                    </button>
+                    <button
+                        onClick={fetchData}
+                        className="text-sm text-primary hover:underline"
+                    >
+                        Refresh
+                    </button>
+                </div>
             </div>
 
             {/* Tabs */}
@@ -261,12 +287,19 @@ export default function SwapInbox() {
                 </div>
             )}
 
-            {/* Offer Modal Placeholder - To be implemented with SelectMyShift logic */}
-            {/* 
-      {offerModalOpen && selectedBroadcast && (
-        <SwapRequestModal ... />
-      )} 
-      */}
+            {/* Request Swap Modal - Opens when user clicks "Request Swap" button */}
+            {/* Pass null schedule to trigger "Give Away" mode where user picks their shift */}
+            <SwapRequestModal
+                isOpen={requestModalOpen}
+                onClose={() => setRequestModalOpen(false)}
+                schedule={null}
+                analysts={analysts}
+                userSchedules={userSchedules}
+                onSuccess={() => {
+                    setRequestModalOpen(false);
+                    fetchData();
+                }}
+            />
         </div>
     );
 }

@@ -3,8 +3,11 @@ import { Sun, Moon, Umbrella } from '@phosphor-icons/react';
 import { apiService } from '../../../services/api';
 import moment from 'moment';
 import GlassCard from '../../common/GlassCard';
+import { useShiftDefinitions } from '../../../contexts/ShiftDefinitionContext';
+import { getShiftTypeColor } from '../../../utils/colors';
 
 const WeekendShiftWidget: React.FC = () => {
+    const { isLateShift } = useShiftDefinitions();
     const [weekendShifts, setWeekendShifts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [weekendDates, setWeekendDates] = useState<{ sat: string, sun: string } | null>(null);
@@ -63,13 +66,13 @@ const WeekendShiftWidget: React.FC = () => {
                         {shifts.map((shift: any) => (
                             <div key={shift.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 text-sm">
                                 <div className="flex items-center gap-2">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${shift.shiftType === 'MORNING' ? 'bg-orange-400' : 'bg-indigo-400'}`} />
+                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: getShiftTypeColor(shift.shiftType) }} />
                                     <span className="font-medium text-gray-900 dark:text-white">{shift.analyst?.name || 'Unknown Analyst'}</span>
                                 </div>
-                                {shift.shiftType === 'MORNING' ? (
-                                    <Sun className="w-4 h-4 text-orange-400" />
-                                ) : (
+                                {isLateShift(shift.shiftType) ? (
                                     <Moon className="w-4 h-4 text-indigo-400" />
+                                ) : (
+                                    <Sun className="w-4 h-4 text-orange-400" />
                                 )}
                             </div>
                         ))}

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Lightning, Plus, Trash, PencilSimple, ArrowRight } from '@phosphor-icons/react';
+import ConstraintWizard from './ConstraintWizard';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { constraintService } from '../../services/constraintService';
 import { SchedulingConstraint } from '../../services/api';
 import HolidayConstraintConfig from './HolidayConstraintConfig';
@@ -175,8 +177,8 @@ const ConstraintPortal: React.FC = () => {
                     <span className="text-sm text-gray-500">{specialEvents.length} events</span>
                 </div>
                 {loading ? (
-                    <div className="p-8 text-center">
-                        <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
+                    <div className="p-8 flex justify-center">
+                        <LoadingSpinner size="medium" />
                     </div>
                 ) : specialEvents.length === 0 ? (
                     <div className="p-8 text-center text-gray-500">

@@ -29,26 +29,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Check for existing token and verify
+        // Check for existing token and verify with retry logic
         const loadUser = async () => {
             const token = localStorage.getItem('authToken');
             if (token) {
-                try {
-                    const response = await fetch(`${API_URL}/auth/me`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
+                const MAX_RETRIES = 3;
+                const RETRY_DELAY = 500; // ms
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        setUser(data.user);
-                    } else {
-                        localStorage.removeItem('authToken');
+                for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                    try {
+                        const response = await fetch(`${API_URL}/auth/me`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            setUser(data.user);
+                            break; // Success, exit retry loop
+                        } else if (response.status === 401) {
+                            // Token is actually invalid, remove it
+                            console.log('Auth: Token invalid (401), removing');
+                            localStorage.removeItem('authToken');
+                            break;
+                        } else {
+                            // Server error, might be transient
+                            console.warn(`Auth: Attempt ${attempt}/${MAX_RETRIES} failed with status ${response.status}`);
+                            if (attempt < MAX_RETRIES) {
+                                await new Promise(r => setTimeout(r, RETRY_DELAY));
+                            }
+                        }
+                    } catch (error) {
+                        // Network error - might be transient (server starting, etc)
+                        console.warn(`Auth: Attempt ${attempt}/${MAX_RETRIES} failed:`, error);
+                        if (attempt < MAX_RETRIES) {
+                            await new Promise(r => setTimeout(r, RETRY_DELAY));
+                        } else {
+                            // All retries exhausted, but don't remove token - server might just be down
+                            console.error('Auth: All retries exhausted, keeping token for when server returns');
+                        }
                     }
-                } catch (error) {
-                    console.error('Failed to verify token:', error);
-                    localStorage.removeItem('authToken');
                 }
             }
             setIsLoading(false);

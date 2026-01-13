@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 import { Coins, ArrowUp, ArrowDown, MagnifyingGlass, CalendarBlank, Warning, User, Eye, Pencil, Trash, X } from '@phosphor-icons/react';
 import { compOffService, CompOffBalance, CompOffTransaction } from '../services/compOffService';
 import { apiService, Analyst } from '../services/api';
@@ -201,10 +202,8 @@ const CompOffManagement: React.FC<CompOffManagementProps> = ({ mode = 'admin', a
 
     if (loading && balances.length === 0) {
         return (
-            <div className="p-6">
-                <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
+            <div className="flex justify-center items-center h-full">
+                <LoadingSpinner size="large" />
             </div>
         );
     }

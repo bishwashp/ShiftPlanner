@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { Users, CalendarBlank, ChartBar, Sun, Moon, Lightning } from '@phosphor-icons/react';
+import { useShiftDefinitions } from '../contexts/ShiftDefinitionContext';
+import { adaptLegacySnapshot } from '../adapters/LegacyShiftAdapter';
 
 interface ScheduleSnapshotData {
   todaysScreeners: {
@@ -28,19 +30,21 @@ interface ScheduleSnapshotData {
 }
 
 const ScheduleSnapshot: React.FC = () => {
+  const { shiftDefinitions, isLateShift } = useShiftDefinitions();
   const [data, setData] = useState<ScheduleSnapshotData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSnapshotData();
-  }, []);
+  }, [shiftDefinitions]);
 
   const fetchSnapshotData = async () => {
     try {
       setLoading(true);
       const snapshotData = await apiService.getScheduleSnapshot();
-      setData(snapshotData);
+      const adapted = adaptLegacySnapshot(snapshotData, shiftDefinitions);
+      setData(adapted);
       setError(null);
     } catch (err: any) {
       console.error('Error fetching schedule snapshot:', err);
@@ -51,40 +55,38 @@ const ScheduleSnapshot: React.FC = () => {
   };
 
   const getShiftConfig = (shiftType: string) => {
-    switch (shiftType) {
-      case 'MORNING':
-        return {
-          icon: Sun,
-          color: 'text-blue-500',
-          bgColor: 'bg-blue-500/10',
-          borderColor: 'border-blue-500/20',
-          label: 'Morning'
-        };
-      case 'EVENING':
-        return {
-          icon: Moon,
-          color: 'text-purple-500',
-          bgColor: 'bg-purple-500/10',
-          borderColor: 'border-purple-500/20',
-          label: 'Evening'
-        };
-      case 'WEEKEND':
-        return {
-          icon: Lightning,
-          color: 'text-green-500',
-          bgColor: 'bg-green-500/10',
-          borderColor: 'border-green-500/20',
-          label: 'Weekend'
-        };
-      default:
-        return {
-          icon: Sun,
-          color: 'text-gray-500',
-          bgColor: 'bg-gray-500/10',
-          borderColor: 'border-gray-500/20',
-          label: 'Unknown'
-        };
+    const label = shiftType === 'MORNING' ? 'Morning' :
+      shiftType === 'EVENING' ? 'Evening' :
+        shiftType.charAt(0).toUpperCase() + shiftType.slice(1).toLowerCase();
+
+    if (shiftType === 'WEEKEND') {
+      return {
+        icon: Lightning,
+        color: 'text-green-500',
+        bgColor: 'bg-green-500/10',
+        borderColor: 'border-green-500/20',
+        label: 'Weekend'
+      };
     }
+
+    if (isLateShift(shiftType)) {
+      return {
+        icon: Moon,
+        color: 'text-purple-500',
+        bgColor: 'bg-purple-500/10',
+        borderColor: 'border-purple-500/20',
+        label: label.includes('Shift') ? label : `${label} Shift`
+      };
+    }
+
+    // Default / Morning / AM
+    return {
+      icon: Sun,
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-500/10',
+      borderColor: 'border-blue-500/20',
+      label: label.includes('Shift') ? label : `${label} Shift`
+    };
   };
 
   const getCoverageColor = (status: 'LOW' | 'MEDIUM' | 'HIGH') => {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/sine-icon.png" />
@@ -17,14 +17,31 @@
     <title>Sine</title>
     
     <style>
-      /* Loading screen with premium dark theme */
+      /* Loading screen with theme support */
+      :root {
+        --bg-color: #ffffff;
+        --text-color: #1a1a1a;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg-color: #1a1a1a;
+          --text-color: #f8fafc;
+        }
+      }
+      
+      [data-theme='dark'] {
+        --bg-color: #1a1a1a;
+        --text-color: #f8fafc;
+      }
+
       body {
         margin: 0;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        background: #1a1a1a;
-        color: #f8fafc;
+        background: transparent;
+        color: var(--text-color);
       }
       
       .loading-screen {
@@ -33,11 +50,12 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+        background: var(--bg-color);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 9999;
+        transition: background-color 0s; /* Instant switch */
       }
       
       .loading-content {
@@ -72,6 +90,39 @@
         transition: opacity 0.3s ease;
       }
     </style>
+    <script>
+      // Immediately invoke theme check to prevent flash and flicker
+      (function() {
+        try {
+          // Check for saved theme
+          var savedTheme = localStorage.getItem('theme');
+          var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          
+          // Determine effective theme
+          var theme = savedTheme;
+          if (!theme) {
+            theme = systemDark ? 'dark' : 'light';
+          }
+          
+          var bgColor = theme === 'dark' ? '#1a1a1a' : '#ffffff';
+          var textColor = theme === 'dark' ? '#f8fafc' : '#1a1a1a';
+
+          // 1. Force background instantly on document element (prevents paint flash)
+          document.documentElement.style.backgroundColor = bgColor;
+          
+          // 2. Set data attribute for CSS variables
+          document.documentElement.setAttribute('data-theme', theme);
+
+          // 3. Update meta theme-color for browser UI (Safari/Chrome tabs)
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) {
+            metaTheme.setAttribute('content', bgColor);
+          }
+        } catch (e) {
+          console.warn('Theme access failed', e);
+        }
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -79,8 +130,7 @@
     <!-- Loading screen -->
     <div class="loading-screen" id="loading-screen">
       <div class="loading-content">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Loading Sine...</div>
+        <img src="%PUBLIC_URL%/sine-gif-full.gif" alt="Loading..." style="width: 80px; height: 80px; object-fit: contain; margin-bottom: 0;" />
       </div>
     </div>
     
@@ -95,6 +145,8 @@
             const loadingScreen = document.getElementById('loading-screen');
             if (loadingScreen) {
               loadingScreen.remove();
+              // Clear the forced background on html to let the app control it
+              document.documentElement.style.backgroundColor = '';
             }
           }, 300);
         }, 500);

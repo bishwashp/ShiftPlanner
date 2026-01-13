@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useShiftDefinitions } from '../../../contexts/ShiftDefinitionContext';
 import ReactDOM from 'react-dom';
 import { Analyst, apiService } from '../../../services/api';
 import moment from 'moment';
@@ -23,6 +24,7 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
     analysts
 }) => {
     const { isManager } = useAuth();
+    const { shiftDefinitions } = useShiftDefinitions();
     const [date, setDate] = useState(moment(initialDate).format('YYYY-MM-DD'));
 
 
@@ -38,12 +40,13 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
         if (isOpen) {
             setDate(moment(initialDate).format('YYYY-MM-DD'));
             setAnalystId('');
-            setShiftType('MORNING');
+            // Default to first available shift definition if available, else fallback
+            setShiftType(shiftDefinitions[0]?.name || 'MORNING');
             setIsScreener(false);
             setError(null);
             setValidationViolations([]);
         }
-    }, [isOpen, initialDate]);
+    }, [isOpen, initialDate, shiftDefinitions]);
 
     // Validation effect
     useEffect(() => {
@@ -194,24 +197,20 @@ const CreateScheduleModal: React.FC<CreateScheduleModalProps> = ({
                     <div>
                         <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Shift Type</label>
                         <div className="flex space-x-4">
-                            <label className="flex items-center space-x-2 cursor-pointer text-gray-900 dark:text-white">
-                                <input
-                                    type="radio"
-                                    checked={shiftType === 'MORNING'}
-                                    onChange={() => setShiftType('MORNING')}
-                                    className="text-primary focus:ring-primary"
-                                />
-                                <span>Morning</span>
-                            </label>
-                            <label className="flex items-center space-x-2 cursor-pointer text-gray-900 dark:text-white">
-                                <input
-                                    type="radio"
-                                    checked={shiftType === 'EVENING'}
-                                    onChange={() => setShiftType('EVENING')}
-                                    className="text-primary focus:ring-primary"
-                                />
-                                <span>Evening</span>
-                            </label>
+                            {shiftDefinitions.map((def) => (
+                                <label key={def.id} className="flex items-center space-x-2 cursor-pointer text-gray-900 dark:text-white">
+                                    <input
+                                        type="radio"
+                                        checked={shiftType === def.name}
+                                        onChange={() => setShiftType(def.name)}
+                                        className="text-primary focus:ring-primary"
+                                    />
+                                    <span className="capitalize">{def.name.toLowerCase().includes('shift') ? def.name : `${def.name} Shift`}</span>
+                                </label>
+                            ))}
+                            {shiftDefinitions.length === 0 && (
+                                <span className="text-sm text-gray-500 text-gray-900 dark:text-white">Loading shift types...</span>
+                            )}
                         </div>
                     </div>
 

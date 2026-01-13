@@ -270,23 +270,20 @@ export class IntelligentScheduler implements SchedulingStrategy {
     // Plan AM to PM Rotations (Only if Multi-Shift)
     let amToPmRotationMap = new Map<string, string[]>();
     if (isMultiShift) {
-      // Assume first shift is "Source" (AM) and last shift is "Target" (PM) for rotation
-      // Or strictly look for "AM" and "PM" / "MORNING" and "EVENING"
-      // For general safety, we only rotate if we explicitly identify "AM" and "PM" logic, 
-      // OR we just say "Earliest shift rotates to Latest shift".
-      // Current Logic: strictly rotates 'MORNING' (aka AM) analysts to 'EVENING' (aka PM).
-
-      // Find "Morning" equivalent (first shift)
+      // Find "Morning" equivalent (first shift) and "Evening" equivalent (last shift)
       const earliestShift = shiftDefinitions[0];
+      const latestShift = shiftDefinitions[shiftDefinitions.length - 1];
 
-      // Find analysts currently assigned to this earliest shift
+      // Find analysts currently assigned to each shift
       const sourceAnalysts = analystsByShift.get(earliestShift.name) || [];
+      const targetAnalysts = analystsByShift.get(latestShift.name) || [];
 
       if (sourceAnalysts.length > 0) {
         amToPmRotationMap = await this.rotationManager.planAMToPMRotation(
           startDate,
           endDate,
           sourceAnalysts,
+          targetAnalysts.length, // Pass PM count for balance calculation
           existingSchedules,
           this.absenceService
         );

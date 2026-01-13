@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Check, Warning, Info } from '@phosphor-icons/react';
+import { Calendar, Trash, Info, Plus, Warning, Check } from '@phosphor-icons/react';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { constraintService } from '../../services/constraintService';
 import Button from '../ui/Button';
 
@@ -71,9 +72,8 @@ const HolidayConstraintConfig: React.FC<HolidayConstraintConfigProps> = ({ onClo
 
     if (loading) {
         return (
-            <div className="p-6 text-center">
-                <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
-                <p className="mt-2 text-gray-500">Loading configuration...</p>
+            <div className="py-8 flex justify-center">
+                <LoadingSpinner size="medium" />
             </div>
         );
     }

@@ -85,29 +85,41 @@ export const NameBox: React.FC<NameBoxProps> = ({
       };
     }
 
-    switch (type.toLowerCase()) {
-      case 'morning':
-        return {
-          bg: 'bg-blue-500/20',
-          text: 'text-blue-800 dark:text-blue-200',
-          border: 'border-blue-400/30',
-          glow: 'hover:shadow-blue-500/20'
-        };
-      case 'evening':
-        return {
-          bg: 'bg-purple-500/20',
-          text: 'text-purple-800 dark:text-purple-200',
-          border: 'border-purple-400/30',
-          glow: 'hover:shadow-purple-500/20'
-        };
-      default:
-        return {
-          bg: 'bg-gray-500/20',
-          text: 'text-gray-800 dark:text-gray-200',
-          border: 'border-gray-400/30',
-          glow: 'hover:shadow-gray-500/20'
-        };
+    const normalized = type.toLowerCase();
+
+    if (normalized.includes('morning') || normalized.includes('am')) {
+      return {
+        bg: 'bg-blue-500/20',
+        text: 'text-blue-800 dark:text-blue-200',
+        border: 'border-blue-400/30',
+        glow: 'hover:shadow-blue-500/20'
+      };
     }
+
+    if (normalized.includes('evening') || normalized.includes('pm')) {
+      return {
+        bg: 'bg-purple-500/20',
+        text: 'text-purple-800 dark:text-purple-200',
+        border: 'border-purple-400/30',
+        glow: 'hover:shadow-purple-500/20'
+      };
+    }
+
+    if (normalized.includes('ldn') || normalized.includes('london')) {
+      return {
+        bg: 'bg-sky-500/20',
+        text: 'text-sky-800 dark:text-sky-200',
+        border: 'border-sky-400/30',
+        glow: 'hover:shadow-sky-500/20'
+      };
+    }
+
+    return {
+      bg: 'bg-gray-500/20',
+      text: 'text-gray-800 dark:text-gray-200',
+      border: 'border-gray-400/30',
+      glow: 'hover:shadow-gray-500/20'
+    };
   };
 
   // Size classes - adjusted for circular shape

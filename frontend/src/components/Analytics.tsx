@@ -30,6 +30,8 @@ import { AnalystHeatmap } from './analytics/AnalystHeatmap';
 import { ShiftRadar } from './analytics/ShiftRadar';
 import { AnalyticsTabs } from './analytics/AnalyticsTabs';
 import { motion } from 'framer-motion';
+import { useShiftDefinitions } from '../contexts/ShiftDefinitionContext';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 
 const Analytics: React.FC = () => {
   // State
@@ -44,6 +46,7 @@ const Analytics: React.FC = () => {
   const [burnoutRisks, setBurnoutRisks] = useState<any[]>([]);
   const [isBurnoutModalOpen, setIsBurnoutModalOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'WORKLOAD' | 'SCREENER' | 'WEEKEND'>('WORKLOAD');
+  const { isLateShift } = useShiftDefinitions();
 
   // Refs
   const deepDiveRef = useRef<HTMLDivElement>(null);
@@ -132,7 +135,7 @@ const Analytics: React.FC = () => {
             let weight = 1.0;
             if (isWeekend) weight += 1.0;
             if (s.isScreener) weight += 1.0;
-            if (s.shiftType === 'EVENING') weight += 0.5;
+            if (isLateShift(s.shiftType)) weight += 0.5;
             if (s.isScreener && lastWasScreener) weight += 1.0; // Penalty
 
             weightedScore += weight;
@@ -190,7 +193,7 @@ const Analytics: React.FC = () => {
     };
 
     fetchData();
-  }, [period, dateOffset]); // Re-fetch when period or offset changes
+  }, [period, dateOffset, isLateShift]); // Re-fetch when period, offset or definitions change
 
   // Client-side burnout calculation that respects the selected period
   const calculateBurnoutRisk = (schedules: Schedule[], analysts: Analyst[], selectedPeriod: string) => {
@@ -375,10 +378,36 @@ const Analytics: React.FC = () => {
     const workloadVariance = workloads.reduce((sum, w) => sum + Math.pow(w - avgWorkload, 2), 0) / activeCount;
     const workloadFairness = avgWorkload > 0 ? Math.max(0, 1 - (Math.sqrt(workloadVariance) / avgWorkload)) : 1;
 
-    // 2. Screener Fairness
-    const avgScreener = screeners.reduce((a, b) => a + b, 0) / activeCount;
-    const screenerVariance = screeners.reduce((sum, s) => sum + Math.pow(s - avgScreener, 2), 0) / activeCount;
-    const screenerFairness = avgScreener > 0 ? Math.max(0, 1 - (Math.sqrt(screenerVariance) / avgScreener)) : 1;
+    // 2. Screener Fairness - STRATIFIED by shift type
+    // Group analysts by shiftType and calculate fairness within each group
+    const analystShiftMap = new Map<string, string>(); // analystId -> shiftType
+    analysts.forEach(a => analystShiftMap.set(a.id, a.shiftType || 'UNKNOWN'));
+
+    const screenersByShift = new Map<string, number[]>(); // shiftType -> [counts]
+    Object.entries(analystScreeners).forEach(([analystId, count]) => {
+      const shiftType = analystShiftMap.get(analystId) || 'UNKNOWN';
+      if (!screenersByShift.has(shiftType)) {
+        screenersByShift.set(shiftType, []);
+      }
+      screenersByShift.get(shiftType)!.push(count);
+    });
+
+    // Calculate fairness per shift type, then average
+    const shiftFairnessScores: number[] = [];
+    screenersByShift.forEach((counts) => {
+      if (counts.length === 0) return;
+      const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
+      if (avg === 0) {
+        shiftFairnessScores.push(1); // All zero is perfectly fair
+        return;
+      }
+      const variance = counts.reduce((sum, c) => sum + Math.pow(c - avg, 2), 0) / counts.length;
+      const fairness = Math.max(0, 1 - (Math.sqrt(variance) / avg));
+      shiftFairnessScores.push(fairness);
+    });
+    const screenerFairness = shiftFairnessScores.length > 0
+      ? shiftFairnessScores.reduce((a, b) => a + b, 0) / shiftFairnessScores.length
+      : 1;
 
     // 3. Weekend Fairness
     const avgWeekend = weekends.reduce((a, b) => a + b, 0) / activeCount;
@@ -637,8 +666,8 @@ const Analytics: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="flex h-64 items-center justify-center">
+        <LoadingSpinner size="large" />
       </div>
     );
   }
@@ -789,10 +818,10 @@ const Analytics: React.FC = () => {
               <button
                 onClick={() => setActiveFilter('WORKLOAD')}
                 disabled={activeFilter === 'WORKLOAD'}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 ${activeFilter === 'WORKLOAD'
+                className={`flex items - center gap - 2 px - 4 py - 2 rounded - lg font - semibold text - sm transition - all duration - 200 ${activeFilter === 'WORKLOAD'
                   ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed'
                   : 'bg-blue-500 text-white hover:bg-blue-600 active:scale-95'
-                  }`}
+                  } `}
               >
                 <ArrowCounterClockwise className="h-5 w-5" />
                 RESET
@@ -849,7 +878,7 @@ const Analytics: React.FC = () => {
             <TrendChart
               data={trendsData}
               title="Fairness distribution by Workload"
-              subtitle={`Weighted Workload vs Fairness Score (${period})`}
+              subtitle={`Weighted Workload vs Fairness Score(${period})`}
             />
           </section>
         </motion.div>

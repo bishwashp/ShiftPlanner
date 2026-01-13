@@ -1,10 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, CalendarCheck, Warning } from '@phosphor-icons/react';
+import { Sun, Moon, CalendarCheck, Warning, Clock } from '@phosphor-icons/react';
 import { apiService } from '../../../services/api';
 import moment from 'moment';
 
+// Icon mapping for shift types - fallback to Clock for unknown
+const getShiftIcon = (shiftType: string) => {
+    const upper = shiftType.toUpperCase();
+    if (upper === 'AM' || upper === 'MORNING') return Sun;
+    if (upper === 'PM' || upper === 'EVENING') return Moon;
+    return Clock; // Default for LDN, WEEKEND, or custom shifts
+};
+
+const getShiftColor = (shiftType: string) => {
+    const upper = shiftType.toUpperCase();
+    if (upper === 'AM' || upper === 'MORNING') return 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400';
+    if (upper === 'PM' || upper === 'EVENING') return 'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400';
+    return 'bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400'; // Default
+};
+
+interface ShiftCoverage {
+    shiftType: string;
+    count: number;
+}
+
 const CoverageStatus: React.FC = () => {
-    const [coverage, setCoverage] = useState({ morning: 0, evening: 0 });
+    const [coverage, setCoverage] = useState<ShiftCoverage[]>([]);
     const [weekendShifts, setWeekendShifts] = useState<any[]>([]);
     const [weekendDates, setWeekendDates] = useState<{ sat: string, sun: string } | null>(null);
     const [loading, setLoading] = useState(true);
@@ -14,12 +34,23 @@ const CoverageStatus: React.FC = () => {
             try {
                 const today = moment().format('YYYY-MM-DD');
 
-                // 1. Fetch Today's Coverage
+                // 1. Fetch Today's Coverage - group by actual shiftType
                 const todaysSchedules = await apiService.getSchedules(today, today);
-                setCoverage({
-                    morning: todaysSchedules.filter((s: any) => s.shiftType === 'MORNING').length,
-                    evening: todaysSchedules.filter((s: any) => s.shiftType === 'EVENING').length
+
+                // Dynamically group by shiftType
+                const shiftCounts = new Map<string, number>();
+                todaysSchedules.forEach((s: any) => {
+                    const shiftType = s.shiftType || 'UNKNOWN';
+                    shiftCounts.set(shiftType, (shiftCounts.get(shiftType) || 0) + 1);
                 });
+
+                // Convert to array for rendering
+                const coverageArray: ShiftCoverage[] = Array.from(shiftCounts.entries()).map(
+                    ([shiftType, count]) => ({ shiftType, count })
+                );
+                // Sort by shift type name for consistent display
+                coverageArray.sort((a, b) => a.shiftType.localeCompare(b.shiftType));
+                setCoverage(coverageArray);
 
                 // 2. Fetch Weekend Coverage
                 const nextSaturday = moment().day() === 6 ? moment() : moment().day(6);
@@ -67,33 +98,33 @@ const CoverageStatus: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-                {/* Today's Staffing */}
+                {/* Today's Staffing - Dynamic Shifts */}
                 <div className="space-y-2">
                     <p className="text-xs font-semibold text-gray-400 uppercase">Today</p>
 
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                                <Sun className="w-4 h-4" weight="fill" />
-                            </div>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">Morning</p>
+                    {coverage.length === 0 ? (
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+                            <Warning className="w-4 h-4 text-yellow-500" />
+                            <p className="text-sm text-gray-500">No schedules for today</p>
                         </div>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusColor(coverage.morning)}`}>
-                            {coverage.morning} Analysts
-                        </span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400">
-                                <Moon className="w-4 h-4" weight="fill" />
-                            </div>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">Evening</p>
-                        </div>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusColor(coverage.evening)}`}>
-                            {coverage.evening} Analysts
-                        </span>
-                    </div>
+                    ) : (
+                        coverage.map(({ shiftType, count }) => {
+                            const Icon = getShiftIcon(shiftType);
+                            return (
+                                <div key={shiftType} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-md ${getShiftColor(shiftType)}`}>
+                                            <Icon className="w-4 h-4" weight="fill" />
+                                        </div>
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white">{shiftType}</p>
+                                    </div>
+                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusColor(count)}`}>
+                                        {count} Analyst{count !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
 
                 {/* Weekend Lookahead */}
@@ -158,3 +189,4 @@ const CoverageStatus: React.FC = () => {
 };
 
 export default CoverageStatus;
+

@@ -138,13 +138,13 @@ export class RotationManager {
           simulatedSchedules.push({
             analystId: plan.analystId,
             date: moment.utc(plan.endDate).toDate(),
-            shiftType: 'WEEKEND'
+            shiftType: 'ROTATION_WEEKEND' // Internal marker for simulated weekend rotation
           });
         } else if (plan.pattern === 'SUN_THU') {
           simulatedSchedules.push({
             analystId: plan.analystId,
             date: moment.utc(plan.startDate).toDate(),
-            shiftType: 'WEEKEND'
+            shiftType: 'ROTATION_WEEKEND' // Internal marker for simulated weekend rotation
           });
         }
       });
@@ -240,15 +240,49 @@ export class RotationManager {
    * Plan AM to PM rotation for weekdays
    * Selects 2 AM analysts to work PM shift each weekday
    */
+  /**
+   * Plan AM → PM rotation using balance-based logic.
+   * 
+   * DESIGN:
+   * - Goal: Balance analyst counts between AM and PM shifts
+   * - Constraint: Never leave AM with fewer than minimumRetention analysts (default: 2)
+   * - Only rotate when PM needs help AND AM can spare
+   */
   async planAMToPMRotation(
     startDate: Date,
     endDate: Date,
     amAnalysts: any[],
+    pmAnalystCount: number, // How many PM analysts are available
     historicalSchedules: any[] = [],
-    absenceService: any // Avoid circular dependency import for now, or use interface
+    absenceService: any,
+    config: { minimumRetention: number } = { minimumRetention: 2 }
   ): Promise<Map<string, string[]>> {
-    // Map of Date (YYYY-MM-DD) -> Array of Analyst IDs working PM
     const rotationMap = new Map<string, string[]>();
+    const { minimumRetention } = config;
+    const amCount = amAnalysts.length;
+
+    // BALANCE-BASED ROTATION CHECK
+    // Goal: Equalize AM and PM counts as much as possible
+    // Constraint: Never leave AM below minimumRetention
+
+    const totalAnalysts = amCount + pmAnalystCount;
+    const idealPerShift = Math.floor(totalAnalysts / 2);
+
+    // How many can AM spare while keeping minimumRetention?
+    const amSurplus = Math.max(0, amCount - minimumRetention);
+
+    // How many does PM need to reach ideal balance?
+    const pmDeficit = Math.max(0, idealPerShift - pmAnalystCount);
+
+    // Rotate the minimum of what AM can spare and what PM needs
+    const rotationCount = Math.min(amSurplus, pmDeficit);
+
+    console.log(`AM→PM Rotation Check: AM=${amCount}, PM=${pmAnalystCount}, ideal=${idealPerShift}, surplus=${amSurplus}, deficit=${pmDeficit}, rotation=${rotationCount}`);
+
+    if (rotationCount === 0) {
+      console.log(`Skipping AM→PM rotation: AM cannot spare or PM doesn't need help`);
+      return rotationMap;
+    }
 
     const current = moment.utc(startDate);
     const end = moment.utc(endDate);
@@ -271,18 +305,27 @@ export class RotationManager {
           }
         }
 
+        // Recalculate available surplus for this specific day
+        const dailyAmSurplus = Math.max(0, availableAnalysts.length - minimumRetention);
+        const dailyRotationCount = Math.min(dailyAmSurplus, rotationCount);
+
+        if (dailyRotationCount === 0) {
+          current.add(1, 'day');
+          continue;
+        }
+
         // Calculate fairness scores based on history + local decisions
         const fairnessData = fairnessCalculator.calculateAMToPMFairnessScores(
-          availableAnalysts, // Use available analysts only
+          availableAnalysts,
           localSchedules,
           current.toDate()
         );
 
-        // Select 2 analysts
+        // Select analysts based on calculated rotation count (not hardcoded 2)
         const selectedAnalysts = fairnessCalculator.selectNextAnalystsForAMToPMRotation(
-          availableAnalysts, // Use available analysts only
+          availableAnalysts,
           fairnessData,
-          2
+          dailyRotationCount // DYNAMIC: Based on balance calculation
         );
 
         const selectedIds = selectedAnalysts.map(a => a.id);
@@ -293,7 +336,7 @@ export class RotationManager {
           localSchedules.push({
             analystId: id,
             date: current.toDate(),
-            shiftType: 'EVENING'
+            shiftType: 'PM'
           });
         });
       }

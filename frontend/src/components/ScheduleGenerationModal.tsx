@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import ReactDOM from 'react-dom';
-import { X, CalendarBlank, Warning, Info, ListBullets, ChartBar } from '@phosphor-icons/react';
+import { X, CalendarBlank, Warning, Info, ListBullets, ChartBar, DownloadSimple, CheckCircle } from '@phosphor-icons/react';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 import moment from 'moment';
 import Checkbox from './ui/Checkbox';
 import Button from './ui/Button';
@@ -191,10 +192,7 @@ const ScheduleGenerationModal: React.FC<ScheduleGenerationModalProps> = ({
         <div className="flex-1 overflow-hidden flex flex-col bg-muted/5">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-gray-700 dark:text-gray-200">Generating schedules...</p>
-              </div>
+              <LoadingSpinner size="large" text="Generating optimized schedule..." />
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto p-4">

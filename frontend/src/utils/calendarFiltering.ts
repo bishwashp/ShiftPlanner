@@ -34,27 +34,27 @@ export const filterSchedules = (
     if (!shouldShowForLayer(schedule, filters.layers)) {
       return false;
     }
-    
+
     // Employee filtering
     if (!shouldShowForEmployee(schedule, filters.employees)) {
       return false;
     }
-    
+
     // Shift type filtering
     if (!shouldShowForShiftType(schedule, filters.shiftTypes)) {
       return false;
     }
-    
+
     // Schedule type filtering
     if (!shouldShowForScheduleType(schedule, filters.scheduleTypes)) {
       return false;
     }
-    
+
     // Date range filtering
     if (!shouldShowForDateRange(schedule, filters.dateRange)) {
       return false;
     }
-    
+
     return true;
   });
 };
@@ -81,7 +81,7 @@ const shouldShowForLayer = (
 ): boolean => {
   // Determine schedule type based on properties
   const scheduleType = getScheduleType(schedule);
-  
+
   switch (scheduleType) {
     case 'shift':
       return layers.shifts;
@@ -107,7 +107,7 @@ const shouldShowForEmployee = (
   if (employeeFilters.selectAll || employeeFilters.selected.length === 0) {
     return true;
   }
-  
+
   // Check if schedule's analyst is in selected list
   return employeeFilters.selected.includes(schedule.analystId);
 };
@@ -120,11 +120,15 @@ const shouldShowForShiftType = (
   shiftTypes: CalendarFilters['shiftTypes']
 ): boolean => {
   // Map schedule properties to shift type filters
-  if (schedule.shiftType === 'Morning' && !shiftTypes.morning) return false;
-  if (schedule.shiftType === 'Evening' && !shiftTypes.evening) return false;
+  const type = (schedule.shiftType || '').toUpperCase();
+  const isMorning = type === 'MORNING' || type === 'AM' || type.includes('AM');
+  const isEvening = type === 'EVENING' || type === 'PM' || type.includes('PM') || type === 'LATE' || type === 'NIGHT';
+
+  if (isMorning && !shiftTypes.morning) return false;
+  if (isEvening && !shiftTypes.evening) return false;
   if (schedule.isScreener && !shiftTypes.screener) return false;
   if (schedule.isWeekend && !shiftTypes.weekend) return false;
-  
+
   return true;
 };
 
@@ -136,7 +140,7 @@ const shouldShowForScheduleType = (
   scheduleTypes: CalendarFilters['scheduleTypes']
 ): boolean => {
   const scheduleType = getScheduleType(schedule);
-  
+
   switch (scheduleType) {
     case 'shift':
       return schedule.isScreener ? scheduleTypes.screener : scheduleTypes.regular;
@@ -159,7 +163,7 @@ const shouldShowForDateRange = (
   dateRange?: CalendarFilters['dateRange']
 ): boolean => {
   if (!dateRange) return true;
-  
+
   const scheduleDate = new Date(schedule.date);
   return scheduleDate >= dateRange.start && scheduleDate <= dateRange.end;
 };
@@ -172,7 +176,7 @@ const getScheduleType = (schedule: Schedule): 'shift' | 'event' | 'vacation' | '
   if (schedule.type) {
     return schedule.type;
   }
-  
+
   // Infer type from properties (for backward compatibility)
   // This logic can be enhanced based on actual data structure
   return 'shift'; // Default to shift for existing schedules
@@ -193,16 +197,16 @@ export const calculateFilterCounts = (
     employees: {},
     total: schedules.length,
   };
-  
+
   // Initialize employee counts
   analysts.forEach(analyst => {
     counts.employees[analyst.id] = 0;
   });
-  
+
   // Count by type and employee
   schedules.forEach(schedule => {
     const type = getScheduleType(schedule);
-    
+
     // Map singular types to plural FilterCounts properties
     switch (type) {
       case 'shift':
@@ -218,12 +222,12 @@ export const calculateFilterCounts = (
         counts.overrides++;
         break;
     }
-    
+
     if (counts.employees[schedule.analystId] !== undefined) {
       counts.employees[schedule.analystId]++;
     }
   });
-  
+
   return counts;
 };
 
@@ -232,37 +236,37 @@ export const calculateFilterCounts = (
  */
 export const getActiveFilterCount = (filters: CalendarFilters): number => {
   let count = 0;
-  
+
   // Count disabled layers
   Object.values(filters.layers).forEach(enabled => {
     if (!enabled) count++;
   });
-  
+
   // Count disabled shift types
   Object.values(filters.shiftTypes).forEach(enabled => {
     if (!enabled) count++;
   });
-  
+
   // Count disabled schedule types
   Object.values(filters.scheduleTypes).forEach(enabled => {
     if (!enabled) count++;
   });
-  
+
   // Count employee filters (if not all selected)
   if (!filters.employees.selectAll && filters.employees.selected.length > 0) {
     count++;
   }
-  
+
   // Count search query
   if (filters.employees.searchQuery.length > 0) {
     count++;
   }
-  
+
   // Count date range
   if (filters.dateRange) {
     count++;
   }
-  
+
   return count;
 };
 
@@ -272,32 +276,32 @@ export const getActiveFilterCount = (filters: CalendarFilters): number => {
 export const validateFilters = (filters: CalendarFilters): FilterValidation => {
   const errors: string[] = [];
   const warnings: string[] = [];
-  
+
   // Check if any layers are enabled
   const layersEnabled = Object.values(filters.layers).some(enabled => enabled);
   if (!layersEnabled) {
     errors.push('At least one calendar layer must be enabled');
   }
-  
+
   // Check if any shift types are enabled
   const shiftTypesEnabled = Object.values(filters.shiftTypes).some(enabled => enabled);
   if (!shiftTypesEnabled) {
     warnings.push('No shift types selected - calendar may appear empty');
   }
-  
+
   // Check if any schedule types are enabled
   const scheduleTypesEnabled = Object.values(filters.scheduleTypes).some(enabled => enabled);
   if (!scheduleTypesEnabled) {
     warnings.push('No schedule types selected - calendar may appear empty');
   }
-  
+
   // Check date range validity
   if (filters.dateRange) {
     if (filters.dateRange.start >= filters.dateRange.end) {
       errors.push('Date range start must be before end date');
     }
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -315,7 +319,7 @@ export const filterAnalysts = (
   if (!searchQuery.trim()) {
     return analysts;
   }
-  
+
   const query = searchQuery.toLowerCase();
   return analysts.filter(analyst =>
     analyst.name.toLowerCase().includes(query) ||
@@ -331,32 +335,31 @@ export const generateFilterSummary = (
   analysts: Array<{ id: string; name: string }>
 ): string => {
   const activeFilters: string[] = [];
-  
+
   // Summarize layers
   const disabledLayers = Object.entries(filters.layers)
     .filter(([_, enabled]) => !enabled)
     .map(([layer, _]) => layer);
-  
+
   if (disabledLayers.length > 0) {
     activeFilters.push(`Hidden: ${disabledLayers.join(', ')}`);
   }
-  
+
   // Summarize employees
   if (!filters.employees.selectAll && filters.employees.selected.length > 0) {
     const selectedNames = filters.employees.selected
       .map(id => analysts.find(a => a.id === id)?.name)
       .filter(Boolean);
-    
-    activeFilters.push(`Employees: ${selectedNames.slice(0, 3).join(', ')}${
-      selectedNames.length > 3 ? ` and ${selectedNames.length - 3} more` : ''
-    }`);
+
+    activeFilters.push(`Employees: ${selectedNames.slice(0, 3).join(', ')}${selectedNames.length > 3 ? ` and ${selectedNames.length - 3} more` : ''
+      }`);
   }
-  
+
   // Summarize search
   if (filters.employees.searchQuery) {
     activeFilters.push(`Search: "${filters.employees.searchQuery}"`);
   }
-  
+
   return activeFilters.length > 0
     ? `Active filters: ${activeFilters.join(', ')}`
     : 'No active filters - showing all items';
@@ -367,7 +370,7 @@ export const generateFilterSummary = (
  */
 export const encodeFiltersToUrl = (filters: CalendarFilters): string => {
   const params = new URLSearchParams();
-  
+
   // Encode layers as comma-separated list of enabled layers
   const activeLayers = Object.entries(filters.layers)
     .filter(([_, enabled]) => enabled)
@@ -375,12 +378,12 @@ export const encodeFiltersToUrl = (filters: CalendarFilters): string => {
   if (activeLayers.length > 0 && activeLayers.length < 4) {
     params.set('layers', activeLayers.join(','));
   }
-  
+
   // Encode selected employees
   if (!filters.employees.selectAll && filters.employees.selected.length > 0) {
     params.set('employees', filters.employees.selected.join(','));
   }
-  
+
   // Encode disabled shift types
   const disabledShiftTypes = Object.entries(filters.shiftTypes)
     .filter(([_, enabled]) => !enabled)
@@ -388,7 +391,7 @@ export const encodeFiltersToUrl = (filters: CalendarFilters): string => {
   if (disabledShiftTypes.length > 0) {
     params.set('hideShifts', disabledShiftTypes.join(','));
   }
-  
+
   // Encode disabled schedule types
   const disabledScheduleTypes = Object.entries(filters.scheduleTypes)
     .filter(([_, enabled]) => !enabled)
@@ -396,17 +399,17 @@ export const encodeFiltersToUrl = (filters: CalendarFilters): string => {
   if (disabledScheduleTypes.length > 0) {
     params.set('hideTypes', disabledScheduleTypes.join(','));
   }
-  
+
   // Encode search query
   if (filters.employees.searchQuery) {
     params.set('search', filters.employees.searchQuery);
   }
-  
+
   // Encode sidebar state
   if (filters.isOpen) {
     params.set('filters', 'open');
   }
-  
+
   return params.toString();
 };
 
@@ -416,7 +419,7 @@ export const encodeFiltersToUrl = (filters: CalendarFilters): string => {
 export const decodeFiltersFromUrl = (searchParams: string): Partial<CalendarFilters> => {
   const params = new URLSearchParams(searchParams);
   const filters: Partial<CalendarFilters> = {};
-  
+
   // Decode layers
   const layersParam = params.get('layers');
   if (layersParam) {
@@ -428,7 +431,7 @@ export const decodeFiltersFromUrl = (searchParams: string): Partial<CalendarFilt
       overrides: activeLayers.includes('overrides'),
     };
   }
-  
+
   // Decode employees
   const employeesParam = params.get('employees');
   if (employeesParam) {
@@ -438,7 +441,7 @@ export const decodeFiltersFromUrl = (searchParams: string): Partial<CalendarFilt
       selectAll: false,
     };
   }
-  
+
   // Decode hidden shift types
   const hideShiftsParam = params.get('hideShifts');
   if (hideShiftsParam) {
@@ -450,7 +453,7 @@ export const decodeFiltersFromUrl = (searchParams: string): Partial<CalendarFilt
       weekend: !hiddenTypes.includes('weekend'),
     };
   }
-  
+
   // Decode hidden schedule types
   const hideTypesParam = params.get('hideTypes');
   if (hideTypesParam) {
@@ -463,7 +466,7 @@ export const decodeFiltersFromUrl = (searchParams: string): Partial<CalendarFilt
       conflicts: !hiddenTypes.includes('conflicts'),
     };
   }
-  
+
   // Decode search query
   const searchParam = params.get('search');
   if (searchParam && filters.employees) {
@@ -475,11 +478,11 @@ export const decodeFiltersFromUrl = (searchParams: string): Partial<CalendarFilt
       selectAll: true,
     };
   }
-  
+
   // Decode sidebar state
   if (params.get('filters') === 'open') {
     filters.isOpen = true;
   }
-  
+
   return filters;
 };

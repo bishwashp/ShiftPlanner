@@ -25,7 +25,10 @@ import LiquidBackground from './components/layout/LiquidBackground';
 
 // Performance Context (used by LiquidBackground and CalendarGrid)
 import { PerformanceProvider } from './contexts/PerformanceContext';
-import { RegionProvider } from './contexts/RegionContext';
+import { RegionProvider, useRegion } from './contexts/RegionContext';
+
+import { ShiftDefinitionProvider } from './contexts/ShiftDefinitionContext';
+import { LoadingSpinner } from './components/ui/LoadingSpinner';
 
 // Toast notification component for better UX
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => (
@@ -42,7 +45,8 @@ const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 
   </div>
 );
 
-function App() {
+// Inner App Content that has access to Providers
+const AppContent = () => {
   const { theme } = useTheme();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -84,7 +88,8 @@ function App() {
     else if (path === '/admin' || path.startsWith('/admin/portal')) setActiveView('admin');
     else if (path.startsWith('/admin/regions')) setActiveView('regions');
     else if (path.startsWith('/admin/shifts')) setActiveView('shifts');
-  }, [location]); // Depend on full location to catch query param changes
+  }, [location]);
+
   const [calendarDate, setCalendarDate] = useState(() => {
     // Start with current month
     const now = new Date();
@@ -115,7 +120,7 @@ function App() {
     localStorage.setItem('calendarDate', calendarDate.toISOString());
   }, [sidebarOpen, activeView, calendarView, calendarDate]);
 
-  // Load user preferences on mount (except activeView which is controlled by URL)
+  // Load user preferences on mount
   useEffect(() => {
     const savedSidebarOpen = localStorage.getItem('sidebarOpen');
     const savedCalendarView = localStorage.getItem('calendarView') as 'month' | 'week' | 'day';
@@ -124,7 +129,6 @@ function App() {
     if (savedSidebarOpen !== null) {
       setSidebarOpen(savedSidebarOpen === 'true');
     }
-    // activeView is now controlled by URL path, not localStorage
     if (savedCalendarView && (['month', 'week', 'day'] as const).includes(savedCalendarView)) {
       setCalendarView(savedCalendarView);
     }
@@ -139,11 +143,9 @@ function App() {
   const handleTimezoneChange = (tz: string) => {
     setTimezone(tz);
     localStorage.setItem('timezone', tz);
-    // No toast spam - timezone changes are not actionable notifications
   };
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
-    // Only show toasts for critical errors now
     if (type === 'error') {
       setToast({ message, type });
       setTimeout(() => setToast(null), 5000);
@@ -152,13 +154,10 @@ function App() {
 
   const handleViewChange = (view: SidebarView) => {
     setActiveView(view);
-    // Removed toast spam - view changes are not actionable notifications
   };
 
   const handleError = useCallback((error: string) => {
-    // Show critical errors as toast only (no actionable notifications)
     showToast(error, 'error');
-    // Add to notification history for tracking
     notificationService.addSystemNotification(
       'System Error Occurred',
       error,
@@ -167,7 +166,6 @@ function App() {
   }, []);
 
   const handleSuccess = useCallback((message: string) => {
-    // Add success notifications to history for tracking
     if (message.includes('conflict') || message.includes('schedule') || message.includes('error')) {
       notificationService.addSuccessNotification(
         'Action Completed',
@@ -175,7 +173,6 @@ function App() {
         { category: 'user-action', tags: ['success'] }
       );
     }
-    // No toast spam for regular success messages
   }, []);
 
   const handleLoading = useCallback((loading: boolean) => {
@@ -185,26 +182,21 @@ function App() {
   const handleRefresh = useCallback(() => {
     if (activeView === 'dashboard') {
       setIsRefreshing(true);
-      // The Dashboard component will handle the actual data refresh
-      // Reset the refreshing state after a short delay
       setTimeout(() => {
         setIsRefreshing(false);
       }, 1000);
     }
   }, [activeView]);
 
-  // Data fetching logic lifted from ScheduleCalendar
   const fetchSchedulesAndAnalysts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Date range calculation
       const localDate = moment(calendarDate).tz(timezone);
       const start = localDate.clone().startOf('month').subtract(7, 'days').format('YYYY-MM-DD');
       const end = localDate.clone().endOf('month').add(7, 'days').format('YYYY-MM-DD');
 
-      // Fetch data sequentially
       const analystsData = await apiService.getAnalysts();
       const activeAnalysts = analystsData.filter(a => a.isActive);
       setAnalysts(activeAnalysts);
@@ -214,14 +206,12 @@ function App() {
       const schedulesData = await apiService.getSchedules(start, end);
       setSchedules(schedulesData);
 
-      // Fetch holidays for the current year
       const year = localDate.year();
       try {
         const holidaysData = await apiService.getHolidaysForYear(year, timezone);
         setHolidays(holidaysData.filter((h: any) => h.isActive));
       } catch (holidayErr) {
         console.warn('Failed to fetch holidays:', holidayErr);
-        // Non-critical - continue without holidays
       }
 
     } catch (err: any) {
@@ -241,12 +231,6 @@ function App() {
       fetchSchedulesAndAnalysts();
     }
   }, [fetchSchedulesAndAnalysts, activeView]);
-
-  const handleModalSuccess = useCallback(() => {
-    fetchSchedulesAndAnalysts();
-    handleSuccess('Schedule updated successfully');
-  }, [fetchSchedulesAndAnalysts, handleSuccess]);
-
 
   const renderView = () => {
     const commonProps = {
@@ -305,59 +289,70 @@ function App() {
   };
 
   return (
+    <div className={`flex h-screen bg-transparent text-foreground transition-colors duration-200 ${theme} overflow-hidden`}>
+      <LiquidBackground />
+      <CollapsibleSidebar
+        isOpen={sidebarOpen}
+        onViewChange={handleViewChange}
+        activeView={activeView}
+        activeAvailabilityTab={activeAvailabilityTab}
+        onAvailabilityTabChange={setActiveAvailabilityTab}
+        activeConflictTab={activeConflictTab}
+        onConflictTabChange={setActiveConflictTab}
+      />
+      <div className="flex-1 flex flex-col">
+        <AppHeader
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          date={calendarDate}
+          setDate={setCalendarDate}
+          view={calendarView}
+          setView={setCalendarView}
+          activeView={activeView}
+          timezone={timezone}
+          onTimezoneChange={handleTimezoneChange}
+          activeAvailabilityTab={activeAvailabilityTab}
+          onAvailabilityTabChange={setActiveAvailabilityTab}
+          activeConflictTab={activeConflictTab}
+          onConflictTabChange={setActiveConflictTab}
+          onRefresh={handleRefresh}
+          isRefreshing={isRefreshing}
+          filterHook={filterHook}
+          onViewChange={handleViewChange}
+        />
+        <main className="flex-1 overflow-auto relative">
+          {isLoading && <LoadingSpinner fullScreen />}   {renderView()}
+        </main>
+      </div>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Wrapper component that keys on region - forces full remount on region change
+const RegionKeyedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { selectedRegionId } = useRegion();
+  return <div key={selectedRegionId || 'no-region'} className="contents">{children}</div>;
+};
+
+// Main App Component
+function App() {
+  return (
     <PerformanceProvider>
       <RegionProvider>
-        <ActionPromptProvider>
-          <div className={`flex h-screen bg-transparent text-foreground transition-colors duration-200 ${theme} overflow-hidden`}>
-            <LiquidBackground />
-            <CollapsibleSidebar
-              isOpen={sidebarOpen}
-              onViewChange={handleViewChange}
-              activeView={activeView}
-              activeAvailabilityTab={activeAvailabilityTab}
-              onAvailabilityTabChange={setActiveAvailabilityTab}
-              activeConflictTab={activeConflictTab}
-              onConflictTabChange={setActiveConflictTab}
-            />
-            <div className="flex-1 flex flex-col">
-              <AppHeader
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                date={calendarDate}
-                setDate={setCalendarDate}
-                view={calendarView}
-                setView={setCalendarView}
-                activeView={activeView}
-                timezone={timezone}
-                onTimezoneChange={handleTimezoneChange}
-                activeAvailabilityTab={activeAvailabilityTab}
-                onAvailabilityTabChange={setActiveAvailabilityTab}
-                activeConflictTab={activeConflictTab}
-                onConflictTabChange={setActiveConflictTab}
-                onRefresh={handleRefresh}
-                isRefreshing={isRefreshing}
-                filterHook={filterHook}
-                onViewChange={handleViewChange}
-              />
-              <main className="flex-1 overflow-auto relative">
-                {isLoading && (
-                  <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-10">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  </div>
-                )}
-                {renderView()}
-              </main>
-            </div>
-            {toast && (
-              <Toast
-                message={toast.message}
-                type={toast.type}
-                onClose={() => setToast(null)}
-              />
-            )}
-          </div>
-
-        </ActionPromptProvider>
+        <ShiftDefinitionProvider>
+          <ActionPromptProvider>
+            <RegionKeyedLayout>
+              <AppContent />
+            </RegionKeyedLayout>
+          </ActionPromptProvider>
+        </ShiftDefinitionProvider>
       </RegionProvider>
     </PerformanceProvider>
   );

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 import { Plus, CalendarBlank, Warning, CheckCircle, XCircle } from '@phosphor-icons/react';
 import { apiService } from '../services/api';
 import moment from 'moment-timezone';
@@ -116,8 +117,8 @@ const HolidayManagement: React.FC<HolidayManagementProps> = ({ timezone = 'Ameri
   if (loading) {
     return (
       <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="flex justify-center items-center h-64">
+          <LoadingSpinner size="large" />
         </div>
       </div>
     );

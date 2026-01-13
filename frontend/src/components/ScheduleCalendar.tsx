@@ -15,7 +15,9 @@ import CalendarFilterPanel from './calendar/filtering/CalendarFilterPanel';
 import { useCalendarFilters } from '../hooks/useCalendarFilters';
 import CreateScheduleModal from './calendar/modals/CreateScheduleModal';
 import EditScheduleModal from './calendar/modals/EditScheduleModal';
+
 import SwapRequestModal from './calendar/modals/SwapRequestModal';
+import { LoadingSpinner } from './ui/LoadingSpinner';
 
 // Performance monitoring utilities
 interface PerformanceMetrics {
@@ -367,17 +369,40 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
 
   const [selectedSchedules, setSelectedSchedules] = useState<Schedule[]>([]);
 
-  const { isManager } = useAuth();
+  const { isManager, user } = useAuth();
+
+  // Filter schedules for the current user (for swap modal)
+  const userSchedules = useMemo(() => {
+    if (!user?.analystId) return [];
+    return schedules.filter(s => s.analystId === user.analystId);
+  }, [schedules, user?.analystId]);
 
   // Swap Modal State
   const [swapModalOpen, setSwapModalOpen] = useState(false);
   const [swapSourceSchedule, setSwapSourceSchedule] = useState<Schedule | null>(null);
+  const [swapUserSchedules, setSwapUserSchedules] = useState<Schedule[]>([]);
+
+  // Fetch user's schedules for 3 months when swap modal opens
+  const fetchSwapUserSchedules = useCallback(async () => {
+    if (!user?.analystId) return;
+    try {
+      const start = moment().format('YYYY-MM-DD');
+      const end = moment().add(3, 'months').format('YYYY-MM-DD');
+      const allSchedules = await apiService.getSchedules(start, end);
+      setSwapUserSchedules(allSchedules.filter(s => s.analystId === user.analystId));
+    } catch (err) {
+      console.error('Failed to fetch user schedules for swap:', err);
+      // Fallback to what we have
+      setSwapUserSchedules(userSchedules);
+    }
+  }, [user?.analystId, userSchedules]);
 
   const handleRequestSwap = useCallback((event: CalendarEvent) => {
     console.log('Request swap for:', event);
     setSwapSourceSchedule(event.resource);
     setSwapModalOpen(true);
-  }, []);
+    fetchSwapUserSchedules(); // Fetch 3 months of user's schedules
+  }, [fetchSwapUserSchedules]);
 
   // Enhanced event handlers matching original ScheduleView functionality
   const handleDateSelect = useCallback((date: Date) => {
@@ -493,10 +518,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-700 dark:text-gray-200">Loading schedule...</p>
-        </div>
+        <LoadingSpinner size="large" text="Loading schedule..." />
       </div>
     );
   }
@@ -666,6 +688,7 @@ const ScheduleCalendar: React.FC<SimplifiedScheduleViewProps> = memo(({
         onClose={() => setSwapModalOpen(false)}
         schedule={swapSourceSchedule}
         analysts={analysts}
+        userSchedules={swapUserSchedules}
         onSuccess={() => {
           onRefreshData();
           onSuccess?.('Swap request created successfully');

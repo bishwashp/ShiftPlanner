@@ -45,23 +45,18 @@ const CurrentScreener: React.FC = () => {
                 const schedules = await apiService.getSchedulesGlobal(today, today);
 
                 // 3. Map shift name to schedule shiftType
-                // AM/Morning → MORNING, PM/Evening → EVENING
-                let targetShiftType = '';
-                const shiftLower = sourceShift.toLowerCase();
-                if (shiftLower.includes('am') || shiftLower.includes('morning')) {
-                    targetShiftType = 'MORNING';
-                } else if (shiftLower.includes('pm') || shiftLower.includes('evening')) {
-                    targetShiftType = 'EVENING';
-                }
-                // For single-shift regions like LDN, we might not have AM/PM distinction
-                // In that case, look for any screener in that region's schedules
+                // The sourceShift already contains the correct shiftType name (AM, PM, LDN, etc.)
+                // We just need to match it directly against schedule.shiftType
+                const targetShiftType = sourceShift; // Use the shift name directly
 
-                // 4. Find screener matching region and shift type (no fallback to avoid wrong region)
+                // For single-shift regions like LDN, sourceShift might be 'LDN'
+                // In that case, we match schedules where shiftType === 'LDN'
+
+                // 4. Find screener matching region and shift type
                 const currentScreener = schedules.find((s: any) => {
                     const matchesRegion = s.analyst?.region?.name === sourceRegion;
-                    const matchesShiftType = targetShiftType
-                        ? s.shiftType === targetShiftType
-                        : true;
+                    // Match exactly or case-insensitively
+                    const matchesShiftType = s.shiftType?.toUpperCase() === targetShiftType?.toUpperCase();
                     return s.isScreener && matchesRegion && matchesShiftType;
                 });
 

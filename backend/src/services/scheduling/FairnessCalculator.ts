@@ -231,10 +231,11 @@ export class FairnessCalculator {
       const scheduleDate = moment.utc(schedule.date);
       const analystId = schedule.analystId;
 
-      // Only care about AM analysts working PM (EVENING) shifts
+      // Only care about AM analysts working PM shifts (cross-shift rotation)
       if (!pmShiftsWorked.has(analystId)) return;
 
-      if (schedule.shiftType === 'EVENING') {
+      // Track PM/late shift assignments (matches actual analyst shiftType values)
+      if (schedule.shiftType === 'PM' || schedule.shiftType === 'EVENING') {
         pmShiftsWorked.set(analystId, (pmShiftsWorked.get(analystId) || 0) + 1);
 
         const currentLastDate = moment.utc(lastPMRotationDate.get(analystId) || 0);

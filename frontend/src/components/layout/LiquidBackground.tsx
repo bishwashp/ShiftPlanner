@@ -1,7 +1,15 @@
 import React from 'react';
 import { usePerformance } from '../../contexts/PerformanceContext';
 
-const LiquidBackground = () => {
+interface LiquidBackgroundProps {
+    className?: string;
+    position?: 'fixed' | 'absolute' | 'relative';
+}
+
+const LiquidBackground: React.FC<LiquidBackgroundProps> = ({
+    className = '',
+    position = 'fixed'
+}) => {
     const { flags } = usePerformance();
 
     // GPU optimization hints for animated elements
@@ -13,12 +21,12 @@ const LiquidBackground = () => {
 
     if (flags.disableLiquidBackground) {
         return (
-            <div className="fixed inset-0 -z-50 overflow-hidden bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50 dark:from-black dark:via-gray-950 dark:to-slate-950" />
+            <div className={`${position} inset-0 -z-50 overflow-hidden bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50 dark:from-black dark:via-gray-950 dark:to-slate-950 ${className}`} />
         );
     }
 
     return (
-        <div className="fixed inset-0 -z-50 overflow-hidden bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50 dark:from-black dark:via-gray-950 dark:to-slate-950">
+        <div className={`${position} inset-0 -z-50 overflow-hidden bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50 dark:from-black dark:via-gray-950 dark:to-slate-950 ${className}`}>
             {/* Large animated gradient blobs - big enough to overlap, small enough to see movement */}
 
             {/* Blob 1 - Purple (top left) */}

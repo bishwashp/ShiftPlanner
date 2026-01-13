@@ -36,7 +36,7 @@ export class ScoringEngine {
     calculateScores(
         candidates: any[],
         targetDate: string,
-        shiftType: 'MORNING' | 'EVENING' | 'WEEKEND',
+        shiftType: string, // Dynamic shift type from ShiftDefinition
         history: any[],
         debtMap: Map<string, number> = new Map(),
         coverageCounts: Map<string, number> = new Map()
@@ -50,7 +50,7 @@ export class ScoringEngine {
     private scoreCandidate(
         candidate: any,
         targetDate: string,
-        shiftType: 'MORNING' | 'EVENING' | 'WEEKEND',
+        shiftType: string, // Dynamic shift type
         history: any[],
         debtMap: Map<string, number>,
         coverageCounts: Map<string, number>
@@ -118,17 +118,20 @@ export class ScoringEngine {
     }
 
     private calculateTurnaroundScore(candidate: any, targetDate: string, shiftType: string, history: any[]): number {
-        // Check for "Clopening" (Evening -> Morning)
-        if (shiftType !== 'MORNING') return 1.0; // Only relevant for morning shifts
+        // Check for "Clopening" (late shift -> early shift)
+        // Early shifts: AM, MORNING, or any shift starting before noon
+        const isEarlyShift = shiftType === 'AM' || shiftType === 'MORNING' || shiftType.toUpperCase().includes('AM');
+        if (!isEarlyShift) return 1.0; // Only relevant for early/morning shifts
 
         const prevDate = moment(targetDate).subtract(1, 'days').format('YYYY-MM-DD');
-        const workedEveningBefore = history.some(h =>
+        // Check if worked a late shift before (PM, EVENING, or any shift containing 'PM'/'EVENING')
+        const workedLateShiftBefore = history.some(h =>
             h.analystId === candidate.id &&
             h.date === prevDate &&
-            h.shiftType === 'EVENING'
+            (h.shiftType === 'PM' || h.shiftType === 'EVENING' || (h.shiftType && h.shiftType.toUpperCase().includes('PM')))
         );
 
-        return workedEveningBefore ? 0.0 : 1.0; // 0 score if clopening
+        return workedLateShiftBefore ? 0.0 : 1.0; // 0 score if clopening
     }
 
     private calculateWorkloadScore(candidate: any, targetDate: string, history: any[]): number {
@@ -152,8 +155,8 @@ export class ScoringEngine {
         if (candidate.shiftType === shiftType) return 1.0;
 
         const isTargetWeekend = moment(targetDate).day() === 0 || moment(targetDate).day() === 6;
-        // If candidate prefers weekends (assuming candidate.shiftType can be 'WEEKEND')
-        if (candidate.shiftType === 'WEEKEND' && isTargetWeekend) return 1.0;
+        // If candidate works weekends and target is weekend
+        if (isTargetWeekend && candidate.worksWeekends) return 1.0;
 
         return 0.5; // Neutral if not preferred
     }

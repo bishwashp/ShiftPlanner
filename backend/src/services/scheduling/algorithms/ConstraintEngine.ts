@@ -654,54 +654,63 @@ export class ConstraintEngine {
     /**
      * Validate REDUCED_STAFFING template constraint.
      * Allows reduced staffing levels for specific shifts.
+     * Now supports dynamic shift types (AM/PM, etc.) not just MORNING/EVENING
      */
     private validateReducedStaffing(
         schedules: ProposedSchedule[],
         constraint: SchedulingConstraint,
-        params: { morningCount: number; eveningCount: number }
+        params: { morningCount?: number; eveningCount?: number;[key: string]: number | undefined }
     ): ConstraintViolation[] {
         const violations: ConstraintViolation[] = [];
         const startDate = new Date(constraint.startDate);
         const endDate = new Date(constraint.endDate);
 
-        // Group schedules by date and shift
-        const schedulesByDateShift = new Map<string, { morning: number; evening: number }>();
+        // Group schedules by date and shift type (dynamic)
+        const schedulesByDateShift = new Map<string, Map<string, number>>();
 
         for (const schedule of schedules) {
             const scheduleDate = new Date(schedule.date);
             if (scheduleDate >= startDate && scheduleDate <= endDate) {
                 const dateKey = this.toDateString(schedule.date);
                 if (!schedulesByDateShift.has(dateKey)) {
-                    schedulesByDateShift.set(dateKey, { morning: 0, evening: 0 });
+                    schedulesByDateShift.set(dateKey, new Map());
                 }
-                const counts = schedulesByDateShift.get(dateKey)!;
-                if (schedule.shiftType === 'MORNING') {
-                    counts.morning++;
-                } else if (schedule.shiftType === 'EVENING') {
-                    counts.evening++;
-                }
+                const shiftCounts = schedulesByDateShift.get(dateKey)!;
+                const shiftType = schedule.shiftType;
+                shiftCounts.set(shiftType, (shiftCounts.get(shiftType) || 0) + 1);
+            }
+        }
+
+        // Map legacy param names to dynamic shift types
+        const shiftLimits = new Map<string, number>();
+        if (params.morningCount !== undefined) {
+            shiftLimits.set('MORNING', params.morningCount);
+            shiftLimits.set('AM', params.morningCount); // Support dynamic
+        }
+        if (params.eveningCount !== undefined) {
+            shiftLimits.set('EVENING', params.eveningCount);
+            shiftLimits.set('PM', params.eveningCount); // Support dynamic
+        }
+        // Also support direct shift type params (e.g., { AM: 2, PM: 3 })
+        for (const [key, value] of Object.entries(params)) {
+            if (key !== 'morningCount' && key !== 'eveningCount' && typeof value === 'number') {
+                shiftLimits.set(key, value);
             }
         }
 
         // Check each date
-        for (const [dateKey, counts] of schedulesByDateShift) {
-            if (counts.morning > params.morningCount) {
-                violations.push({
-                    type: 'SOFT',
-                    severity: 'LOW',
-                    description: `${dateKey} MORNING: ${counts.morning} analysts, reduced limit is ${params.morningCount}`,
-                    affectedSchedules: [`${dateKey} MORNING shift`],
-                    suggestedFix: `Reduce morning staff by ${counts.morning - params.morningCount} - this is a reduced staffing period`
-                });
-            }
-            if (counts.evening > params.eveningCount) {
-                violations.push({
-                    type: 'SOFT',
-                    severity: 'LOW',
-                    description: `${dateKey} EVENING: ${counts.evening} analysts, reduced limit is ${params.eveningCount}`,
-                    affectedSchedules: [`${dateKey} EVENING shift`],
-                    suggestedFix: `Reduce evening staff by ${counts.evening - params.eveningCount} - this is a reduced staffing period`
-                });
+        for (const [dateKey, shiftCounts] of schedulesByDateShift) {
+            for (const [shiftType, count] of shiftCounts) {
+                const limit = shiftLimits.get(shiftType);
+                if (limit !== undefined && count > limit) {
+                    violations.push({
+                        type: 'SOFT',
+                        severity: 'LOW',
+                        description: `${dateKey} ${shiftType}: ${count} analysts, reduced limit is ${limit}`,
+                        affectedSchedules: [`${dateKey} ${shiftType} shift`],
+                        suggestedFix: `Reduce ${shiftType} staff by ${count - limit} - this is a reduced staffing period`
+                    });
+                }
             }
         }
 
