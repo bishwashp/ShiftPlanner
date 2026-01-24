@@ -436,6 +436,7 @@ export interface GlobalDashboardStatus {
     id: string;
     sourceRegion: string;
     sourceShift: string;
+    sourceTimezone: string; // Timezone of the source region (e.g., "Asia/Singapore")
     targetRegion: string;
     targetShift: string;
     handoverTime: string;

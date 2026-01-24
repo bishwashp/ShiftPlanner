@@ -40,24 +40,33 @@ const CurrentScreener: React.FC = () => {
                     : `${sourceRegion} ${sourceShift}`;
                 setCurrentShiftLabel(label);
 
-                // 2. Fetch today's schedules GLOBALLY to find the screener for this shift
-                const today = moment().format('YYYY-MM-DD');
-                const schedules = await apiService.getSchedulesGlobal(today, today);
+                // 2. Fetch schedules for TODAY in the SOURCE REGION's timezone
+                // This is critical: if it's Friday in CST but Saturday in SGP, we need Saturday's schedules
+                const sourceTimezone = globalStatus.nextHandover.sourceTimezone;
+                const todayInSourceRegion = moment().tz(sourceTimezone).format('YYYY-MM-DD');
+                const schedules = await apiService.getSchedulesGlobal(todayInSourceRegion, todayInSourceRegion);
 
-                // 3. Map shift name to schedule shiftType
-                // The sourceShift already contains the correct shiftType name (AM, PM, LDN, etc.)
-                // We just need to match it directly against schedule.shiftType
-                const targetShiftType = sourceShift; // Use the shift name directly
+                // 3. Determine if it's a weekend in the source region
+                const dayInSourceRegion = moment().tz(sourceTimezone).day();
+                const isWeekend = dayInSourceRegion === 0 || dayInSourceRegion === 6; // Sunday or Saturday
 
-                // For single-shift regions like LDN, sourceShift might be 'LDN'
-                // In that case, we match schedules where shiftType === 'LDN'
+                // 4. Map shift name to schedule shiftType
+                const targetShiftType = sourceShift;
 
-                // 4. Find screener matching region and shift type
+                // 5. Find screener matching region and shift type
+                // Weekday: isScreener = true AND matches region/shift
+                // Weekend: Any scheduled analyst for this region (weekend analyst IS the screener)
                 const currentScreener = schedules.find((s: any) => {
                     const matchesRegion = s.analyst?.region?.name === sourceRegion;
-                    // Match exactly or case-insensitively
-                    const matchesShiftType = s.shiftType?.toUpperCase() === targetShiftType?.toUpperCase();
-                    return s.isScreener && matchesRegion && matchesShiftType;
+
+                    if (isWeekend) {
+                        // Weekend: any scheduled analyst for this region on this date
+                        return matchesRegion;
+                    } else {
+                        // Weekday: must be screener AND match shift type
+                        const matchesShiftType = s.shiftType?.toUpperCase() === targetShiftType?.toUpperCase();
+                        return s.isScreener && matchesRegion && matchesShiftType;
+                    }
                 });
 
                 // No fallback - if we can't find the exact screener for the global shift, show unassigned
