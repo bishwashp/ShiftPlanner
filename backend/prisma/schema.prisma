@@ -628,6 +628,9 @@ model Region {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
+  // Weekend Staffing Configuration
+  weekendAnalystsPerDay  Int  @default(1) // Number of analysts (from regional pool) per weekend day
+  
   // Relations
   analysts    Analyst[]
   shiftDefs   ShiftDefinition[]

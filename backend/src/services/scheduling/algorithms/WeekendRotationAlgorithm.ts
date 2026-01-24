@@ -9,6 +9,7 @@ import { fairnessCalculator } from '../FairnessCalculator';
 import { prisma } from '../../../lib/prisma';
 import { createLocalDate, isWeekend } from '../../../utils/dateUtils';
 import { SchedulingStrategy } from '../strategies/SchedulingStrategy';
+import moment from 'moment';
 
 export class WeekendRotationAlgorithm implements SchedulingAlgorithm, SchedulingStrategy {
   name = 'WeekendRotationAlgorithm';
@@ -170,13 +171,13 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
     console.log(`🔄 Planning rotation for date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
 
     // Get morning and evening analysts
-    const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
-    const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
+    const morningAnalysts = analysts.filter((a: any) => ['MORNING', 'AM'].includes(a.shiftType));
+    const eveningAnalysts = analysts.filter((a: any) => ['EVENING', 'PM'].includes(a.shiftType));
 
     // Plan rotations for morning and evening shifts
     const morningRotationPlans = await rotationManager.planRotation(
       this.name,
-      'MORNING',
+      'AM', // Normalize to AM/PM or stick to MORNING? Let's use AM for AMR context
       startDate,
       endDate,
       morningAnalysts,
@@ -185,7 +186,7 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
 
     const eveningRotationPlans = await rotationManager.planRotation(
       this.name,
-      'EVENING',
+      'PM',
       startDate,
       endDate,
       eveningAnalysts,
@@ -193,6 +194,17 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
     );
 
     console.log(`📊 Generated ${morningRotationPlans.length} morning rotation plans and ${eveningRotationPlans.length} evening rotation plans`);
+
+    // Track weekend assignments for within-generation fairness
+    const simulatedWeekendSchedules = [...existingSchedules];
+
+    // Track consecutive work day streaks - Phase 1 fix for Priyesh 6-day issue
+    const maxConsecutiveDays = 5;
+    const analystStreaks = new Map<string, number>();
+    const allAnalysts = [...morningAnalysts, ...eveningAnalysts];
+    for (const analyst of allAnalysts) {
+      analystStreaks.set(analyst.id, this.calculateInitialStreak(analyst.id, startDate, existingSchedules));
+    }
 
     // Generate schedules day by day
     const currentDate = new Date(startDate);
@@ -237,67 +249,162 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
         continue;
       }
 
-      // Process morning analysts
-      for (const analyst of morningAnalysts) {
-        // Check if analyst should work based on rotation
-        const shouldWork = rotationManager.shouldAnalystWork(
-          analyst.id,
-          currentDate,
-          morningRotationPlans
-        );
+      // ============ WEEKEND HANDLING: Unified Regional Pool ============
+      if (isWeekend(currentDate)) {
+        // Get weekendAnalystsPerDay from region config (default: 1)
+        // TODO: Fetch from region, for now use 1
+        const weekendAnalystsPerDay = 1;
 
-        // Check for vacations
-        const onVacation = analyst.vacations?.some((v: any) =>
-          new Date(v.startDate) <= currentDate &&
-          new Date(v.endDate) >= currentDate
-        ) || false;
+        // Check how many analysts already assigned to this date (Phase 2 fix)
+        const alreadyAssignedToday = result.proposedSchedules.filter(
+          s => s.date === dateStr
+        ).length;
 
-        if (shouldWork && !onVacation) {
-          // Create schedule entry
-          const schedule = this.createScheduleEntry(
-            analyst,
-            currentDate,
-            'MORNING',
-            false,
-            existingSchedules,
-            result.overwrites
+        if (alreadyAssignedToday >= weekendAnalystsPerDay) {
+          // Already at limit for this date, skip
+          currentDate.setDate(currentDate.getDate() + 1);
+          continue;
+        }
+
+        const remainingSlots = weekendAnalystsPerDay - alreadyAssignedToday;
+
+        // Weekend rotation uses unified pool (all analysts regardless of shift type)
+        const allRegionalAnalysts = [...morningAnalysts, ...eveningAnalysts];
+
+        // Filter out analysts on vacation AND those at max consecutive days
+        const availableAnalysts = allRegionalAnalysts.filter(analyst => {
+          const onVacation = analyst.vacations?.some((v: any) =>
+            new Date(v.startDate) <= currentDate &&
+            new Date(v.endDate) >= currentDate
+          ) || false;
+          const streak = analystStreaks.get(analyst.id) || 0;
+          return !onVacation && streak < maxConsecutiveDays;
+        });
+
+        if (availableAnalysts.length > 0) {
+          // Calculate fairness scores for weekend rotation selection
+          // Use simulatedWeekendSchedules which includes newly proposed weekend assignments
+          const fairnessData = fairnessCalculator.calculateRotationFairnessScores(
+            availableAnalysts,
+            simulatedWeekendSchedules,
+            currentDate
           );
 
-          if (schedule) {
-            result.proposedSchedules.push(schedule);
+          // Select the analyst(s) with highest fairness score (least recently rotated)
+          const sortedAnalysts = availableAnalysts.sort((a, b) => {
+            const scoreA = fairnessData.scores.get(a.id) || 0;
+            const scoreB = fairnessData.scores.get(b.id) || 0;
+            return scoreB - scoreA; // Higher score = more fair to select
+          });
+
+          // Take only remaining slots (Phase 2 fix)
+          const selectedWeekendAnalysts = sortedAnalysts.slice(0, remainingSlots);
+
+          for (const analyst of selectedWeekendAnalysts) {
+            // Weekend shifts use "WEEKEND" as shift type or the analyst's original shift
+            const schedule = this.createScheduleEntry(
+              analyst,
+              currentDate,
+              analyst.shiftType, // Keep their original shift type for data consistency
+              false,
+              existingSchedules,
+              result.overwrites
+            );
+
+            if (schedule) {
+              result.proposedSchedules.push(schedule);
+              // Add to simulated schedules so next weekend day considers this assignment
+              simulatedWeekendSchedules.push({
+                analystId: analyst.id,
+                date: currentDate,
+                shiftType: analyst.shiftType
+              });
+            }
+          }
+        }
+      } else {
+        // ============ WEEKDAY HANDLING: Shift-based Pools ============
+        // Process morning analysts
+        for (const analyst of morningAnalysts) {
+          // Check if analyst should work based on rotation
+          const shouldWork = rotationManager.shouldAnalystWork(
+            analyst.id,
+            currentDate,
+            morningRotationPlans
+          );
+
+          // Check for vacations
+          const onVacation = analyst.vacations?.some((v: any) =>
+            new Date(v.startDate) <= currentDate &&
+            new Date(v.endDate) >= currentDate
+          ) || false;
+
+          // Check consecutive workday limit
+          const streak = analystStreaks.get(analyst.id) || 0;
+
+          if (shouldWork && !onVacation && streak < maxConsecutiveDays) {
+            // Create schedule entry
+            const schedule = this.createScheduleEntry(
+              analyst,
+              currentDate,
+              'AM',
+              false,
+              existingSchedules,
+              result.overwrites
+            );
+
+            if (schedule) {
+              result.proposedSchedules.push(schedule);
+            }
+          }
+        }
+
+        // Process evening analysts
+        for (const analyst of eveningAnalysts) {
+          // Check if analyst should work based on rotation
+          const shouldWork = rotationManager.shouldAnalystWork(
+            analyst.id,
+            currentDate,
+            eveningRotationPlans
+          );
+
+          // Check for vacations
+          const onVacation = analyst.vacations?.some((v: any) =>
+            new Date(v.startDate) <= currentDate &&
+            new Date(v.endDate) >= currentDate
+          ) || false;
+
+          // Check consecutive workday limit
+          const streakPM = analystStreaks.get(analyst.id) || 0;
+
+          if (shouldWork && !onVacation && streakPM < maxConsecutiveDays) {
+            // Create schedule entry
+            const schedule = this.createScheduleEntry(
+              analyst,
+              currentDate,
+              'PM',
+              false,
+              existingSchedules,
+              result.overwrites
+            );
+
+            if (schedule) {
+              result.proposedSchedules.push(schedule);
+            }
           }
         }
       }
+      // ============ END DAY PROCESSING ============
 
-      // Process evening analysts
-      for (const analyst of eveningAnalysts) {
-        // Check if analyst should work based on rotation
-        const shouldWork = rotationManager.shouldAnalystWork(
-          analyst.id,
-          currentDate,
-          eveningRotationPlans
+      // Update consecutive work day streaks
+      for (const analyst of allAnalysts) {
+        const workedToday = result.proposedSchedules.some(
+          s => s.date === dateStr && s.analystId === analyst.id
         );
-
-        // Check for vacations
-        const onVacation = analyst.vacations?.some((v: any) =>
-          new Date(v.startDate) <= currentDate &&
-          new Date(v.endDate) >= currentDate
-        ) || false;
-
-        if (shouldWork && !onVacation) {
-          // Create schedule entry
-          const schedule = this.createScheduleEntry(
-            analyst,
-            currentDate,
-            'EVENING',
-            false,
-            existingSchedules,
-            result.overwrites
-          );
-
-          if (schedule) {
-            result.proposedSchedules.push(schedule);
-          }
+        if (workedToday) {
+          analystStreaks.set(analyst.id, (analystStreaks.get(analyst.id) || 0) + 1);
+        } else {
+          analystStreaks.set(analyst.id, 0);
         }
       }
 
@@ -516,6 +623,32 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
     return result;
   }
 
+  /**
+   * Calculate the initial consecutive work day streak for an analyst leading up to the start date
+   * Used to enforce maxConsecutiveDays constraint with continuity from seeded schedules
+   */
+  private calculateInitialStreak(analystId: string, startDate: Date, existingSchedules: any[]): number {
+    let streak = 0;
+    const startMoment = moment.utc(startDate);
+
+    // Check up to 5 days back
+    for (let i = 1; i <= 5; i++) {
+      const checkDate = startMoment.clone().subtract(i, 'days').format('YYYY-MM-DD');
+      const hasSchedule = existingSchedules.some(s =>
+        s.analystId === analystId &&
+        moment.utc(s.date).format('YYYY-MM-DD') === checkDate
+      );
+
+      if (hasSchedule) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  }
+
   private generateWeekSchedules(
     weekStart: Date,
     weekEnd: Date,
@@ -638,12 +771,12 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
     regularSchedules: any[]
   ) {
     // Get rotation plans for both shifts
-    const morningAnalysts = analysts.filter(a => a.shiftType === 'MORNING');
-    const eveningAnalysts = analysts.filter(a => a.shiftType === 'EVENING');
+    const morningAnalysts = analysts.filter((a: any) => ['MORNING', 'AM'].includes(a.shiftType));
+    const eveningAnalysts = analysts.filter((a: any) => ['EVENING', 'PM'].includes(a.shiftType));
 
     const morningRotationPlans = await rotationManager.planRotation(
       this.name,
-      'MORNING',
+      'AM',
       startDate,
       endDate,
       morningAnalysts,
@@ -652,7 +785,7 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
 
     const eveningRotationPlans = await rotationManager.planRotation(
       this.name,
-      'EVENING',
+      'PM',
       startDate,
       endDate,
       eveningAnalysts,
@@ -737,10 +870,10 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
         }
       });
 
-      const morningAnalysts = workingAnalysts.filter((a: any) => a.shiftType === 'MORNING');
-      const eveningAnalysts = workingAnalysts.filter((a: any) => a.shiftType === 'EVENING');
+      const morningAnalysts = workingAnalysts.filter((a: any) => ['MORNING', 'AM'].includes(a.shiftType));
+      const eveningAnalysts = workingAnalysts.filter((a: any) => ['EVENING', 'PM'].includes(a.shiftType));
 
-      const assignScreener = (shiftAnalysts: any[], shiftType: 'MORNING' | 'EVENING') => {
+      const assignScreener = (shiftAnalysts: any[], shiftType: string) => {
         if (shiftAnalysts.length > 0) {
           const eligibleAnalysts = shiftAnalysts.filter(a => !a.vacations?.some((v: any) => new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate));
           if (eligibleAnalysts.length > 0) {
@@ -821,8 +954,8 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
         }
       };
 
-      assignScreener(morningAnalysts, 'MORNING');
-      assignScreener(eveningAnalysts, 'EVENING');
+      assignScreener(morningAnalysts, 'AM');
+      assignScreener(eveningAnalysts, 'PM');
 
       screenerIndex++;
       currentDate.setDate(currentDate.getDate() + 1);
@@ -880,9 +1013,9 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
       }
 
       const coverage = dailyCoverage.get(date)!;
-      if (schedule.shiftType === 'MORNING') {
+      if (['MORNING', 'AM'].includes(schedule.shiftType)) {
         coverage.morning++;
-      } else if (schedule.shiftType === 'EVENING') {
+      } else if (['EVENING', 'PM'].includes(schedule.shiftType)) {
         coverage.evening++;
       }
     }
