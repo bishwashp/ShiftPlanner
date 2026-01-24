@@ -245,9 +245,23 @@ router.put('/:id', async (req: Request, res: Response) => {
         ...(skills && { skills: skills.join(',') })
       },
       include: {
-        preferences: true
+        preferences: true,
+        user: true // Include user to sync name
       }
     });
+
+    // Sync name to linked User record if name was updated
+    if (name && analyst.user) {
+      const nameParts = name.trim().split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      await prisma.user.update({
+        where: { id: analyst.user.id },
+        data: { firstName, lastName }
+      });
+      console.log(`Synced analyst name "${name}" to User ${analyst.user.id} as firstName="${firstName}", lastName="${lastName}"`);
+    }
 
     // Convert SQLite strings back to objects/arrays for JSON response
     const formattedAnalyst = {

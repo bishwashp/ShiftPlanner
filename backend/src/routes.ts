@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { authenticate } from './middleware/auth';
 import analystRoutes from './routes/analysts';
 import scheduleRoutes from './routes/schedules';
 import algorithmRoutes from './routes/algorithms';
@@ -27,6 +28,7 @@ import shiftDefinitionsRoutes from './routes/shiftDefinitions';
 import dashboardRoutes from './routes/dashboard';
 
 import shiftSwapsRoutes from './routes/shift-swaps';
+import meRoutes from './routes/me';
 
 const router = Router();
 
@@ -124,5 +126,8 @@ router.use('/shift-definitions', shiftDefinitionsRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/shift-swaps', shiftSwapsRoutes);
 router.use('/ical', icalRoutes);
+
+// Personal data routes (requires authentication)
+router.use('/me', authenticate, meRoutes);
 
 export default router;

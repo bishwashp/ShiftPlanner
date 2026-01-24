@@ -88,21 +88,37 @@ const AbsenceManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const params: any = {};
-      if (filters.analystId) params.analystId = filters.analystId;
-      if (filters.type) params.type = filters.type;
-      if (filters.isApproved !== '') params.isApproved = filters.isApproved === 'true';
-      if (filters.isPlanned !== '') params.isPlanned = filters.isPlanned === 'true';
 
-      const data = await apiService.getAbsences(
-        params.analystId,
-        params.type,
-        params.isApproved,
-        params.isPlanned
-      );
+      let filteredData: Absence[];
 
-      // Filter absences for non-managers to show only their own
-      const filteredData = isManager ? data : data.filter(absence => absence.analystId === user?.analystId);
+      if (isManager) {
+        // Managers see all absences (region-scoped)
+        const params: any = {};
+        if (filters.analystId) params.analystId = filters.analystId;
+        if (filters.type) params.type = filters.type;
+        if (filters.isApproved !== '') params.isApproved = filters.isApproved === 'true';
+        if (filters.isPlanned !== '') params.isPlanned = filters.isPlanned === 'true';
+
+        const data = await apiService.getAbsences(
+          params.analystId,
+          params.type,
+          params.isApproved,
+          params.isPlanned
+        );
+        filteredData = data;
+      } else {
+        // Analysts see only their absences (bypasses region filter)
+        const myAbsences = await apiService.getMyAbsences();
+
+        // Apply local filters for analyst view
+        filteredData = myAbsences.filter((absence: Absence) => {
+          if (filters.type && absence.type !== filters.type) return false;
+          if (filters.isApproved !== '' && String(absence.isApproved) !== filters.isApproved) return false;
+          if (filters.isPlanned !== '' && String(absence.isPlanned) !== filters.isPlanned) return false;
+          return true;
+        });
+      }
+
       setAbsences(filteredData);
     } catch (err) {
       console.error('Error fetching absences:', err);
@@ -631,10 +647,10 @@ const AbsenceManagement: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-1">
                               <span className={`inline - flex items - center px - 2 py - 1 text - xs font - semibold rounded - full ${absence.status === 'APPROVED' || (absence.isApproved && !absence.status)
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                                  : absence.status === 'REJECTED'
-                                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                : absence.status === 'REJECTED'
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
                                 } `}>
                                 {absence.status === 'APPROVED' || (absence.isApproved && !absence.status) ? (
                                   <>
@@ -654,8 +670,8 @@ const AbsenceManagement: React.FC = () => {
                                 )}
                               </span>
                               <div className={`inline - flex items - center px - 2 py - 1 text - xs font - semibold rounded - full ${absence.isPlanned
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                                  : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
                                 } `}>
                                 {absence.isPlanned ? 'Planned' : 'Unplanned'}
                               </div>
