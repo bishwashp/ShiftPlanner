@@ -5,6 +5,7 @@ export interface SchedulingContext {
     startDate: Date;
     endDate: Date;
     regionId: string; // Multi-Region Support
+    timezone?: string; // e.g. "America/New_York", "Asia/Singapore"
     analysts: Analyst[];
     existingSchedules: Schedule[];
     globalConstraints: SchedulingConstraint[];

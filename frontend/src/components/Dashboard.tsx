@@ -105,28 +105,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onViewChange, onError, onSuccess,
           const pendingCount = (swapsData.incoming?.length || 0);
           setPendingSwapsCount(pendingCount);
 
-          // Fetch analyst name using analystId
-          if (user?.analystId) {
-            try {
-              const analystData = await apiService.getAnalysts();
-              const myAnalyst = analystData.find((a: any) => a.id === user.analystId);
-              if (myAnalyst) {
-                setAnalystName(myAnalyst.name);
-              }
-            } catch (e) {
-              console.warn('Could not fetch analyst name:', e);
-            }
+          // Fetch MY analyst profile (bypasses region filter)
+          try {
+            const myAnalyst = await apiService.getMyAnalyst();
+            setAnalystName(myAnalyst.name);
+          } catch (e) {
+            console.warn('Could not fetch analyst profile:', e);
           }
 
-          // Fetch upcoming schedules to find next screener/weekend shift
+          // Fetch MY schedules (bypasses region filter)
           const futureStart = moment().format('YYYY-MM-DD');
           const futureEnd = moment().add(60, 'days').format('YYYY-MM-DD');
-          const schedules = await apiService.getSchedules(futureStart, futureEnd);
-
-          // Filter for current user's schedules (match by analystId from auth)
-          const mySchedules = schedules.filter((s: any) =>
-            s.analyst?.id === user?.analystId || s.analystId === user?.analystId
-          ).sort((a: any, b: any) => moment(a.date).diff(moment(b.date)));
+          const mySchedules = await apiService.getMySchedules(futureStart, futureEnd);
 
           // Find next screener shift
           const screenerShift = mySchedules.find((s: any) => s.isScreener && moment(s.date).isAfter(moment()));

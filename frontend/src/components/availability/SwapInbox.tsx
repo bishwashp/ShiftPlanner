@@ -39,21 +39,20 @@ export default function SwapInbox() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [mySwaps, broadcasts, fetchedAnalysts, allSchedules] = await Promise.all([
+            const [mySwaps, broadcasts, fetchedAnalysts, mySchedules] = await Promise.all([
                 apiService.getMySwaps(),
                 apiService.getBroadcasts(),
                 apiService.getAnalysts(),
-                apiService.getSchedules(
+                // Use personal schedules endpoint (bypasses region filter)
+                apiService.getMySchedules(
                     moment().format('YYYY-MM-DD'),
                     moment().add(3, 'months').format('YYYY-MM-DD')
                 )
             ]);
             setData({ ...mySwaps, broadcasts });
             setAnalysts(fetchedAnalysts);
-            // Filter for current user's schedules
-            if (user?.analystId) {
-                setUserSchedules(allSchedules.filter(s => s.analystId === user.analystId));
-            }
+            // Already filtered to current user's schedules by the /me endpoint
+            setUserSchedules(mySchedules);
         } catch (err) {
             console.error('Failed to fetch swaps:', err);
         } finally {

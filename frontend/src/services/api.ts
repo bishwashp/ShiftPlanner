@@ -436,6 +436,7 @@ export interface GlobalDashboardStatus {
     id: string;
     sourceRegion: string;
     sourceShift: string;
+    sourceTimezone: string; // Timezone of the source region (e.g., "Asia/Singapore")
     targetRegion: string;
     targetShift: string;
     handoverTime: string;
@@ -1149,6 +1150,39 @@ export const apiService = {
   approveSwap: async (id: string): Promise<ShiftSwap> => {
     const response = await apiClient.post(`/shift-swaps/${id}/approve`);
     return response.data as ShiftSwap;
+  },
+
+  // ============================================================================
+  // PERSONAL DATA ENDPOINTS (bypass region filter, use authenticated analyst)
+  // ============================================================================
+
+  /**
+   * Get the authenticated user's linked analyst profile.
+   * Bypasses region filtering - always returns the analyst for the logged-in user.
+   */
+  getMyAnalyst: async (): Promise<Analyst> => {
+    const response = await apiClient.get('/me/analyst');
+    return response.data as Analyst;
+  },
+
+  /**
+   * Get the authenticated analyst's schedules.
+   * Bypasses region filtering - always returns schedules for the logged-in analyst.
+   */
+  getMySchedules: async (startDate: string, endDate: string): Promise<Schedule[]> => {
+    const response = await apiClient.get('/me/schedules', {
+      params: { startDate, endDate }
+    });
+    return response.data as Schedule[];
+  },
+
+  /**
+   * Get the authenticated analyst's absences.
+   * Bypasses region filtering - always returns absences for the logged-in analyst.
+   */
+  getMyAbsences: async (): Promise<any[]> => {
+    const response = await apiClient.get('/me/absences');
+    return response.data as any[];
   },
 };
 

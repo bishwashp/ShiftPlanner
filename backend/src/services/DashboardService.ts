@@ -174,6 +174,7 @@ export class DashboardService {
       id: string;
       sourceRegion: string;
       sourceShift: string;
+      sourceTimezone: string; // Timezone of the source region (e.g., "Asia/Singapore")
       targetRegion: string;
       targetShift: string;
       handoverTime: string;
@@ -216,6 +217,7 @@ export class DashboardService {
           id: h.id,
           sourceRegion: h.sourceShift.region.name,
           sourceShift: h.sourceShift.name,
+          sourceTimezone: h.sourceShift.region.timezone, // For timezone-aware date calculation
           targetRegion: h.targetShift.region.name,
           targetShift: h.targetShift.name,
           handoverTime: hTimeUtc.format('HH:mm'), // UTC for global view

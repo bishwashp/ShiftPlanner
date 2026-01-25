@@ -117,6 +117,11 @@ export class ConstraintEngine {
         const endDateStr = this.toDateString(constraint.endDate);
 
         const conflictingSchedules = schedules.filter(schedule => {
+            // Check matching analyst if constraint is specific
+            if (constraint.analystId && constraint.analystId !== schedule.analystId) {
+                return false;
+            }
+
             const scheduleDateStr = this.toDateString(schedule.date);
             return scheduleDateStr >= startDateStr && scheduleDateStr <= endDateStr;
         });
@@ -431,6 +436,11 @@ export class ConstraintEngine {
         // Check blackout dates
         const blackoutConstraints = constraints.filter(c => c.constraintType === 'BLACKOUT_DATE');
         for (const constraint of blackoutConstraints) {
+            // Check matching analyst if constraint is specific
+            if (constraint.analystId && constraint.analystId !== schedule.analystId) {
+                continue;
+            }
+
             const scheduleDateStr = this.toDateString(schedule.date);
             const startDateStr = this.toDateString(constraint.startDate);
             const endDateStr = this.toDateString(constraint.endDate);
@@ -789,6 +799,25 @@ export class ConstraintEngine {
         });
 
         return specialEvent;
+    }
+
+    /**
+     * Check if a specific date is blocked by any constraint (Blackout Date)
+     */
+    isDateBlocked(date: Date | string, constraints: SchedulingConstraint[]): boolean {
+        const dateStr = this.toDateString(date);
+
+        // Find any BLACKOUT_DATE constraint that covers this date
+        const blockingConstraint = constraints.find(c => {
+            if (c.constraintType !== 'BLACKOUT_DATE') return false;
+
+            const startStr = this.toDateString(c.startDate);
+            const endStr = this.toDateString(c.endDate);
+
+            return dateStr >= startStr && dateStr <= endStr;
+        });
+
+        return !!blockingConstraint;
     }
 
     /**

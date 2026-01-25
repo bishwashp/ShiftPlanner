@@ -636,7 +636,9 @@ router.post('/auto-fix-conflicts', async (req: Request, res: Response) => {
     console.log('📋 Conflicts:', conflictList);
 
     const scheduler = new IntelligentScheduler(prisma);
-    const resolution = await scheduler.resolveConflicts(conflictList, startDate, endDate);
+    // Get regionId from headers (already extracted but not used in this scope, let's enable it)
+    const regionId = req.headers['x-region-id'] as string;
+    const resolution = await scheduler.resolveConflicts(conflictList, startDate, endDate, regionId);
 
     console.log(`✅ Auto-fix: Generated ${resolution.suggestedAssignments?.length || 0} proposals`);
     console.log('📊 Resolution summary:', resolution.summary);
@@ -673,14 +675,16 @@ router.post('/apply-auto-fix', async (req: Request, res: Response) => {
           continue;
         }
 
-        // Check if analyst already has a schedule for this date
+        // Check if analyst already has a schedule for this date - DELETE it to allow overwrite
         const existingSchedule = await prisma.schedule.findUnique({
           where: { analystId_date: { analystId, date: new Date(date) } }
         });
 
         if (existingSchedule) {
-          errors.push({ assignment, error: 'Analyst already has a schedule for this date' });
-          continue;
+          // Delete the existing schedule to allow overwrite
+          await prisma.schedule.delete({
+            where: { id: existingSchedule.id }
+          });
         }
 
         // If this is a screener assignment, check for conflicts
@@ -771,7 +775,8 @@ router.post('/generate-unified', async (req: Request, res: Response) => {
     let strategy;
     if (algorithm === 'WEEKEND_ROTATION') {
       const { WeekendRotationAlgorithm } = await import('../services/scheduling/algorithms/WeekendRotationAlgorithm');
-      strategy = new WeekendRotationAlgorithm();
+      const { rotationManager } = await import('../services/scheduling/RotationManager');
+      strategy = new WeekendRotationAlgorithm(rotationManager);
     } else {
       // Default to Intelligent Scheduler
       const { IntelligentScheduler } = await import('../services/IntelligentScheduler');
@@ -783,13 +788,23 @@ router.post('/generate-unified', async (req: Request, res: Response) => {
     const engine = new UnifiedSchedulingEngine(strategy);
 
     // 4. Generate Schedule
+    // Fetch Region Timezone
+    const region = await prisma.region.findUnique({
+      where: { id: regionId },
+      select: { timezone: true }
+    });
+
     const context = {
       regionId,
       startDate: start,
       endDate: end,
       analysts,
       existingSchedules,
-      globalConstraints: constraints
+      globalConstraints: constraints.filter(c =>
+        // Include if global (no analyst) OR if belonging to an analyst in this region
+        !c.analystId || analysts.map(a => a.id).includes(c.analystId)
+      ),
+      timezone: region?.timezone || 'America/New_York'
     };
 
     const result = await engine.generateSchedule(context);
@@ -805,9 +820,13 @@ router.post('/generate-unified', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to generate unified schedule' });
   }
 });
+// Unified schedule generation endpoint (MVP Replacement)
 router.post('/generate', async (req: Request, res: Response) => {
+  console.log('🚀 POST /api/schedules/generate called');
+  const startTime = Date.now();
   try {
     const { startDate, endDate, algorithm = 'INTELLIGENT' } = req.body;
+    console.log(`[DEBUG] Request Params: startDate=${startDate}, endDate=${endDate}`);
 
     if (!startDate || !endDate) {
       return res.status(400).json({ error: 'startDate and endDate are required' });
@@ -820,79 +839,89 @@ router.post('/generate', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'startDate must be before endDate' });
     }
 
-    // Get all active analysts
-    const regionId = req.headers['x-region-id'] as string;
-    if (!regionId) {
-      return res.status(400).json({ error: 'Region ID (x-region-id header) is required for generation' });
+    // Determine target regions
+    const regionHeader = req.headers['x-region-id'] as string;
+    let targetRegions: string[] = [];
+
+    if (regionHeader) {
+      targetRegions = [regionHeader];
+    } else {
+      // Loop ALL regions if no header (Legacy UI support / Admin Bulk Gen)
+      const allAnalysts = await prisma.analyst.findMany({
+        where: { isActive: true },
+        select: { regionId: true },
+        distinct: ['regionId']
+      });
+      targetRegions = allAnalysts.map(a => a.regionId);
     }
 
-    const analysts = await prisma.analyst.findMany({
-      where: { isActive: true, regionId: regionId },
-      include: {
-        schedules: {
-          where: {
-            date: {
-              gte: start,
-              lte: end
-            }
-          }
-        }
-      }
-    });
-
-    if (analysts.length === 0) {
-      return res.status(400).json({ error: 'No active analysts found. Please add analysts first.' });
-    }
-
-    // Check if we have analysts
-    if (analysts.length === 0) {
-      return res.status(400).json({ error: 'No active analysts found. Please add analysts first.' });
-    }
-
-    // Dynamic shift validation is handled by the scheduler or implied by having analysts.
-    // We remove hardcoded MORNING/EVENING checks to support dynamic regional shifts (e.g. AM/PM, DAY).
-
-    // Get existing schedules and global constraints
-    const existingSchedules = await prisma.schedule.findMany({
-      where: {
-        regionId: regionId,
-        date: {
-          gte: start,
-          lte: end
-        }
-      },
-      include: { analyst: true }
-    });
-
-    const globalConstraints = await prisma.schedulingConstraint.findMany({
-      where: {
-        OR: [
-          { constraintType: 'BLACKOUT_DATE' },
-          { constraintType: 'HOLIDAY' }
-        ]
-      }
-    });
-
-    // Use new comprehensive IntelligentScheduler
-    const scheduler = new IntelligentScheduler(prisma);
-
-    const context = {
-      regionId,
-      startDate: start,
-      endDate: end,
-      analysts,
-      existingSchedules,
-      globalConstraints
+    const globalResult = {
+      proposedSchedules: [] as any[],
+      conflicts: [] as any[],
+      overwrites: [] as any[],
+      fairnessMetrics: null as any
     };
 
-    console.log(`🚀 Generating schedule with IntelligentScheduler for ${start.toISOString().split('T')[0]} to ${end.toISOString().split('T')[0]}`);
+    // Iterate Regions
+    for (const currentRegionId of targetRegions) {
+      const analysts = await prisma.analyst.findMany({
+        where: { isActive: true, regionId: currentRegionId },
+        include: {
+          // Fetch schedules within the window for conflict checking + history
+          // We will fetch broader history separately
+          schedules: false
+        }
+      });
 
-    const result = await scheduler.generate(context);
+      if (analysts.length === 0) continue;
+
+      // FETCH HISTORY (Critical Fix: 90 Days Lookback)
+      const historyStart = new Date(start);
+      historyStart.setDate(historyStart.getDate() - 90);
+
+      const existingSchedules = await prisma.schedule.findMany({
+        where: {
+          regionId: currentRegionId,
+          date: { gte: historyStart, lte: end }
+        },
+        include: { analyst: true }
+      });
+
+      const globalConstraints = await prisma.schedulingConstraint.findMany({
+        where: {
+          OR: [
+            { constraintType: 'BLACKOUT_DATE' },
+            { constraintType: 'HOLIDAY' }
+          ],
+          isActive: true
+        }
+      });
+
+      // Use IntelligentScheduler
+      const scheduler = new IntelligentScheduler(prisma);
+      const context = {
+        regionId: currentRegionId,
+        startDate: start,
+        endDate: end,
+        analysts,
+        existingSchedules,
+        globalConstraints
+      };
+
+      const result = await scheduler.generate(context);
+
+      globalResult.proposedSchedules.push(...result.proposedSchedules);
+      globalResult.conflicts.push(...result.conflicts);
+      globalResult.overwrites.push(...result.overwrites);
+      globalResult.fairnessMetrics = result.fairnessMetrics;
+    }
+
+    console.log(`✅ Generation Complete. Total Proposed: ${globalResult.proposedSchedules.length}`);
 
     res.json({
-      message: `Schedule generated successfully using Intelligent Scheduler`,
+      message: `Schedule generated successfully using Intelligent Scheduler (Multi-Region)`,
       algorithm: 'Intelligent Scheduler',
-      result
+      result: globalResult
     });
   } catch (error) {
     console.error('Error generating schedule:', error);
