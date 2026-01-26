@@ -27,10 +27,25 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
 
   private patternContinuityService: PatternContinuityService;
 
-  constructor() {
+  private injectedRotationManager: RotationManager | null = null;
+
+  constructor(rotationManagerInstance?: RotationManager) {
     this.patternContinuityService = new PatternContinuityService(prisma);
-    // Initialize rotation manager with pattern continuity service
-    (rotationManager as any) = new RotationManager(this.patternContinuityService);
+
+    if (rotationManagerInstance) {
+      // Use injected rotation manager (from IntelligentScheduler)
+      this.injectedRotationManager = rotationManagerInstance;
+    } else {
+      // Initialize rotation manager with pattern continuity service (standalone usage)
+      (rotationManager as any) = new RotationManager(this.patternContinuityService);
+    }
+  }
+
+  /**
+   * Get the active rotation manager (injected or singleton)
+   */
+  private getRotationManager(): RotationManager {
+    return this.injectedRotationManager || rotationManager;
   }
 
   /**
@@ -94,6 +109,112 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
       fairnessMetrics: finalFairnessMetrics,
       performanceMetrics
     };
+  }
+
+  /**
+   * Process a single weekend day and return analyst assignments.
+   * This is the "hippocampus" method called by IntelligentScheduler for weekend delegation.
+   * 
+   * @param currentDate - The weekend date to process
+   * @param pool - All analysts in the unified regional pool
+   * @param historySchedules - Existing + simulated schedules for fairness context
+   * @param rotationPlans - Pattern rotation plans for shouldWork determination
+   * @param analystStreaks - Map of analyst ID to consecutive work day count
+   * @returns Array of proposed schedule assignments for this weekend day
+   */
+  async processWeekendDay(
+    currentDate: Date,
+    pool: any[],
+    historySchedules: any[],
+    rotationPlans: any[],
+    analystStreaks: Map<string, number>
+  ): Promise<any[]> {
+    const dateStr = moment.utc(currentDate).format('YYYY-MM-DD');
+    const maxConsecutiveDays = 5;
+    const weekendAnalystsPerDay = 1; // Could be made configurable per region
+
+    const rm = this.getRotationManager();
+
+    // Filter available analysts based on rotation, absence (vacation), and fatigue
+    // CRITICAL: The shouldWork check from RotationManager respects the analyst's assigned pattern.
+    // Only analysts whose pattern includes this weekend day (Sun=0 or Sat=6) will pass.
+    // - SUN_THU pattern includes Sunday (day 0)
+    // - TUE_SAT pattern includes Saturday (day 6)
+    // - MON_FRI pattern includes neither (so they won't be eligible for weekend work)
+    const available: any[] = [];
+    for (const analyst of pool) {
+      // Check rotation pattern - THIS IS THE KEY FILTER
+      const shouldWork = rm.shouldAnalystWork(analyst.id, currentDate, rotationPlans);
+
+      // DEBUG: Trace Srujana on Saturdays
+      if (analyst.name === 'Srujana' || analyst.name === 'Sarahi') {
+        const plan = rotationPlans.find(p => p.analystId === analyst.id && moment(currentDate).isBetween(p.startDate, p.endDate, 'day', '[]'));
+        const currentDayStr = moment(currentDate).format('YYYY-MM-DD');
+        console.log(`🕵️‍♀️ [WeekendDebug] ${analyst.name} on ${currentDayStr}: Pattern=${plan?.pattern}, ShouldWork=${shouldWork}, Streak=${analystStreaks.get(analyst.id)}`);
+      }
+
+      if (!shouldWork) {
+        continue;
+      }
+
+      // Check vacation
+      const onVacation = analyst.vacations?.some((v: any) =>
+        new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate
+      ) || false;
+
+      if (onVacation) {
+        continue;
+      }
+
+      // Check consecutive workday limit (max 5 days)
+      const streak = analystStreaks.get(analyst.id) || 0;
+      if (streak >= maxConsecutiveDays) {
+        console.log(`⚠️ [WeekendRotation] ${analyst.name} skipped - streak ${streak} >= max ${maxConsecutiveDays}`);
+        continue;
+      }
+
+      available.push(analyst);
+    }
+
+    if (available.length === 0) {
+      console.log(`⚠️ [WeekendRotation] No available analysts for ${dateStr}`);
+      return [];
+    }
+
+    // Calculate fairness scores to select the most equitable analyst(s)
+    const fairnessData = fairnessCalculator.calculateRotationFairnessScores(
+      available,
+      historySchedules,
+      currentDate
+    );
+
+    // Sort by fairness score (higher = more fair to assign)
+    const sortedAnalysts = available.sort((a, b) => {
+      const scoreA = fairnessData.scores.get(a.id) || 0;
+      const scoreB = fairnessData.scores.get(b.id) || 0;
+      return scoreB - scoreA;
+    });
+
+    // Select top N analysts based on weekendAnalystsPerDay limit
+    console.log(`🔍 [SliceDebug] limit=${weekendAnalystsPerDay}, sorted=${sortedAnalysts.length}`);
+    const selectedAnalysts = sortedAnalysts.slice(0, weekendAnalystsPerDay);
+
+    // Build proposed schedule entries
+    const assignments: any[] = [];
+    for (const analyst of selectedAnalysts) {
+      assignments.push({
+        date: moment.utc(currentDate).format('YYYY-MM-DD'), // Hardened: Ensure UTC date string prevents timezone shifts
+        analystId: analyst.id,
+        analystName: analyst.name,
+        shiftType: analyst.shiftType || 'WEEKEND', // Preserve original shift type
+        isScreener: false,
+        type: 'WEEKEND_COVERAGE'
+      });
+    }
+
+    console.log(`📅 [WeekendRotation] ${dateStr}: Assigned ${assignments.length} analyst(s) - ${assignments.map(a => a.analystName).join(', ')}`);
+
+    return assignments;
   }
 
   validateConstraints(schedules: any[], constraints: SchedulingConstraint[]): any {

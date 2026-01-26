@@ -67,10 +67,33 @@ export class RotationManager {
       const assignedThisWeek = new Set<string>();
 
       // 1. Pipeline: Move last week's SUN_THU analyst to TUE_SAT
-      const lastWeekSunThuPlan = rotationPlans.find(p =>
+      let lastWeekSunThuPlan = rotationPlans.find(p =>
         p.pattern === 'SUN_THU' &&
         moment.utc(p.startDate).isSame(moment.utc(weekStart).subtract(1, 'week'), 'week')
       );
+
+      // HOLISTIC FIX: If not found internally, checking HISTORY (Jan 25 Bridge)
+      if (!lastWeekSunThuPlan) {
+        const checkDate = moment.utc(weekStart).subtract(1, 'week').startOf('week').toDate(); // Sunday
+        // Find who worked this specific Sunday in history
+        // We look for strict match on Sunday date
+        const histPlan = historicalSchedules.find(s =>
+          moment.utc(s.date).isSame(moment.utc(checkDate), 'day') &&
+          // Heuristic: If they worked Sunday, they likely started SUN_THU
+          // We could check other days, but Sunday is the anchor.
+          (s.shiftType === 'AM' || s.shiftType === 'PM')
+        );
+
+        if (histPlan) {
+          console.log(`🌉 [PipelineBridge] Found History for ${moment.utc(checkDate).format('YYYY-MM-DD')}: ${histPlan.analystId} (Assuming SUN_THU start)`);
+          lastWeekSunThuPlan = {
+            analystId: histPlan.analystId,
+            pattern: 'SUN_THU',
+            startDate: checkDate,
+            endDate: moment.utc(checkDate).add(4, 'days').toDate() // Dummy end
+          };
+        }
+      }
 
       if (lastWeekSunThuPlan && lastWeekSunThuPlan.analystId) {
         rotationPlans.push({
@@ -122,14 +145,22 @@ export class RotationManager {
       // 3. Select NEW analyst for SUN_THU
       const excludeAnalysts = new Set<string>(assignedThisWeek);
 
-      // Also exclude LAST week's TUE_SAT (Streak Fix - prevent consecutive weekend rotation)
-      const lastWeekTueSatPlan = rotationPlans.find(p =>
-        p.pattern === 'TUE_SAT' &&
-        moment.utc(p.startDate).isSame(moment.utc(weekStart).subtract(1, 'week'), 'week')
+      // HOLISTIC FIX: Enforce Round Robin by excluding anyone who rotated recently.
+      // With ~10 analysts and 1 entry per week, a cycle is ~10 weeks.
+      // Excluding the last 4 weeks forces distribution even if Fairness Score prefers the same people (due to Jan deficits).
+      const lookbackWeeks = 4;
+      const lookbackStart = moment.utc(weekStart).subtract(lookbackWeeks, 'weeks');
+
+      const recentRotations = rotationPlans.filter(p =>
+        (p.pattern === 'SUN_THU' || p.pattern === 'TUE_SAT') &&
+        moment.utc(p.startDate).isAfter(lookbackStart) &&
+        moment.utc(p.startDate).isBefore(moment.utc(weekStart)) // strictly past
       );
-      if (lastWeekTueSatPlan && lastWeekTueSatPlan.analystId) {
-        excludeAnalysts.add(lastWeekTueSatPlan.analystId);
-      }
+
+      recentRotations.forEach(plan => {
+        if (plan.analystId) excludeAnalysts.add(plan.analystId);
+      });
+      // console.log(`🔒 [RotationDebug] Excluding ${excludeAnalysts.size} analysts due to recent rotation (4-week lookback)`);
 
       // SIMULATE HISTORY for fairness calculation
       const simulatedSchedules = [...historicalSchedules];
@@ -155,6 +186,17 @@ export class RotationManager {
         weekStart
       );
 
+      // DEBUG: Trace Srujana and PM analysts
+      const traceNames = ['Srujana', 'Neha', 'Bish'];
+      traceNames.forEach(name => {
+        const analyst = allAnalysts.find(a => a.name === name);
+        if (analyst) {
+          const score = fairnessData.scores.get(analyst.id);
+          const isExcluded = excludeAnalysts.has(analyst.id);
+          console.log(`🔍 [RotationDebug] ${name}: Score=${score}, Excluded=${isExcluded}`);
+        }
+      });
+
       const nextAnalyst = fairnessCalculator.selectNextAnalystForRotation(
         allAnalysts,
         fairnessData,
@@ -162,6 +204,8 @@ export class RotationManager {
       );
 
       if (nextAnalyst) {
+        console.log(`🎯 [RotationDebug] Selected for SUN_THU: ${nextAnalyst.name} (Score: ${fairnessData.scores.get(nextAnalyst.id)})`);
+
         rotationPlans.push({
           analystId: nextAnalyst.id,
           pattern: 'SUN_THU',
@@ -169,6 +213,8 @@ export class RotationManager {
           endDate: weekEnd
         });
         assignedThisWeek.add(nextAnalyst.id);
+      } else {
+        console.warn(`⚠️ [RotationDebug] NO ANALYST SELECTED for SUN_THU on ${moment(weekStart).format('YYYY-MM-DD')}`);
       }
 
       // 4. HOLISTIC FIX: Assign remaining analysts to MON_FRI
@@ -181,6 +227,9 @@ export class RotationManager {
             endDate: weekEnd
           });
           assignedThisWeek.add(analyst.id);
+        } else {
+          // DEBUG: Catch overlapping assignments if any logic failed above
+          // console.warn(`⚠️ [RotationDebug] Analyst ${analyst.name} skipped MON_FRI assignment (already assigned pattern)`);
         }
       }
 
@@ -211,8 +260,19 @@ export class RotationManager {
 
     if (plan) {
       const pattern = this.workPatterns.find(p => p.name === plan.pattern);
-      // Use moment().day() (0-6, Sun-Sat)
-      return pattern ? pattern.days.includes(mDate.day()) : false;
+      const allowed = pattern ? pattern.days.includes(mDate.day()) : false;
+
+      // DEBUG Trace Srujana
+      if (analystId === 'cmjdyxxwk0004vu64b5p3v96r') { // Srujana ID (from previous logs/memory? better to lookup name if possible, but ID safer if known. using name lookup logic instead)
+        // skipping name lookup optimization, just log based on global trace or generic
+      }
+      // Or just log everything for Saturday Feb 7/14?
+      const dayName = mDate.format('YYYY-MM-DD');
+      if (dayName === '2026-02-14' || dayName === '2026-02-07') {
+        console.log(`🔍 [ShouldWorkTrace] ${analystId} on ${dayName}: Plan=${plan.pattern}, Days=${pattern?.days}, Result=${allowed}`);
+      }
+
+      return allowed;
     }
 
     // HOLISTIC FIX: No plan = no work (fail-safe)
