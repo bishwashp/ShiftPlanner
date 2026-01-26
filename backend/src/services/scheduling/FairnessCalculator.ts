@@ -141,7 +141,9 @@ export class FairnessCalculator {
 
       // Factor 1: Fewer weekend days worked = higher score
       const weekendDays = weekendDaysWorked.get(analyst.id) || 0;
-      score += weights.weekendPenalty - Math.min(weekendDays * factors.weekendDaysMultiplier, weights.maxWeekendPenalty);
+      // UNCAP PENALTY: Remove Math.min to allow linear penalty growth beyond 100
+      // score += weights.weekendPenalty - Math.min(weekendDays * factors.weekendDaysMultiplier, weights.maxWeekendPenalty);
+      score += weights.weekendPenalty - (weekendDays * factors.weekendDaysMultiplier);
 
       // Factor 2: Time since last rotation (more time = higher score)
       const lastRotation = lastRotationDate.get(analyst.id) || new Date(0);

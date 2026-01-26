@@ -1,5 +1,6 @@
 import { Analyst, SchedulingConstraint } from '../../../../generated/prisma';
 import { ProposedSchedule, FairnessMetrics, WorkloadAnalysis } from './types';
+import moment from 'moment';
 
 export class FairnessEngine {
 
@@ -47,7 +48,7 @@ export class FairnessEngine {
             const regularShiftDays = analystSchedules.filter(s => !s.isScreener).length;
             const screenerDays = analystSchedules.filter(s => s.isScreener).length;
             const weekendDays = analystSchedules.filter(s => {
-                const dayOfWeek = new Date(s.date).getDay();
+                const dayOfWeek = moment.utc(s.date).day();
                 return dayOfWeek === 0 || dayOfWeek === 6;
             }).length;
 

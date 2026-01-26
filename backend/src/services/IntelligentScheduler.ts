@@ -299,13 +299,25 @@ export class IntelligentScheduler implements SchedulingStrategy {
     // We seed this with existing schedules (historical) + push new ones as we generate
     const simulatedWeekendSchedules = [...existingSchedules];
 
-    const currentMoment = moment.utc(startDate);
-    const endMoment = moment.utc(endDate);
+    // HOLISTIC FIX: Enforce timezone context (e.g. America/New_York) to prevent UTC/Local shifting
+    const currentMoment = moment.tz(startDate, this.currentContextTimezone).startOf('day');
+    const endMoment = moment.tz(endDate, this.currentContextTimezone).endOf('day');
 
     while (currentMoment.isSameOrBefore(endMoment, 'day')) {
       const dateStr = currentMoment.format('YYYY-MM-DD');
-      const currentDate = currentMoment.toDate();
-      const isWeekendDay = isWeekend(currentDate);
+
+      // HOLISTIC FIX: Force currentDate to be UTC Midnight of the loop string.
+      // This ensures 100% alignment between "Working Date" and "Logic Date",
+      // ignoring any timezone drift (e.g. 19:00 offsets) in currentMoment.
+      const currentDate = moment.utc(dateStr).toDate();
+
+      // Check Weekend using strict UTC day index
+      const dayIndex = moment.utc(currentDate).day();
+      const isWeekendDay = (dayIndex === 0 || dayIndex === 6);
+
+      if (dateStr === '2026-02-01') {
+        console.log(`🚨 [CRITICAL DEBUG] ${dateStr}: dayIndex=${dayIndex}, isWeekendDay=${isWeekendDay}`);
+      }
 
       // 1. DELEGATION: Check Constraints (Blackouts)
       if (this.constraintEngine.isDateBlocked(currentDate, globalConstraints)) {
@@ -351,6 +363,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
 
       } else {
         // 4. WEEKDAY Processing (Existing Logic - Pending Extraction)
+        if (dateStr === '2026-02-01') console.log(`🛑 [CRITICAL DEBUG] Entering WEEKDAY Block for ${dateStr}`);
         // Iterate OVER DEFINED SHIFTS
         for (const shiftDef of shiftDefinitions) {
           const shiftName = shiftDef.name;
@@ -385,9 +398,14 @@ export class IntelligentScheduler implements SchedulingStrategy {
       }
 
       // Update streaks for everyone based on assignments made today (Weekend OR Weekday)
+      // HOLISTIC FIX: Handle both Date objects (Weekend) and Strings (Weekday)
+      const targetDateStr = dateStr; // YYYY-MM-DD
       const workedTodayIds = new Set(
         result.proposedSchedules
-          .filter(s => s.date === dateStr)
+          .filter(s => {
+            const sDateStr = moment.utc(s.date).format('YYYY-MM-DD');
+            return sDateStr === targetDateStr;
+          })
           .map(s => s.analystId)
       );
 
@@ -420,8 +438,18 @@ export class IntelligentScheduler implements SchedulingStrategy {
     const screenerTracker = new ScreenerFairnessTracker();
     screenerTracker.initializeFromHistory(existingSchedules);
 
-    const currentMoment = moment(startDate);
-    const endMoment = moment(endDate);
+    // CRITICAL FIX: Also load weekend screener assignments from the current run (baseSchedules)
+    // This prevents "Invisible Debt" where weekend workers are treated as fresh for weekday screening
+    // UPDATED: Count ALL weekend shifts as "screener debt" because weekend work is burdensome
+    screenerTracker.initializeFromHistory(baseSchedules.filter(s => {
+      const date = new Date(s.date);
+      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      return s.isScreener || isWeekend;
+    }));
+
+    // HOLISTIC FIX: Enforce timezone context to prevent "Jan 31" off-by-one errors
+    const currentMoment = moment.tz(startDate, this.currentContextTimezone).startOf('day');
+    const endMoment = moment.tz(endDate, this.currentContextTimezone).endOf('day');
 
     while (currentMoment.isSameOrBefore(endMoment, 'day')) {
       const dateStr = currentMoment.format('YYYY-MM-DD');

@@ -3,13 +3,13 @@
         "weekendPenalty": 100,
         "timeBonus": 50,
         "balanceBonus": 30,
-        "maxWeekendPenalty": 100,
+        "maxWeekendPenalty": 9999,
         "maxTimeBonus": 50,
         "maxBalanceBonus": 30
     },
     "scoringFactors": {
-        "weekendDaysMultiplier": 2,
+        "weekendDaysMultiplier": 5,
         "timeDivisor": 7,
-        "description": "Scoring factors for fairness calculations. weekendDaysMultiplier: Each weekend worked reduces score by (days * multiplier). timeDivisor: Days since last rotation divided by this value to calculate time bonus."
+        "description": "Scoring factors for fairness calculations. weekendDaysMultiplier: Each weekend worked reduces score by (days * multiplier). Linear growth (uncapped) to penalize hoarding."
     }
 }

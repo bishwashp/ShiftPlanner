@@ -185,7 +185,7 @@ async function seedHistory(dryRun: boolean): Promise<void> {
         regionId: region.id,
         date: {
           gte: new Date(`${YEAR_FILTER}-01-01`),
-          lt: new Date(`${YEAR_FILTER + 1}-01-01`),
+          lt: new Date(`${YEAR_FILTER}-02-01`), // Only clear January
         },
       },
     });
@@ -257,8 +257,11 @@ async function seedHistory(dryRun: boolean): Promise<void> {
           continue;
         }
 
-        // Create unique key for aggregation
-        const dateStr = date.toISOString().split('T')[0];
+        // Force UTC Midnight to match scheduler persistence logic
+        // Use standard getters assuming input date is correct "Calendar Day"
+        const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+
+        const dateStr = utcDate.toISOString().split('T')[0];
         const key = `${analyst.id}-${dateStr}`;
 
         const existing = aggregatedSchedules.get(key);
@@ -271,7 +274,7 @@ async function seedHistory(dryRun: boolean): Promise<void> {
         } else {
           aggregatedSchedules.set(key, {
             analystId: analyst.id,
-            date: date,
+            date: utcDate,
             shiftType: shiftConfig.shiftType,
             isScreener: shiftConfig.isScreener,
             regionId: region.id,
