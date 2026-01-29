@@ -882,7 +882,7 @@ router.post('/generate', async (req: Request, res: Response) => {
       const existingSchedules = await prisma.schedule.findMany({
         where: {
           regionId: currentRegionId,
-          date: { gte: historyStart, lte: end }
+          date: { gte: historyStart, lt: start } // STRICT FIX: Do not include target range (dirty state)
         },
         include: { analyst: true }
       });
@@ -1097,6 +1097,56 @@ router.post('/validate', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error validating schedule:', error);
     res.status(500).json({ error: 'Failed to validate schedule' });
+  }
+});
+
+// Delete schedules in range
+router.delete('/range', async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.body;
+    const regionId = req.headers['x-region-id'] as string;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate are required' });
+    }
+
+    if (!regionId) {
+      return res.status(400).json({ error: 'Region ID (x-region-id header) is required' });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (start > end) {
+      return res.status(400).json({ error: 'startDate must be before or equal to endDate' });
+    }
+
+    // Adjust end date to cover the full day if needed, or assume UI sends inclusive range
+    // Ideally we treat it as [start, end] inclusive or [start, end) depending on convention.
+    // Let's assume startDate and endDate are YYYY-MM-DD strings.
+    // To be safe, we'll use DateUtils (if available/consistent) or set times.
+    // Using prisma deleteMany
+
+    const result = await prisma.schedule.deleteMany({
+      where: {
+        regionId: regionId,
+        date: {
+          gte: DateUtils.asStorageDate(startDate), // Ensure consistent storage format
+          lte: DateUtils.asStorageDate(endDate)
+        }
+      }
+    });
+
+    console.log(`🧹 Cleared ${result.count} schedules for region ${regionId} between ${startDate} and ${endDate}`);
+
+    res.json({
+      message: `Successfully deleted ${result.count} schedules`,
+      count: result.count
+    });
+
+  } catch (error) {
+    console.error('Error clearing schedules:', error);
+    res.status(500).json({ error: 'Failed to clear schedules' });
   }
 });
 

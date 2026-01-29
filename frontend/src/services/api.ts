@@ -617,6 +617,16 @@ export const apiService = {
     await apiClient.delete(`/schedules/${cleanId}`);
   },
 
+  deleteSchedulesInRange: async (startDate: string, endDate: string): Promise<{ message: string; count: number }> => {
+    // using request() explicitly to avoid TS issues with delete() config body
+    const response = await apiClient.request({
+      method: 'DELETE',
+      url: '/schedules/range',
+      data: { startDate, endDate }
+    });
+    return (response.data as unknown) as { message: string; count: number };
+  },
+
   validateSchedule: async (data: { analystId: string; date: string; shiftType: string; isScreener?: boolean; scheduleId?: string }): Promise<{ isValid: boolean; violations: any[] }> => {
     const response = await apiClient.post('/schedules/validate', data);
     return response.data as { isValid: boolean; violations: any[] };
@@ -1150,6 +1160,14 @@ export const apiService = {
   approveSwap: async (id: string): Promise<ShiftSwap> => {
     const response = await apiClient.post(`/shift-swaps/${id}/approve`);
     return response.data as ShiftSwap;
+  },
+
+  managerSwap: async (data: { sourceAnalystId: string; sourceDate: string; targetAnalystId: string; targetDate: string; force?: boolean }): Promise<void> => {
+    await apiClient.post('/shift-swaps/manager', data);
+  },
+
+  managerRangeSwap: async (data: { sourceAnalystId: string; targetAnalystId: string; startDate: string; endDate: string; force?: boolean }): Promise<void> => {
+    await apiClient.post('/shift-swaps/manager/range-swap', data);
   },
 
   // ============================================================================

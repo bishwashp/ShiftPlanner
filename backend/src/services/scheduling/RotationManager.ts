@@ -146,21 +146,42 @@ export class RotationManager {
       const excludeAnalysts = new Set<string>(assignedThisWeek);
 
       // HOLISTIC FIX: Enforce Round Robin by excluding anyone who rotated recently.
-      // With ~10 analysts and 1 entry per week, a cycle is ~10 weeks.
-      // Excluding the last 4 weeks forces distribution even if Fairness Score prefers the same people (due to Jan deficits).
-      const lookbackWeeks = 4;
+      // Dynamic lookback based on pool size to ensure full cycle before repetition.
+      const poolSize = allAnalysts.length;
+      // Per user request: Strict 100% cycle. 
+      // ensuring 100% cycle before repeating anyone.
+      // FIX: Remove Math.max(4) constraint which breaks small pools (e.g. 3 people).
+      const lookbackWeeks = Math.max(1, Math.floor(poolSize * 1.0));
+
+
       const lookbackStart = moment.utc(weekStart).subtract(lookbackWeeks, 'weeks');
+
+      console.log(`🔒 [RotationDebug] PoolSize: ${poolSize}, LookbackWeeks: ${lookbackWeeks}, LookbackStart: ${lookbackStart.format('YYYY-MM-DD')}`);
 
       const recentRotations = rotationPlans.filter(p =>
         (p.pattern === 'SUN_THU' || p.pattern === 'TUE_SAT') &&
-        moment.utc(p.startDate).isAfter(lookbackStart) &&
-        moment.utc(p.startDate).isBefore(moment.utc(weekStart)) // strictly past
+        moment.utc(p.startDate).startOf('day').isAfter(lookbackStart.startOf('day')) &&
+        moment.utc(p.startDate).startOf('day').isBefore(moment.utc(weekStart).startOf('day'))
+      );
+
+      // ADDED: Check History for rotations too (Crucial for first few weeks of generation)
+      // Heuristic: If they worked a Sunday in the lookback window, count it as a rotation
+      const historyRotations = historicalSchedules.filter(s =>
+        (s.shiftType === 'AM' || s.shiftType === 'PM') && // Filter for rotation shifts if needed, or just existence
+        moment.utc(s.date).day() === 0 && // Sunday = start of SUN_THU (proxy)
+        moment.utc(s.date).startOf('day').isAfter(lookbackStart.startOf('day')) &&
+        moment.utc(s.date).startOf('day').isBefore(moment.utc(weekStart).startOf('day'))
       );
 
       recentRotations.forEach(plan => {
         if (plan.analystId) excludeAnalysts.add(plan.analystId);
       });
-      // console.log(`🔒 [RotationDebug] Excluding ${excludeAnalysts.size} analysts due to recent rotation (4-week lookback)`);
+
+      historyRotations.forEach(s => {
+        excludeAnalysts.add(s.analystId);
+      });
+
+      // console.log(`🔒 [RotationDebug] Excluding ${excludeAnalysts.size} analysts due to recent rotation`);
 
       // SIMULATE HISTORY for fairness calculation
       const simulatedSchedules = [...historicalSchedules];
@@ -262,14 +283,9 @@ export class RotationManager {
       const pattern = this.workPatterns.find(p => p.name === plan.pattern);
       const allowed = pattern ? pattern.days.includes(mDate.day()) : false;
 
-      // DEBUG Trace Srujana
-      if (analystId === 'cmjdyxxwk0004vu64b5p3v96r') { // Srujana ID (from previous logs/memory? better to lookup name if possible, but ID safer if known. using name lookup logic instead)
-        // skipping name lookup optimization, just log based on global trace or generic
-      }
-      // Or just log everything for Saturday Feb 7/14?
-      const dayName = mDate.format('YYYY-MM-DD');
-      if (dayName === '2026-02-14' || dayName === '2026-02-07') {
-        console.log(`🔍 [ShouldWorkTrace] ${analystId} on ${dayName}: Plan=${plan.pattern}, Days=${pattern?.days}, Result=${allowed}`);
+      // DEBUG Trace Swati/Bish
+      if (analystId === 'cmjdyxxwi0002vu64lj6jk1t1' || analystId === 'cmjdyxxwf0000vu64hn1iz79w') {
+        console.log(`🔍 [ShouldWorkTrace] ${analystId} on ${date.toISOString()}: Plan=${plan.pattern}, Days=${pattern?.days}, Result=${allowed}`);
       }
 
       return allowed;
@@ -315,6 +331,7 @@ export class RotationManager {
     pmAnalystCount: number, // How many PM analysts are available
     historicalSchedules: any[] = [],
     absenceService: any,
+    rotationPlans: RotationPlan[], // NEW Dependency
     config: { minimumRetention: number } = { minimumRetention: 2 }
   ): Promise<Map<string, string[]>> {
     const rotationMap = new Map<string, string[]>();
@@ -356,11 +373,14 @@ export class RotationManager {
 
       // Only rotate on weekdays (Mon=1 to Fri=5)
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        // Filter out absent analysts for this specific date
+        // Filter out absent OR rotated-out analysts for this specific date
         const availableAnalysts = [];
         for (const analyst of amAnalysts) {
           const isAbsent = await absenceService.isAnalystAbsent(analyst.id, dateStr);
-          if (!isAbsent) {
+          // CRITICAL FIX: Check if they are actually working today (Pattern Check)
+          const shouldWork = this.shouldAnalystWork(analyst.id, current.toDate(), rotationPlans);
+
+          if (!isAbsent && shouldWork) {
             availableAnalysts.push(analyst);
           }
         }

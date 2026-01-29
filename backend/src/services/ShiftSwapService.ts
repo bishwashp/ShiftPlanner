@@ -1,5 +1,6 @@
 import { PrismaClient, ShiftSwap, Prisma } from '../../generated/prisma';
 import { prisma } from '../lib/prisma';
+import { swapValidator } from './SwapValidator';
 import moment from 'moment-timezone';
 
 export interface SwapRequestData {
@@ -291,6 +292,218 @@ export class ShiftSwapService {
                     });
                 }
             }
+        });
+    }
+
+    /**
+     * Execute an immediate manager-forced swap.
+     * Incorporates "Delete-All-Then-Create" transaction logic and "SwapValidator" simulation.
+     */
+    async executeManagerSwap(
+        sourceAnalystId: string,
+        sourceDate: Date,
+        targetAnalystId: string,
+        targetDate: Date,
+        options: { force?: boolean } = {}
+    ): Promise<void> {
+        // 1. Simulation & Validation
+        if (!options.force) {
+            const violations = await swapValidator.validateManagerSwap(
+                sourceAnalystId,
+                sourceDate,
+                targetAnalystId,
+                targetDate
+            );
+
+            if (violations.length > 0) {
+                throw new Error(JSON.stringify({
+                    type: 'CONSTRAINT_VIOLATION',
+                    violations
+                }));
+            }
+        }
+
+        // 2. Transactional Execution
+        await this.prisma.$transaction(async (tx) => {
+            // Fetch Source Schedule (Must exist for a swap initiated from a shift)
+            const scheduleA = await tx.schedule.findUnique({
+                where: { analystId_date: { analystId: sourceAnalystId, date: sourceDate } }
+            });
+
+            if (!scheduleA) {
+                throw new Error(`No schedule found for Source Analyst on ${moment(sourceDate).format('YYYY-MM-DD')}`);
+            }
+
+            // Fetch Target Schedule (Might be null if picking up an open slot)
+            const scheduleB = await tx.schedule.findUnique({
+                where: { analystId_date: { analystId: targetAnalystId, date: targetDate } }
+            });
+
+            // DELETE Phase: Remove existing schedules to clear constraints
+            await tx.schedule.delete({ where: { id: scheduleA.id } });
+
+            if (scheduleB) {
+                await tx.schedule.delete({ where: { id: scheduleB.id } });
+            }
+
+            // CREATE Phase: Re-assign logic
+
+            // 1. Assign A's old shift -> Target Analyst
+            await tx.schedule.create({
+                data: {
+                    analystId: targetAnalystId,
+                    date: sourceDate,
+                    shiftType: scheduleA.shiftType,
+                    isScreener: scheduleA.isScreener,
+                    regionId: scheduleA.regionId
+                }
+            });
+
+            // 2. Assign B's old shift (if any) -> Source Analyst
+            if (scheduleB) {
+                await tx.schedule.create({
+                    data: {
+                        analystId: sourceAnalystId,
+                        date: targetDate,
+                        shiftType: scheduleB.shiftType,
+                        isScreener: scheduleB.isScreener,
+                        regionId: scheduleB.regionId
+                    }
+                });
+            }
+
+            // 3. Audit Log
+            await tx.shiftSwap.create({
+                data: {
+                    requestingAnalystId: sourceAnalystId,
+                    requestingShiftDate: sourceDate,
+                    targetAnalystId: targetAnalystId,
+                    targetShiftDate: targetDate,
+                    status: 'APPROVED',
+                    managerNotified: true,
+                    // Note: If 1-way, targetShiftDate is effectively the "Pickup Date" (same as sourceDate usually?)
+                    // Or if 2-way with different dates...
+                    // The schema expects valid dates.
+                    // If scheduleB was null, this record implies A took "targetDate" (which was empty).
+                }
+            });
+        });
+    }
+
+    /**
+     * Execute a Time-Slice Range Swap (Bulk Swap).
+     * "Deleting the Future to Rewrite History"
+     * 1. Validate Range.
+     * 2. Transaction:
+     *    - Fetch Snapshots (A & B).
+     *    - DELETE A & B in Range (Clear the slate).
+     *    - CREATE A using B's Snapshot.
+     *    - CREATE B using A's Snapshot.
+     */
+    async executeManagerRangeSwap(
+        sourceAnalystId: string,
+        targetAnalystId: string,
+        startDate: Date,
+        endDate: Date,
+        options: { force?: boolean } = {}
+    ): Promise<void> {
+        // Validation 1: Range Integrity
+        if (moment(startDate).isAfter(moment(endDate))) {
+            throw new Error('Start date must be before end date');
+        }
+
+        // Validation 2: Simulation (Constraint Check)
+        if (!options.force) {
+            const violations = await swapValidator.validateManagerRangeSwap(
+                sourceAnalystId,
+                targetAnalystId,
+                startDate,
+                endDate
+            );
+
+            if (violations.length > 0) {
+                throw new Error(JSON.stringify({
+                    type: 'CONSTRAINT_VIOLATION',
+                    violations
+                }));
+            }
+        }
+
+        // Execution: Atomic Transaction
+        await this.prisma.$transaction(async (tx) => {
+            // 1. Fetch Snapshots
+            // We need to know what to "Paste" before we "Cut".
+            const sourceShifts = await tx.schedule.findMany({
+                where: {
+                    analystId: sourceAnalystId,
+                    date: { gte: startDate, lte: endDate }
+                }
+            });
+
+            const targetShifts = await tx.schedule.findMany({
+                where: {
+                    analystId: targetAnalystId,
+                    date: { gte: startDate, lte: endDate }
+                }
+            });
+
+            console.log(`[RangeSwap] Found ${sourceShifts.length} Source Shifts ('${sourceAnalystId}')`);
+            console.log(`[RangeSwap] Found ${targetShifts.length} Target Shifts ('${targetAnalystId}')`);
+
+            // 2. The Great Purge (DELETE Phase)
+            // Remove everything in the range for both parties.
+            // This ensures "Breaks" (Nulls) are respected.
+            const deleteResult = await tx.schedule.deleteMany({
+                where: {
+                    analystId: { in: [sourceAnalystId, targetAnalystId] },
+                    date: { gte: startDate, lte: endDate }
+                }
+            });
+            console.log(`[RangeSwap] Deleted ${deleteResult.count} conflicting schedules.`);
+
+            // 3. The Reconstruction (CREATE Phase)
+
+            // Recreate Source's timeline using Target's shifts
+            if (targetShifts.length > 0) {
+                await tx.schedule.createMany({
+                    data: targetShifts.map(s => ({
+                        analystId: sourceAnalystId, // Source gets Target's shift
+                        date: s.date,
+                        shiftType: s.shiftType,
+                        isScreener: s.isScreener,
+                        regionId: s.regionId
+                    }))
+                });
+                console.log(`[RangeSwap] Created ${targetShifts.length} shifts for Source (from Target).`);
+            }
+
+            // Recreate Target's timeline using Source's shifts
+            if (sourceShifts.length > 0) {
+                await tx.schedule.createMany({
+                    data: sourceShifts.map(s => ({
+                        analystId: targetAnalystId, // Target gets Source's shift
+                        date: s.date,
+                        shiftType: s.shiftType,
+                        isScreener: s.isScreener,
+                        regionId: s.regionId
+                    }))
+                });
+                console.log(`[RangeSwap] Created ${sourceShifts.length} shifts for Target (from Source).`);
+            }
+
+            // 4. Audit Log (One record for the block swap?)
+            // We can log it as a "Manager Swap" on the start date.
+            await tx.shiftSwap.create({
+                data: {
+                    requestingAnalystId: sourceAnalystId,
+                    requestingShiftDate: startDate, // Marker for start
+                    targetAnalystId: targetAnalystId,
+                    targetShiftDate: endDate,       // Marker for end (semantics abuse, but works for audit)
+                    status: 'APPROVED',
+                    managerNotified: true,
+                    isBroadcast: false // It's a direct force swap
+                }
+            });
         });
     }
 }

@@ -6,7 +6,9 @@ import { Analyst, Schedule, apiService } from '../../../services/api';
 import moment from 'moment';
 import GlassCard from '../../common/GlassCard';
 import Button from '../../ui/Button';
+
 import SpringDropdown from '../../ui/SpringDropdown';
+import ShiftSwapTab from './ShiftSwapTab';
 
 interface EditScheduleModalProps {
     isOpen: boolean;
@@ -43,6 +45,8 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+    const [activeTab, setActiveTab] = useState<'edit' | 'swap'>('edit');
 
     const [validationViolations, setValidationViolations] = useState<any[]>([]);
     const [isValidating, setIsValidating] = useState(false);
@@ -175,175 +179,215 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
                     </button>
                 </div>
 
-                {error && (
-                    <div className="bg-red-100 dark:bg-red-900/50 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 p-4 rounded-md mb-4 text-sm font-medium flex items-start gap-2">
-                        <span className="text-lg">⚠️</span>
-                        <span>{error}</span>
+                {/* Tab Switcher for Managers (Single Edit Only) */}
+                {isManager && !isMulti && (
+                    <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+                        <button
+                            className={`px-4 py-2 text-sm font-medium ${activeTab === 'edit'
+                                ? 'text-primary border-b-2 border-primary'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                }`}
+                            onClick={() => setActiveTab('edit')}
+                        >
+                            Edit Details
+                        </button>
+                        <button
+                            className={`px-4 py-2 text-sm font-medium ${activeTab === 'swap'
+                                ? 'text-primary border-b-2 border-primary'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                }`}
+                            onClick={() => setActiveTab('swap')}
+                        >
+                            Manager Swap
+                        </button>
                     </div>
                 )}
 
-                {/* Validation Violations Display */}
-                {!showDeleteConfirm && validationViolations.length > 0 && (
-                    <div className="mb-4 space-y-2">
-                        {validationViolations.map((violation, index) => {
-                            // Simplify verbose messages
-                            let description = violation.description;
-                            if (description.includes('assigned to') && description.includes('but scheduled for')) {
-                                const assignedShift = description.match(/assigned to (\w+) shift/)?.[1];
-                                if (assignedShift) {
-                                    description = `Analyst is restricted to ${assignedShift} shifts only.`;
-                                }
-                            }
-
-                            return (
-                                <div
-                                    key={index}
-                                    className={`p-3 rounded-md text-sm border ${violation.type === 'HARD'
-                                        ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'
-                                        : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200'
-                                        }`}
-                                >
-                                    <div className="font-medium">{description}</div>
-                                    {violation.suggestedFix && (
-                                        <div className="mt-1 text-xs opacity-90 font-medium">
-                                            💡 {violation.suggestedFix}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {showDeleteConfirm ? (
-                    <div className="space-y-4">
-                        <p className="text-sm text-gray-700 dark:text-gray-200">
-                            Are you sure you want to delete {isMulti ? 'these schedules' : 'this schedule'}? This action cannot be undone.
-                        </p>
-                        <div className="flex justify-end space-x-3">
-                            <Button
-                                onClick={() => setShowDeleteConfirm(false)}
-                                variant="secondary"
-                                disabled={deleteLoading}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleDelete}
-                                variant="danger"
-                                isLoading={deleteLoading}
-                                disabled={deleteLoading}
-                            >
-                                Confirm Delete
-                            </Button>
-                        </div>
-                    </div>
+                {activeTab === 'swap' && isManager && !isMulti ? (
+                    <ShiftSwapTab
+                        sourceAnalystId={analystId}
+                        sourceDate={startDate}
+                        sourceSchedule={targetSchedules[0] || null}
+                        analysts={analysts}
+                        onSuccess={() => {
+                            onSuccess();
+                            onClose();
+                        }}
+                        onCancel={onClose}
+                    />
                 ) : (
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Start Date</label>
-                                <input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
-                                    required
-                                />
+                    <>
+                        {error && (
+                            <div className="bg-red-100 dark:bg-red-900/50 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 p-4 rounded-md mb-4 text-sm font-medium flex items-start gap-2">
+                                <span className="text-lg">⚠️</span>
+                                <span>{error}</span>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">End Date</label>
-                                <input
-                                    type="date"
-                                    value={endDate}
-                                    disabled
-                                    className="w-full px-3 py-2 rounded-md border border-input bg-muted text-muted-foreground cursor-not-allowed"
-                                />
-                            </div>
-                        </div>
+                        )}
 
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Analyst</label>
-                            <SpringDropdown
-                                required
-                                value={analystId}
-                                onChange={(val) => {
-                                    setAnalystId(val);
-                                    const selectedAnalyst = analysts.find(a => a.id === val);
-                                    if (selectedAnalyst) {
-                                        setShiftType(selectedAnalyst.shiftType);
+                        {/* Validation Violations Display */}
+                        {!showDeleteConfirm && validationViolations.length > 0 && (
+                            <div className="mb-4 space-y-2">
+                                {validationViolations.map((violation, index) => {
+                                    // Simplify verbose messages
+                                    let description = violation.description;
+                                    if (description.includes('assigned to') && description.includes('but scheduled for')) {
+                                        const assignedShift = description.match(/assigned to (\w+) shift/)?.[1];
+                                        if (assignedShift) {
+                                            description = `Analyst is restricted to ${assignedShift} shifts only.`;
+                                        }
                                     }
-                                }}
-                                options={analysts.map((analyst) => ({
-                                    value: analyst.id,
-                                    label: `${analyst.name} (${analyst.shiftType})`
-                                }))}
-                                placeholder="Select Analyst"
-                            />
-                        </div>
 
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Shift Type</label>
-                            <div className="flex space-x-4">
-                                {shiftDefinitions.map((def) => (
-                                    <label key={def.id} className="flex items-center space-x-2 cursor-pointer">
+                                    return (
+                                        <div
+                                            key={index}
+                                            className={`p-3 rounded-md text-sm border ${violation.type === 'HARD'
+                                                ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200'
+                                                : 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200'
+                                                }`}
+                                        >
+                                            <div className="font-medium">{description}</div>
+                                            {violation.suggestedFix && (
+                                                <div className="mt-1 text-xs opacity-90 font-medium">
+                                                    💡 {violation.suggestedFix}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {showDeleteConfirm ? (
+                            <div className="space-y-4">
+                                <p className="text-sm text-gray-700 dark:text-gray-200">
+                                    Are you sure you want to delete {isMulti ? 'these schedules' : 'this schedule'}? This action cannot be undone.
+                                </p>
+                                <div className="flex justify-end space-x-3">
+                                    <Button
+                                        onClick={() => setShowDeleteConfirm(false)}
+                                        variant="secondary"
+                                        disabled={deleteLoading}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={handleDelete}
+                                        variant="danger"
+                                        isLoading={deleteLoading}
+                                        disabled={deleteLoading}
+                                    >
+                                        Confirm Delete
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Start Date</label>
                                         <input
-                                            type="radio"
-                                            checked={shiftType === def.name}
-                                            onChange={() => setShiftType(def.name)}
-                                            className="text-primary focus:ring-primary"
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+                                            required
                                         />
-                                        <span className="capitalize">{def.name.toLowerCase().includes('shift') ? def.name : `${def.name} Shift`}</span>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">End Date</label>
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            disabled
+                                            className="w-full px-3 py-2 rounded-md border border-input bg-muted text-muted-foreground cursor-not-allowed"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Analyst</label>
+                                    <SpringDropdown
+                                        required
+                                        value={analystId}
+                                        onChange={(val) => {
+                                            setAnalystId(val);
+                                            const selectedAnalyst = analysts.find(a => a.id === val);
+                                            if (selectedAnalyst) {
+                                                setShiftType(selectedAnalyst.shiftType);
+                                            }
+                                        }}
+                                        options={analysts.map((analyst) => ({
+                                            value: analyst.id,
+                                            label: `${analyst.name} (${analyst.shiftType})`
+                                        }))}
+                                        placeholder="Select Analyst"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Shift Type</label>
+                                    <div className="flex space-x-4">
+                                        {shiftDefinitions.map((def) => (
+                                            <label key={def.id} className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    checked={shiftType === def.name}
+                                                    onChange={() => setShiftType(def.name)}
+                                                    className="text-primary focus:ring-primary"
+                                                />
+                                                <span className="capitalize">{def.name.toLowerCase().includes('shift') ? def.name : `${def.name} Shift`}</span>
+                                            </label>
+                                        ))}
+                                        {shiftDefinitions.length === 0 && (
+                                            <span className="text-sm text-gray-500">Loading shift types...</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="editIsScreener"
+                                        checked={isScreener}
+                                        onChange={(e) => setIsScreener(e.target.checked)}
+                                        className="h-4 w-4 rounded border-border"
+                                    />
+                                    <label htmlFor="editIsScreener" className="text-sm font-medium cursor-pointer">
+                                        Assign as Screener
                                     </label>
-                                ))}
-                                {shiftDefinitions.length === 0 && (
-                                    <span className="text-sm text-gray-500">Loading shift types...</span>
-                                )}
-                            </div>
-                        </div>
+                                </div>
 
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="checkbox"
-                                id="editIsScreener"
-                                checked={isScreener}
-                                onChange={(e) => setIsScreener(e.target.checked)}
-                                className="h-4 w-4 rounded border-border"
-                            />
-                            <label htmlFor="editIsScreener" className="text-sm font-medium cursor-pointer">
-                                Assign as Screener
-                            </label>
-                        </div>
-
-                        <div className="flex justify-between items-center mt-6 pt-4 border-t border-border">
-                            <Button
-                                type="button"
-                                onClick={() => setShowDeleteConfirm(true)}
-                                variant="danger"
-                                disabled={loading}
-                            >
-                                Delete {isMulti ? 'All' : ''}
-                            </Button>
-                            <div className="flex space-x-3">
-                                <Button
-                                    type="button"
-                                    onClick={onClose}
-                                    variant="secondary"
-                                    disabled={loading}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    variant="primary"
-                                    isLoading={loading}
-                                    disabled={loading || validationViolations.some(v => v.type === 'HARD')}
-                                >
-                                    Save Changes
-                                </Button>
-                            </div>
-                        </div>
-                    </form>
+                                <div className="flex justify-between items-center mt-6 pt-4 border-t border-border">
+                                    <Button
+                                        type="button"
+                                        onClick={() => setShowDeleteConfirm(true)}
+                                        variant="danger"
+                                        disabled={loading}
+                                    >
+                                        Delete {isMulti ? 'All' : ''}
+                                    </Button>
+                                    <div className="flex space-x-3">
+                                        <Button
+                                            type="button"
+                                            onClick={onClose}
+                                            variant="secondary"
+                                            disabled={loading}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            type="submit"
+                                            variant="primary"
+                                            isLoading={loading}
+                                            disabled={loading || validationViolations.some(v => v.type === 'HARD')}
+                                        >
+                                            Save Changes
+                                        </Button>
+                                    </div>
+                                </div>
+                            </form>
+                        )}
+                    </>
                 )}
             </GlassCard>
         </div>,

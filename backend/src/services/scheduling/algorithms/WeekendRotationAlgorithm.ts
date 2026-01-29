@@ -173,6 +173,12 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
         continue;
       }
 
+      // DEBUG: Trace Bish specifically
+      if (analyst.name.includes('Bish')) {
+        const plan = rotationPlans.find(p => p.analystId === analyst.id && moment(currentDate).isBetween(p.startDate, p.endDate, 'day', '[]'));
+        console.log(`🕵️‍♂️ [BishDebug] ${dateStr}: Pattern=${plan?.pattern}, ShouldWork=${shouldWork}, Streak=${streak}, Vacation=${onVacation}`);
+      }
+
       available.push(analyst);
     }
 
@@ -197,7 +203,93 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
 
     // Select top N analysts based on weekendAnalystsPerDay limit
     console.log(`🔍 [SliceDebug] limit=${weekendAnalystsPerDay}, sorted=${sortedAnalysts.length}`);
-    const selectedAnalysts = sortedAnalysts.slice(0, weekendAnalystsPerDay);
+
+    // MANDATORY PATTERN CHECK:
+    const dayOfWeek = moment.utc(currentDate).day();
+    const mandatoryAnalysts: any[] = [];
+    const optionalAnalysts: any[] = [];
+
+    // Group 1: Mandatory Contract (Pattern requires this specific day)
+    for (const analyst of sortedAnalysts) {
+      const plan = rotationPlans.find(p => p.analystId === analyst.id && moment(currentDate).isBetween(p.startDate, p.endDate, 'day', '[]'));
+      const patternName = plan?.pattern || '';
+
+      const isMandatorySat = dayOfWeek === 6 && patternName === 'TUE_SAT';
+      const isMandatorySun = dayOfWeek === 0 && patternName === 'SUN_THU';
+
+      if (isMandatorySat || isMandatorySun) {
+        mandatoryAnalysts.push(analyst);
+      } else {
+        optionalAnalysts.push(analyst);
+      }
+    }
+
+    // Fill output: Mandatory first, then Optional up to limit
+    const finalSelection: any[] = [...mandatoryAnalysts];
+
+    // Fill remaining slots with Pattern-Eligible Optional analysts
+    // Note: We respect the limit for optionals, but Mandatory forced their way in.
+    if (finalSelection.length < weekendAnalystsPerDay) {
+      const needed = weekendAnalystsPerDay - finalSelection.length;
+      const recruited = optionalAnalysts.slice(0, needed);
+      recruited.forEach(r => finalSelection.push(r));
+    }
+
+    // COMMON SENSE FALLBACK (Availability First):
+    // If we STILL have gaps (because no one matched the Pattern ticket),
+    // we recruit from the GENERAL POOL (ignoring the 'shouldWork' pattern constraint).
+    if (finalSelection.length < weekendAnalystsPerDay) {
+      console.log(`⚠️ [WeekendRotation] Gap detected for ${dateStr}! Triggering Common Sense Fallback.`);
+      const needed = weekendAnalystsPerDay - finalSelection.length;
+
+      // Find candidates from the original POOL who are NOT already selected
+      // We re-apply only HARD/SAFETY constraints (Vacation, Streak)
+      // We IGNORE the 'shouldWork' (Pattern) constraint
+      const fallbackCandidates = pool.filter(analyst => {
+        // fast skip if already picked
+        if (finalSelection.some(s => s.id === analyst.id)) return false;
+
+        // Check Vacation
+        const onVacation = analyst.vacations?.some((v: any) =>
+          new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate
+        ) || false;
+        if (onVacation) return false;
+
+        // Check Streak (Safety First - don't burn them out)
+        const streak = analystStreaks.get(analyst.id) || 0;
+        if (streak >= maxConsecutiveDays) return false;
+
+        return true;
+      });
+
+      // Calculate fairness for these candidates (if not already in map)
+      // (They should be in map if fairnessCalculator ran on 'whole pool', but previous call ran on 'available' subset)
+      // Let's assume fairnessData covers the subset passed to it.
+      // We might need to look up scores or assume 0 (or re-calc, but expensive).
+      // Safest: Use existing scores if available, else prioritized by lower streak?
+      // Actually, fairnessCalculator usually takes 'available'.
+      // Let's sort by streak (freshest first) then arbitrary/fairness if available.
+
+      const sortedFallback = fallbackCandidates.sort((a, b) => {
+        const scoreA = fairnessData.scores.get(a.id) || 0;
+        const scoreB = fairnessData.scores.get(b.id) || 0;
+        // Preference: High Fairness Score -> Low Streak
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        return (analystStreaks.get(a.id) || 0) - (analystStreaks.get(b.id) || 0);
+      });
+
+      const recruits = sortedFallback.slice(0, needed);
+      recruits.forEach(r => {
+        console.log(`🚑 [Fallback] Recruited ${r.name} to fill empty slot.`);
+        finalSelection.push(r);
+      });
+    }
+
+    const selectedAnalysts = finalSelection;
+
+    if (mandatoryAnalysts.length > weekendAnalystsPerDay) {
+      console.log(`⚠️ [WeekendRotation] Override: Assigned ${mandatoryAnalysts.length} mandatory analysts (Limit: ${weekendAnalystsPerDay})`);
+    }
 
     // Build proposed schedule entries
     const assignments: any[] = [];
@@ -291,30 +383,66 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
 
     console.log(`🔄 Planning rotation for date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
 
-    // Get morning and evening analysts
+    // UNIFIED POOL REFACTOR: Treat all analysts as one pool for weekend rotation
+    // This allows equitable rotation regardless of AM/PM status (10 AM + 3 PM = 13 Total Pool)
+    console.log(`🔄 Planning rotation for FULL POOL of ${analysts.length} analysts`);
+
+    const allRotationPlans = await rotationManager.planRotation(
+      this.name,
+      'WEEKEND', // Use generic context
+      startDate,
+      endDate,
+      analysts,
+      existingSchedules
+    );
+
+    // For compatibility with downstream logic, we can still filter these plans if needed,
+    // or just pass them all. The key was generating them from a Shared State.
+    console.log(`📊 Generated ${allRotationPlans.length} rotation plans from unified pool`);
+
+    // Maintain AM/PM lists for shift assignment (not rotation selection)
     const morningAnalysts = analysts.filter((a: any) => ['MORNING', 'AM'].includes(a.shiftType));
     const eveningAnalysts = analysts.filter((a: any) => ['EVENING', 'PM'].includes(a.shiftType));
 
-    // Plan rotations for morning and evening shifts
-    const morningRotationPlans = await rotationManager.planRotation(
-      this.name,
-      'AM', // Normalize to AM/PM or stick to MORNING? Let's use AM for AMR context
-      startDate,
-      endDate,
-      morningAnalysts,
-      existingSchedules
-    );
+    // Fallback variables for existing logic references
+    const morningRotationPlans = allRotationPlans.filter(p => morningAnalysts.some((a: any) => a.id === p.analystId));
+    // Note: evening plans now come from the SAME fair pool distribution
+    const eveningRotationPlans = allRotationPlans.filter(p => eveningAnalysts.some((a: any) => a.id === p.analystId));
 
-    const eveningRotationPlans = await rotationManager.planRotation(
-      this.name,
-      'PM',
-      startDate,
-      endDate,
-      eveningAnalysts,
-      existingSchedules
-    );
 
-    console.log(`📊 Generated ${morningRotationPlans.length} morning rotation plans and ${eveningRotationPlans.length} evening rotation plans`);
+    // ============ AM -> PM ROTATION INTEGRATION ============
+    // Fix: Integrate the AM->PM rotation logic that was missing (but present in IntelligentScheduler)
+
+    // 1. Create simple absence service adapter
+    const simpleAbsenceService = {
+      isAnalystAbsent: async (analystId: string, dateStr: string) => {
+        const analyst = analysts.find(a => a.id === analystId);
+        if (!analyst) return true;
+        return analyst.vacations?.some((v: any) =>
+          new Date(v.startDate) <= new Date(dateStr) &&
+          new Date(v.endDate) >= new Date(dateStr)
+        ) || false;
+      }
+    };
+
+    // 2. Plan AM->PM rotations
+    let amToPmRotationMap = new Map<string, string[]>();
+    const eveningAnalystCount = eveningAnalysts.length;
+
+    // Only separate if we have distinct pools
+    if (morningAnalysts.length > 0 && eveningAnalysts.length > 0) {
+      console.log(`🔄 Planning AM->PM rotations to balance ${morningAnalysts.length} AM vs ${eveningAnalystCount} PM analysts`);
+      amToPmRotationMap = await rotationManager.planAMToPMRotation(
+        startDate,
+        endDate,
+        morningAnalysts,
+        eveningAnalystCount,
+        existingSchedules,
+        simpleAbsenceService,
+        morningRotationPlans
+      );
+    }
+
 
     // Track weekend assignments for within-generation fairness
     const simulatedWeekendSchedules = [...existingSchedules];
@@ -399,6 +527,10 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
             new Date(v.endDate) >= currentDate
           ) || false;
           const streak = analystStreaks.get(analyst.id) || 0;
+
+          // Unconditional Log
+          console.log(`🕵️‍♂️ [FilterAudit] ${analyst.name} (${dateStr}): Streak=${streak}, Vacation=${onVacation}`);
+
           return !onVacation && streak < maxConsecutiveDays;
         });
 
@@ -412,14 +544,86 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
           );
 
           // Select the analyst(s) with highest fairness score (least recently rotated)
+          // Select the analyst(s) with highest fairness score (least recently rotated)
           const sortedAnalysts = availableAnalysts.sort((a, b) => {
             const scoreA = fairnessData.scores.get(a.id) || 0;
             const scoreB = fairnessData.scores.get(b.id) || 0;
             return scoreB - scoreA; // Higher score = more fair to select
           });
 
-          // Take only remaining slots (Phase 2 fix)
-          const selectedWeekendAnalysts = sortedAnalysts.slice(0, remainingSlots);
+          // MANDATORY PATTERN CHECK (Inlined Fix):
+          const dayOfWeek = moment.utc(currentDate).day();
+          const mandatoryAnalysts: any[] = [];
+          const optionalAnalysts: any[] = [];
+
+          for (const analyst of sortedAnalysts) {
+            // Find rotation plan for this analyst
+            // Note: allRotationPlans is available from scope above (line 298)
+            const plan = allRotationPlans.find(p => p.analystId === analyst.id && moment(currentDate).isBetween(p.startDate, p.endDate, 'day', '[]'));
+            const patternName = plan?.pattern || '';
+
+            const isMandatorySat = dayOfWeek === 6 && patternName === 'TUE_SAT';
+            const isMandatorySun = dayOfWeek === 0 && patternName === 'SUN_THU';
+
+            if (analyst.name.includes('Bish')) {
+              console.log(`🕵️‍♂️ [BishDebugInlined] ${dateStr}: PlanFound=${!!plan}, Pattern=${patternName}, Day=${dayOfWeek}, IsMandatory=${isMandatorySat}`);
+            }
+
+            if (isMandatorySat || isMandatorySun) {
+              mandatoryAnalysts.push(analyst);
+            } else {
+              optionalAnalysts.push(analyst);
+            }
+          }
+
+          // Fill output: Mandatory first, then Optional up to limit
+          const finalSelection: any[] = [...mandatoryAnalysts];
+
+          if (finalSelection.length < remainingSlots) {
+            const needed = remainingSlots - finalSelection.length;
+            const recruited = optionalAnalysts.slice(0, needed);
+            recruited.forEach(r => finalSelection.push(r));
+          }
+
+          // COMMON SENSE FALLBACK (Inlined):
+          if (finalSelection.length < remainingSlots) {
+            console.log(`⚠️ [WeekendRotation] Gap detected (Inlined) for ${dateStr}! Triggering Fallback.`);
+            const needed = remainingSlots - finalSelection.length;
+
+            // Reuse 'allRegionalAnalysts' (original pool)
+            const fallbackCandidates = allRegionalAnalysts.filter(analyst => {
+              if (finalSelection.some(s => s.id === analyst.id)) return false;
+
+              const onVacation = analyst.vacations?.some((v: any) =>
+                new Date(v.startDate) <= currentDate && new Date(v.endDate) >= currentDate
+              ) || false;
+              if (onVacation) return false;
+
+              const streak = analystStreaks.get(analyst.id) || 0;
+              if (streak >= maxConsecutiveDays) return false;
+
+              return true;
+            });
+
+            const sortedFallback = fallbackCandidates.sort((a, b) => {
+              const scoreA = fairnessData.scores.get(a.id) || 0;
+              const scoreB = fairnessData.scores.get(b.id) || 0;
+              if (scoreA !== scoreB) return scoreB - scoreA;
+              return (analystStreaks.get(a.id) || 0) - (analystStreaks.get(b.id) || 0);
+            });
+
+            const recruits = sortedFallback.slice(0, needed);
+            recruits.forEach(r => {
+              console.log(`🚑 [Fallback] Recruited ${r.name} to fill empty slot.`);
+              finalSelection.push(r);
+            });
+          }
+
+          const selectedWeekendAnalysts = finalSelection;
+
+          if (mandatoryAnalysts.length > remainingSlots) {
+            console.log(`⚠️ [WeekendRotation] Override: Assigned ${mandatoryAnalysts.length} mandatory analysts (Limit: ${remainingSlots} left)`);
+          }
 
           for (const analyst of selectedWeekendAnalysts) {
             // Weekend shifts use "WEEKEND" as shift type or the analyst's original shift
@@ -464,17 +668,26 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
           const streak = analystStreaks.get(analyst.id) || 0;
 
           if (shouldWork && !onVacation && streak < maxConsecutiveDays) {
+
+            // CHECK AM->PM ROTATION
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const rotatedIds = amToPmRotationMap.get(dateStr) || [];
+            const isRotatedToPM = rotatedIds.includes(analyst.id);
+            const finalShiftType = isRotatedToPM ? 'PM' : 'AM';
+            const assignmentType = isRotatedToPM ? 'AM_TO_PM_ROTATION' : 'NEW_SCHEDULE';
+
             // Create schedule entry
             const schedule = this.createScheduleEntry(
               analyst,
               currentDate,
-              'AM',
+              finalShiftType,
               false,
               existingSchedules,
               result.overwrites
             );
 
             if (schedule) {
+              schedule.type = assignmentType; // Override type if needed
               result.proposedSchedules.push(schedule);
             }
           }
@@ -991,8 +1204,27 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
         }
       });
 
-      const morningAnalysts = workingAnalysts.filter((a: any) => ['MORNING', 'AM'].includes(a.shiftType));
-      const eveningAnalysts = workingAnalysts.filter((a: any) => ['EVENING', 'PM'].includes(a.shiftType));
+      // DYNAMIC POOL SELECTION: Use the ACTUAL scheduled shift type, not the static analyst property
+      // This ensures AM analysts rotated to PM are considered for PM screening
+      const morningAnalysts = workingAnalysts.filter((a: any) => {
+        // Find their schedule for today
+        const schedule = regularSchedules.find(s => s.date === dateStr && s.analystId === a.id) ||
+          existingSchedules.find(s => (s as any).date.toISOString().split('T')[0] === dateStr && (s as any).analystId === a.id);
+
+        if (!schedule) return ['MORNING', 'AM'].includes(a.shiftType); // Fallback
+        const sType = (schedule as any).shiftType || schedule.shiftType;
+        return ['MORNING', 'AM'].includes(sType);
+      });
+
+      const eveningAnalysts = workingAnalysts.filter((a: any) => {
+        // Find their schedule for today
+        const schedule = regularSchedules.find(s => s.date === dateStr && s.analystId === a.id) ||
+          existingSchedules.find(s => (s as any).date.toISOString().split('T')[0] === dateStr && (s as any).analystId === a.id);
+
+        if (!schedule) return ['EVENING', 'PM'].includes(a.shiftType); // Fallback
+        const sType = (schedule as any).shiftType || schedule.shiftType;
+        return ['EVENING', 'PM'].includes(sType);
+      });
 
       const assignScreener = (shiftAnalysts: any[], shiftType: string) => {
         if (shiftAnalysts.length > 0) {

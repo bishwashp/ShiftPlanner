@@ -94,4 +94,76 @@ router.post('/:id/approve', async (req: Request, res: Response) => {
     }
 });
 
+// Manager Force Swap Endpoint
+router.post('/manager', async (req: Request, res: Response) => {
+    try {
+        const { sourceAnalystId, sourceDate, targetAnalystId, targetDate, force } = req.body;
+
+        await shiftSwapService.executeManagerSwap(
+            sourceAnalystId,
+            new Date(sourceDate),
+            targetAnalystId,
+            new Date(targetDate),
+            { force }
+        );
+
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('Error executing manager swap:', error);
+
+        // Handle Validation Errors specifically
+        if (error.message && error.message.startsWith('{')) {
+            try {
+                const errObj = JSON.parse(error.message);
+                if (errObj.type === 'CONSTRAINT_VIOLATION') {
+                    return res.status(409).json({
+                        error: 'Constraint Violation',
+                        details: errObj
+                    });
+                }
+            } catch (e) {
+                // Not JSON
+            }
+        }
+
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Manager Range Swap Endpoint (Time-Slice Exchange)
+router.post('/manager/range-swap', async (req: Request, res: Response) => {
+    try {
+        const { sourceAnalystId, targetAnalystId, startDate, endDate, force } = req.body;
+
+        await shiftSwapService.executeManagerRangeSwap(
+            sourceAnalystId,
+            targetAnalystId,
+            new Date(startDate),
+            new Date(endDate),
+            { force }
+        );
+
+        res.json({ success: true });
+    } catch (error: any) {
+        console.error('Error executing manager range swap:', error);
+
+        // Handle Validation Errors specifically
+        if (error.message && error.message.startsWith('{')) {
+            try {
+                const errObj = JSON.parse(error.message);
+                if (errObj.type === 'CONSTRAINT_VIOLATION') {
+                    return res.status(409).json({
+                        error: 'Constraint Violation',
+                        details: errObj
+                    });
+                }
+            } catch (e) {
+                // Not JSON
+            }
+        }
+
+        res.status(500).json({ error: error.message });
+    }
+});
+
 export default router;

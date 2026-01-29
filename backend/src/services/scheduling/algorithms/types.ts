@@ -28,7 +28,7 @@ export interface ProposedSchedule {
     shiftType: string;
     analystShiftType?: string;
     isScreener: boolean;
-    type: 'NEW_SCHEDULE' | 'OVERWRITE_SCHEDULE';
+    type: 'NEW_SCHEDULE' | 'OVERWRITE_SCHEDULE' | 'AM_TO_PM_ROTATION';
     assignmentReason?: AssignmentReason;
     fairnessScore?: number;
     constraintSatisfaction?: ConstraintSatisfaction;

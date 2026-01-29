@@ -3,7 +3,7 @@ import moment from 'moment-timezone';
 import HolidayService from './HolidayService';
 import AbsenceService from './AbsenceService';
 import { SchedulingStrategy } from './scheduling/strategies/SchedulingStrategy';
-import { SchedulingContext, SchedulingResult, ProposedSchedule } from './scheduling/algorithms/types';
+import { SchedulingContext, SchedulingResult, ProposedSchedule, DEFAULT_ALGORITHM_CONFIG } from './scheduling/algorithms/types';
 import { RotationManager } from './scheduling/RotationManager';
 import { fairnessCalculator } from './scheduling/FairnessCalculator';
 import { constraintEngine, ConstraintEngine } from './scheduling/algorithms/ConstraintEngine';
@@ -97,11 +97,14 @@ export class IntelligentScheduler implements SchedulingStrategy {
     console.log(`🚀 Starting Intelligent Scheduler with ${context.analysts.length} analysts`);
 
     // Use default config if not provided
+    // Use config from context, or fall back to "Known Good" Manual Script configuration
+    // (Overrides DEFAULT_ALGORITHM_CONFIG to ensure parity with run_generation.ts)
     const config = context.algorithmConfig || {
-      optimizationStrategy: 'GREEDY',
-      maxIterations: 100,
-      fairnessWeight: 0.5,
-      constraintWeight: 0.5
+      ...DEFAULT_ALGORITHM_CONFIG,
+      optimizationStrategy: 'GREEDY', // Hill Climbing caused regression in weekend balance
+      fairnessWeight: 1.0,            // Increased from 0.4 to prioritize fairness
+      screenerAssignmentStrategy: 'ROUND_ROBIN', // Match script
+      maxIterations: 1 // Greedy doesn't iterate much
     };
 
     // Multi-Region Validation
@@ -282,7 +285,7 @@ export class IntelligentScheduler implements SchedulingStrategy {
 
       if (sourceAnalysts.length > 0) {
         amToPmRotationMap = await this.rotationManager.planAMToPMRotation(
-          startDate, endDate, sourceAnalysts, targetAnalysts.length, existingSchedules, this.absenceService
+          startDate, endDate, sourceAnalysts, targetAnalysts.length, existingSchedules, this.absenceService, rotationPlans
         );
       }
     }

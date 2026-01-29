@@ -18,6 +18,7 @@ interface FairnessWeightsConfig {
     weekendPenalty: number;
     timeBonus: number;
     balanceBonus: number;
+    continuityBonus: number; // NEW: Bonus for working contiguous pattern (e.g. Sat -> Sun)
     maxWeekendPenalty: number;
     maxTimeBonus: number;
     maxBalanceBonus: number;
@@ -58,7 +59,8 @@ export class FairnessCalculator {
           balanceBonus: 30,
           maxWeekendPenalty: 100,
           maxTimeBonus: 50,
-          maxBalanceBonus: 30
+          maxBalanceBonus: 30,
+          continuityBonus: 5000 // Massive bonus to override recency penalty
         },
         scoringFactors: {
           weekendDaysMultiplier: 2,
@@ -70,14 +72,6 @@ export class FairnessCalculator {
     }
   }
 
-  /**
-   * Calculate fairness scores for analysts to determine who should enter weekend rotation
-   * 
-   * @param analysts Array of analysts
-   * @param historicalSchedules Array of historical schedules
-   * @param currentDate Current date for time-based calculations
-   * @returns Map of analyst IDs to fairness scores (higher score = more fair to select)
-   */
   /**
    * Calculate fairness scores and track last rotation dates
    */
@@ -141,16 +135,20 @@ export class FairnessCalculator {
 
       // Factor 1: Fewer weekend days worked = higher score
       const weekendDays = weekendDaysWorked.get(analyst.id) || 0;
-      // UNCAP PENALTY: Remove Math.min to allow linear penalty growth beyond 100
-      // score += weights.weekendPenalty - Math.min(weekendDays * factors.weekendDaysMultiplier, weights.maxWeekendPenalty);
       score += weights.weekendPenalty - (weekendDays * factors.weekendDaysMultiplier);
 
       // Factor 2: Time since last rotation (more time = higher score)
       const lastRotation = lastRotationDate.get(analyst.id) || new Date(0);
       const daysSinceLastRotation = Math.max(0, moment.utc(currentDate).diff(moment.utc(lastRotation), 'days'));
+
+      // STRICT RECENCY PENALTY: Prevent consecutive weekend assignments
+      if (daysSinceLastRotation < 14) {
+        score -= 2000;
+      }
+
       score += Math.min(daysSinceLastRotation / factors.timeDivisor, weights.maxTimeBonus);
 
-      // Factor 3: Balance between Saturday and Sunday (more balanced = higher score)
+      // Factor 3: Balance between Saturday and Sunday
       const saturdays = saturdaysWorked.get(analyst.id) || 0;
       const sundays = sundaysWorked.get(analyst.id) || 0;
       const totalWeekendDays = saturdays + sundays;
@@ -159,10 +157,22 @@ export class FairnessCalculator {
         const balanceRatio = Math.min(saturdays, sundays) / Math.max(saturdays, sundays);
         score += balanceRatio * weights.maxBalanceBonus;
       } else {
-        score += weights.maxBalanceBonus; // Max bonus for no history (new analyst)
+        score += weights.maxBalanceBonus; // Max bonus for no history
       }
 
-      // Store final score
+      // Factor 4: Continuity Bonus
+      // If analyst worked YESTERDAY (and it was Saturday), they are likely in a TUE-SAT -> SUN-THU flow.
+      const yesterday = moment.utc(currentDate).subtract(1, 'days');
+      if (lastRotation.getTime() === yesterday.toDate().getTime()) {
+        const yesterdayDay = yesterday.day();
+        const todayDay = moment.utc(currentDate).day();
+
+        if (yesterdayDay === 6 && todayDay === 0) {
+          console.log(`🔗 CONTINUITY BONUS for ${analyst.name}: Worked Sat, needs Sun.`);
+          score += (weights.continuityBonus || 5000);
+        }
+      }
+
       fairnessScores.set(analyst.id, score);
     });
 
@@ -171,26 +181,18 @@ export class FairnessCalculator {
 
   /**
    * Select the next analyst to enter rotation based on Strict LRU (Least Recently Used)
-   * 
-   * @param analysts Array of analysts
-   * @param fairnessData Object containing scores and last rotation dates
-   * @param unavailableAnalystIds Set of analyst IDs who are unavailable
-   * @returns The selected analyst or null if none available
    */
   selectNextAnalystForRotation(
     analysts: any[],
     fairnessData: { scores: Map<string, number>; lastRotationDates: Map<string, Date> },
     unavailableAnalystIds: Set<string> = new Set()
   ): any | null {
-    // Filter out unavailable analysts
     const availableAnalysts = analysts.filter(a => !unavailableAnalystIds.has(a.id));
 
     if (availableAnalysts.length === 0) {
       return null;
     }
 
-    // Sort by Last Rotation Date (Ascending - Oldest First)
-    // Tie-breaker: Fairness Score (Descending - Highest First)
     availableAnalysts.sort((a, b) => {
       const dateA = fairnessData.lastRotationDates.get(a.id) || new Date(0);
       const dateB = fairnessData.lastRotationDates.get(b.id) || new Date(0);
@@ -199,19 +201,16 @@ export class FairnessCalculator {
         return dateA.getTime() - dateB.getTime(); // Oldest date first
       }
 
-      // Tie-breaker
       const scoreA = fairnessData.scores.get(a.id) || 0;
       const scoreB = fairnessData.scores.get(b.id) || 0;
       return scoreB - scoreA;
     });
 
-    // Return the analyst who rotated longest ago
     return availableAnalysts[0];
   }
 
   /**
    * Calculate fairness scores for AM to PM rotation
-   * Focuses on balancing the number of PM shifts picked up by AM analysts
    */
   calculateAMToPMFairnessScores(
     analysts: any[],
@@ -222,21 +221,17 @@ export class FairnessCalculator {
     const pmShiftsWorked = new Map<string, number>();
     const lastPMRotationDate = new Map<string, Date>();
 
-    // Initialize maps
     analysts.forEach(analyst => {
       pmShiftsWorked.set(analyst.id, 0);
       lastPMRotationDate.set(analyst.id, new Date(0));
     });
 
-    // Calculate historical metrics
     historicalSchedules.forEach(schedule => {
       const scheduleDate = moment.utc(schedule.date);
       const analystId = schedule.analystId;
 
-      // Only care about AM analysts working PM shifts (cross-shift rotation)
       if (!pmShiftsWorked.has(analystId)) return;
 
-      // Track PM/late shift assignments (matches actual analyst shiftType values)
       if (schedule.shiftType === 'PM' || schedule.shiftType === 'EVENING') {
         pmShiftsWorked.set(analystId, (pmShiftsWorked.get(analystId) || 0) + 1);
 
@@ -247,20 +242,19 @@ export class FairnessCalculator {
       }
     });
 
-    // Calculate scores
-    // Higher score = More fair to select (Has worked fewer PM shifts, or rotated longer ago)
     analysts.forEach(analyst => {
       let score = 0;
-
-      // Factor 1: Fewer PM shifts = Higher score
       const shifts = pmShiftsWorked.get(analyst.id) || 0;
-      score += 100 - (shifts * 10); // Simple linear penalty
+      score += 100 - (shifts * 10);
 
-      // Factor 2: Time since last PM rotation = Higher score
       const lastRotation = lastPMRotationDate.get(analyst.id) || new Date(0);
       const daysSince = Math.max(0, moment.utc(currentDate).diff(moment.utc(lastRotation), 'days'));
-      score += Math.min(daysSince, 50); // Cap bonus
 
+      if (daysSince < 7) {
+        score -= 1000;
+      }
+
+      score += Math.min(daysSince, 50);
       fairnessScores.set(analyst.id, score);
     });
 
@@ -280,8 +274,6 @@ export class FairnessCalculator {
 
     if (availableAnalysts.length === 0) return [];
 
-    // Sort by Fairness Score (Descending - Highest First)
-    // Tie-breaker: Last Rotation Date (Ascending - Oldest First)
     availableAnalysts.sort((a, b) => {
       const scoreA = fairnessData.scores.get(a.id) || 0;
       const scoreB = fairnessData.scores.get(b.id) || 0;

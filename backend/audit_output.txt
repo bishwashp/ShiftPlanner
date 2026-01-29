@@ -1,0 +1,77 @@
+🔍 Auditing Bish Schedule for April 4-5...
+👤 Analyst: Bish (cmjdyxxwf0000vu64hn1iz79w)
+Region: cmk0t1uax0000vzkhod02ojnm
+🏖️ On Vacation: false
+
+--- Simulating Saturday April 4 ---
+🚀 Starting WeekendRotationAlgorithm v2.0.0 with 10 analysts
+🔄 Planning rotation for date range: 2026-04-04 to 2026-04-05
+🔄 Planning rotation for FULL POOL of 10 analysts
+🌉 [PipelineBridge] Found History for 2026-03-22: cmjdyxxwn0007vu64gulv10i3 (Assuming SUN_THU start)
+🔒 [RotationDebug] PoolSize: 10, LookbackWeeks: 10, LookbackStart: 2026-01-18
+✓ Loaded fairness weights from config
+🔍 [RotationDebug] Srujana: Score=124, Excluded=true
+🔍 [RotationDebug] Neha: Score=-1890, Excluded=true
+🔍 [RotationDebug] Bish: Score=126, Excluded=true
+🎯 [RotationDebug] Selected for SUN_THU: Swati (Score: -1900)
+🔒 [RotationDebug] PoolSize: 10, LookbackWeeks: 10, LookbackStart: 2026-01-25
+🔍 [RotationDebug] Srujana: Score=125, Excluded=true
+🔍 [RotationDebug] Neha: Score=-1890, Excluded=true
+🔍 [RotationDebug] Bish: Score=127, Excluded=true
+🎯 [RotationDebug] Selected for SUN_THU: Dave (Score: 108)
+📊 Generated 20 rotation plans from unified pool
+🔄 Planning AM->PM rotations to balance 7 AM vs 3 PM analysts
+AM→PM Rotation Check: AM=7, PM=3, ideal=5, surplus=5, deficit=2, rotation=2
+🕵️‍♂️ [FilterAudit] Bish (2026-04-04): Streak=5, Vacation=false
+🕵️‍♂️ [FilterAudit] Sarahi (2026-04-04): Streak=5, Vacation=false
+🕵️‍♂️ [FilterAudit] Swati (2026-04-04): Streak=0, Vacation=false
+🕵️‍♂️ [FilterAudit] Dave (2026-04-04): Streak=5, Vacation=false
+🕵️‍♂️ [FilterAudit] Srujana (2026-04-04): Streak=5, Vacation=false
+🕵️‍♂️ [FilterAudit] Priyesh (2026-04-04): Streak=5, Vacation=false
+🕵️‍♂️ [FilterAudit] Chirag (2026-04-04): Streak=5, Vacation=false
+🕵️‍♂️ [FilterAudit] Neha (2026-04-04): Streak=4, Vacation=false
+🕵️‍♂️ [FilterAudit] Amareshwar (2026-04-04): Streak=5, Vacation=false
+🕵️‍♂️ [FilterAudit] Sukhvinder (2026-04-04): Streak=5, Vacation=false
+🕵️‍♂️ [FilterAudit] Bish (2026-04-05): Streak=0, Vacation=false
+🕵️‍♂️ [FilterAudit] Sarahi (2026-04-05): Streak=0, Vacation=false
+🕵️‍♂️ [FilterAudit] Swati (2026-04-05): Streak=0, Vacation=false
+🕵️‍♂️ [FilterAudit] Dave (2026-04-05): Streak=0, Vacation=false
+🕵️‍♂️ [FilterAudit] Srujana (2026-04-05): Streak=0, Vacation=false
+🕵️‍♂️ [FilterAudit] Priyesh (2026-04-05): Streak=0, Vacation=false
+🕵️‍♂️ [FilterAudit] Chirag (2026-04-05): Streak=0, Vacation=false
+🕵️‍♂️ [FilterAudit] Neha (2026-04-05): Streak=5, Vacation=false
+🕵️‍♂️ [FilterAudit] Amareshwar (2026-04-05): Streak=0, Vacation=false
+🕵️‍♂️ [FilterAudit] Sukhvinder (2026-04-05): Streak=0, Vacation=false
+🕵️‍♂️ [BishDebugInlined] 2026-04-05: PlanFound=true, Pattern=MON_FRI, Day=0, IsMandatory=false
+🌉 [PipelineBridge] Found History for 2026-03-22: cmjdyxxwn0007vu64gulv10i3 (Assuming SUN_THU start)
+🔒 [RotationDebug] PoolSize: 7, LookbackWeeks: 7, LookbackStart: 2026-02-08
+🔍 [RotationDebug] Srujana: Score=124, Excluded=true
+🔍 [RotationDebug] Bish: Score=126, Excluded=false
+🎯 [RotationDebug] Selected for SUN_THU: Dave (Score: 107)
+🔒 [RotationDebug] PoolSize: 7, LookbackWeeks: 7, LookbackStart: 2026-02-15
+🔍 [RotationDebug] Srujana: Score=125, Excluded=false
+🔍 [RotationDebug] Bish: Score=127, Excluded=false
+🎯 [RotationDebug] Selected for SUN_THU: Bish (Score: 127)
+🌉 [PipelineBridge] Found History for 2026-03-22: cmjdyxxwn0007vu64gulv10i3 (Assuming SUN_THU start)
+🔒 [RotationDebug] PoolSize: 3, LookbackWeeks: 3, LookbackStart: 2026-03-08
+🔍 [RotationDebug] Neha: Score=-1890, Excluded=true
+🎯 [RotationDebug] Selected for SUN_THU: Amareshwar (Score: -1899)
+🔒 [RotationDebug] PoolSize: 3, LookbackWeeks: 3, LookbackStart: 2026-03-15
+🔍 [RotationDebug] Neha: Score=-1890, Excluded=true
+🎯 [RotationDebug] Selected for SUN_THU: Sukhvinder (Score: -1889)
+🔧 Optimizing schedules using HILL_CLIMBING strategy
+🚀 Starting hill climbing optimization with 2 schedules
+✅ Hill climbing completed: 1 iterations, 0 improvements
+✅ WeekendRotationAlgorithm completed in 32ms
+📊 Fairness Score: 0.4000
+🔒 Constraint Score: 1.0000
+
+--- PROPOSED SCHEDULES DEBUG ---
+📅 2026-04-04: Assigned to cmjdyxxwn0007vu64gulv10i3
+📅 2026-04-05: Assigned to cmjdyxxwi0002vu64lj6jk1t1
+
+📅 April 4 Assignment: cmjdyxxwn0007vu64gulv10i3
+❌ Bish NOT Assigned Saturday
+📅 April 5 Assignment: cmjdyxxwi0002vu64lj6jk1t1
+❌ Bish NOT Assigned Sunday
+🔌 Database disconnected
