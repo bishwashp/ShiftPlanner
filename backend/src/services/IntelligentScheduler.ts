@@ -172,42 +172,96 @@ export class IntelligentScheduler implements SchedulingStrategy {
   /**
    * Generate initial schedules using rotation logic
    */
+  /**
+   * Generate initial schedules using ITERATIVE (Month-by-Month) rotation logic.
+   * This ensures that assignments/overrides from Month N are visible to Month N+1 planning.
+   */
   private async generateInitialSchedules(context: SchedulingContext): Promise<ProposedSchedule[]> {
-    const { startDate, endDate, analysts, existingSchedules, globalConstraints } = context;
+    const { analysts, existingSchedules, globalConstraints } = context;
 
-    // Fetch Dynamic Shift Configuration for this Region
-    // Assuming context.regionId is present (validated in generate())
+    // Fetch Dynamic Shift Configuration per Region
     const regionShifts = await this.prisma.shiftDefinition.findMany({
       where: { regionId: context.regionId },
-      orderBy: { startResult: 'asc' } // Earliest shifts first (e.g. AM before PM)
+      orderBy: { startResult: 'asc' }
     });
-
     if (regionShifts.length === 0) {
       throw new Error(`No Shift Definitions found for Region ID: ${context.regionId}`);
     }
-
     console.log(`⏰ Loaded ${regionShifts.length} Dynamic Shifts for Region: ${regionShifts.map((s: { name: string }) => s.name).join(', ')}`);
 
-    const regularSchedules = await this.generateRegularWorkSchedules(
-      startDate, endDate, analysts, existingSchedules, globalConstraints, regionShifts
-    );
+    const allSchedules: any[] = [];
+    // Clone existing schedules to serve as the growing history
+    let accumulatedHistory: any[] = [...existingSchedules];
 
-    const screenerSchedules = await this.generateScreenerSchedules(
-      startDate, endDate, analysts, existingSchedules, globalConstraints, regularSchedules.proposedSchedules
-    );
+    let currentStart = moment.utc(context.startDate).startOf('month');
+    const finalEnd = moment.utc(context.endDate).endOf('day');
 
-    const allSchedules = [...regularSchedules.proposedSchedules];
+    console.log(`🔄 Starting Iterative Generation (Intelligent) from ${currentStart.format('YYYY-MM-DD')} to ${finalEnd.format('YYYY-MM-DD')}`);
 
-    screenerSchedules.proposedSchedules.forEach(screenerSchedule => {
-      const index = allSchedules.findIndex(
-        p => p.analystId === screenerSchedule.analystId && p.date === screenerSchedule.date
+    while (currentStart.isBefore(finalEnd)) {
+      const monthEnd = moment(currentStart).endOf('month');
+      const loopEnd = monthEnd.isAfter(finalEnd) ? finalEnd : monthEnd;
+
+      const loopStartStr = currentStart.format('YYYY-MM-DD');
+      const loopEndStr = loopEnd.format('YYYY-MM-DD');
+
+      console.log(`\n📅 Processing Month: ${loopStartStr} -> ${loopEndStr} (History: ${accumulatedHistory.length})`);
+
+      // 1. Generate Regular Schedules for this Month
+      const regularSchedules = await this.generateRegularWorkSchedules(
+        currentStart.toDate(),
+        loopEnd.toDate(),
+        analysts,
+        accumulatedHistory, // Pass accumulating history
+        globalConstraints,
+        regionShifts
       );
-      if (index !== -1) {
-        allSchedules[index].isScreener = true;
-      } else {
-        allSchedules.push(screenerSchedule);
-      }
-    });
+
+      // 2. Generate Screener Schedules for this Month
+      const screenerSchedules = await this.generateScreenerSchedules(
+        currentStart.toDate(),
+        loopEnd.toDate(),
+        analysts,
+        accumulatedHistory, // Pass accumulating history
+        globalConstraints,
+        regularSchedules.proposedSchedules
+      );
+
+      // 3. Merge Local Month Results
+      const monthProposed = [...regularSchedules.proposedSchedules];
+
+      // Apply Screener Overwrites locally
+      screenerSchedules.proposedSchedules.forEach(screenerSchedule => {
+        const index = monthProposed.findIndex(
+          p => p.analystId === screenerSchedule.analystId && p.date === screenerSchedule.date
+        );
+        if (index !== -1) {
+          monthProposed[index].isScreener = true;
+        } else {
+          monthProposed.push(screenerSchedule);
+        }
+      });
+
+      // 4. Accumulate Results
+      allSchedules.push(...monthProposed);
+
+      // 5. Update History
+      monthProposed.forEach(p => {
+        accumulatedHistory.push({
+          regionId: context.regionId,
+          id: `simulated-${Date.now()}-${Math.random()}`,
+          analystId: p.analystId,
+          date: new Date(p.date),
+          shiftType: p.shiftType,
+          isScreener: p.isScreener || false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+      });
+
+      // Advance
+      currentStart.add(1, 'month').startOf('month');
+    }
 
     return allSchedules;
   }
@@ -302,16 +356,14 @@ export class IntelligentScheduler implements SchedulingStrategy {
     // We seed this with existing schedules (historical) + push new ones as we generate
     const simulatedWeekendSchedules = [...existingSchedules];
 
-    // HOLISTIC FIX: Enforce timezone context (e.g. America/New_York) to prevent UTC/Local shifting
-    const currentMoment = moment.tz(startDate, this.currentContextTimezone).startOf('day');
-    const endMoment = moment.tz(endDate, this.currentContextTimezone).endOf('day');
+    // HOLISTIC FIX: Use UTC strictly to prevent timezone shifts (e.g. 20:00 previous day)
+    const currentMoment = moment.utc(startDate).startOf('day');
+    const endMoment = moment.utc(endDate).endOf('day');
 
     while (currentMoment.isSameOrBefore(endMoment, 'day')) {
       const dateStr = currentMoment.format('YYYY-MM-DD');
 
-      // HOLISTIC FIX: Force currentDate to be UTC Midnight of the loop string.
-      // This ensures 100% alignment between "Working Date" and "Logic Date",
-      // ignoring any timezone drift (e.g. 19:00 offsets) in currentMoment.
+      // Ensure logic date is perfectly aligned
       const currentDate = moment.utc(dateStr).toDate();
 
       // Check Weekend using strict UTC day index

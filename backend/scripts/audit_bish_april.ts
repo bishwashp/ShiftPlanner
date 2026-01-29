@@ -46,19 +46,27 @@ async function auditBishApril() {
     const existingSchedules = await prisma.schedule.findMany({
         where: {
             regionId: bish.regionId,
-            date: { lt: new Date('2026-04-04') }
+            date: { lt: new Date('2026-02-01') } // Changed to reflect new start date
         }
     });
 
     // We need to see FAIRNESS SCORES
-    const result = await algo.generateSchedules({
-        startDate: new Date('2026-04-04'),
-        endDate: new Date('2026-04-05'),
-        analysts: regionalAnalysts,
+    // MODIFIED to Verify Iterative Loop (Feb-April)
+    const startDate = new Date('2026-02-01');
+    const endDate = new Date('2026-04-30');
+
+    // Clean up current month for Bish to ensure clean slate (Optional, skipping for now)
+
+    const context: SchedulingContext = {
+        startDate,
+        endDate,
+        analysts: regionalAnalysts, // Use regionalAnalysts as defined above
         existingSchedules: existingSchedules,
         globalConstraints: [],
-        regionId: bish.regionId
-    });
+        regionId: bish.regionId // Added regionId to context as it was in the original call
+    };
+
+    const result = await algo.generateSchedules(context);
 
     console.log('\n--- PROPOSED SCHEDULES DEBUG ---');
     const proposed = (result as any).proposedSchedules || [];

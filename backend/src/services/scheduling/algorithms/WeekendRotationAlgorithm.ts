@@ -322,48 +322,102 @@ export class WeekendRotationAlgorithm implements SchedulingAlgorithm, Scheduling
   }
 
   private async generateInitialSchedules(context: SchedulingContext): Promise<any[]> {
-    const { startDate, endDate, analysts, existingSchedules, globalConstraints } = context;
+    // ITERATIVE GENERATION (Month-by-Month)
+    // This ensures that Month N+1 'sees' the actual assignments (including overrides/fallbacks) from Month N.
+    const allProposedSchedules: any[] = [];
+    const allConflicts: any[] = [];
+    const allOverwrites: any[] = [];
 
-    const regularSchedulesResult = await this.generateRegularWorkSchedules(startDate, endDate, analysts, existingSchedules, globalConstraints);
+    // Clone existing schedules to serve as the growing history
+    let accumulatedHistory: any[] = [...context.existingSchedules];
 
-    const allProposedSchedules = [...regularSchedulesResult.proposedSchedules];
-    const allConflicts = [...regularSchedulesResult.conflicts];
-    const allOverwrites = [...regularSchedulesResult.overwrites];
+    let currentStart = moment.utc(context.startDate).startOf('month');
+    const finalEnd = moment.utc(context.endDate).endOf('day');
 
-    const screenerSchedulesResult = await this.generateScreenerSchedules(
-      startDate,
-      endDate,
-      analysts,
-      existingSchedules,
-      globalConstraints,
-      allProposedSchedules
-    );
+    console.log(`🔄 Starting Iterative Generation from ${currentStart.format('YYYY-MM-DD')} to ${finalEnd.format('YYYY-MM-DD')}`);
 
-    screenerSchedulesResult.proposedSchedules.forEach(screenerSchedule => {
-      const index = allProposedSchedules.findIndex(p => p.analystId === screenerSchedule.analystId && p.date === screenerSchedule.date);
+    while (currentStart.isBefore(finalEnd)) {
+      const monthEnd = moment(currentStart).endOf('month');
+      const loopEnd = monthEnd.isAfter(finalEnd) ? finalEnd : monthEnd;
 
-      if (index !== -1) {
-        allProposedSchedules[index].isScreener = true;
-        if (screenerSchedule.type === 'OVERWRITE_SCHEDULE' && allProposedSchedules[index].type !== 'OVERWRITE_SCHEDULE') {
-          allProposedSchedules[index].type = 'OVERWRITE_SCHEDULE';
-          const existingOverwrite = allOverwrites.find(o => o.date === screenerSchedule.date && o.analystId === screenerSchedule.analystId);
-          if (!existingOverwrite) {
-            allOverwrites.push({
-              date: screenerSchedule.date,
-              analystId: screenerSchedule.analystId,
-              analystName: screenerSchedule.analystName,
-              from: { shiftType: allProposedSchedules[index].shiftType, isScreener: false },
-              to: { shiftType: allProposedSchedules[index].shiftType, isScreener: true }
-            });
+      const loopStartStr = currentStart.format('YYYY-MM-DD');
+      const loopEndStr = loopEnd.format('YYYY-MM-DD');
+
+      console.log(`\n📅 Processing Month: ${loopStartStr} -> ${loopEndStr}`);
+      console.log(`   History Context: ${accumulatedHistory.length} records`);
+
+      // 1. Generate Regular Schedules for this Month
+      // Note: passing 'accumulatedHistory' allows RotationManager to see previous month's actuals
+      const regularResult = await this.generateRegularWorkSchedules(
+        currentStart.toDate(),
+        loopEnd.toDate(),
+        context.analysts,
+        accumulatedHistory, // Critical: Update history
+        context.globalConstraints
+      );
+
+      // 2. Generate Screener Schedules for this Month
+      const screenerResult = await this.generateScreenerSchedules(
+        currentStart.toDate(),
+        loopEnd.toDate(),
+        context.analysts,
+        accumulatedHistory,
+        context.globalConstraints,
+        regularResult.proposedSchedules // Pass current month's regular schedules for context
+      );
+
+      // 3. Merge & Resolve for this Month
+      const monthProposed = [...regularResult.proposedSchedules];
+      const monthConflicts = [...regularResult.conflicts, ...screenerResult.conflicts];
+      const monthOverwrites = [...regularResult.overwrites, ...screenerResult.overwrites];
+
+      // Apply Screener Overwrites locally
+      screenerResult.proposedSchedules.forEach(screenerSchedule => {
+        const index = monthProposed.findIndex(p => p.analystId === screenerSchedule.analystId && p.date === screenerSchedule.date);
+        if (index !== -1) {
+          monthProposed[index].isScreener = true;
+          if (screenerSchedule.type === 'OVERWRITE_SCHEDULE' && monthProposed[index].type !== 'OVERWRITE_SCHEDULE') {
+            monthProposed[index].type = 'OVERWRITE_SCHEDULE';
+            // Add overwrite record
+            if (!monthOverwrites.some(o => o.date === screenerSchedule.date && o.analystId === screenerSchedule.analystId)) {
+              monthOverwrites.push({
+                date: screenerSchedule.date,
+                analystId: screenerSchedule.analystId,
+                analystName: screenerSchedule.analystName,
+                from: { shiftType: monthProposed[index].shiftType, isScreener: false },
+                to: { shiftType: monthProposed[index].shiftType, isScreener: true }
+              });
+            }
           }
+        } else {
+          monthProposed.push(screenerSchedule);
         }
-      } else {
-        allProposedSchedules.push(screenerSchedule);
-      }
-    });
+      });
 
-    allConflicts.push(...screenerSchedulesResult.conflicts);
-    allOverwrites.push(...screenerSchedulesResult.overwrites.filter(o => !allOverwrites.some(existing => existing.date === o.date && existing.analystId === o.analystId)));
+      // 4. Accumulate Results
+      allProposedSchedules.push(...monthProposed);
+      allConflicts.push(...monthConflicts);
+      allOverwrites.push(...monthOverwrites);
+
+      // 5. Update History for Next Iteration
+      // We convert proposed schedules to 'Schedule-like' objects for history
+      monthProposed.forEach(p => {
+        accumulatedHistory.push({
+          analystId: p.analystId,
+          date: new Date(p.date), // Ensure Date object
+          shiftType: p.shiftType,
+          isScreener: p.isScreener || false,
+          regionId: 'simulated-region', // Mock ID
+          id: `simulated-${Date.now()}-${Math.random()}`, // Mock ID
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          // minimal fields needed for history check
+        });
+      });
+
+      // Advance to next month
+      currentStart.add(1, 'month').startOf('month');
+    }
 
     return allProposedSchedules;
   }
